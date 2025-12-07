@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rake - Vector-first SIMD Programming</title>
+  <meta name="description" content="A programming language where vectors are primitive. Write clean code, get full SIMD performance.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #1e1410;
+      --bg-alt: #2a1c16;
+      --bg-code: #322218;
+      --text: #f0e6d8;
+      --text-dim: #b8a090;
+      --sand: #e0c090;
+      --sand-light: #f0dab8;
+      --sand-dim: #b89060;
+      --rust: #c86040;
+      --tine: #f0c8a0;
+      --scalar: #98d0b8;
+      --comment: #908070;
+      --warn: #d4a054;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .hero {
+      position: relative;
+      padding: 0;
+      margin-bottom: 48px;
+    }
+    .hero-image {
+      width: 100%;
+      max-width: 400px;
+      display: block;
+      margin: 0 auto;
+    }
+    .hero-content {
+      text-align: center;
+      padding: 32px 0;
+    }
+    .hero h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      color: var(--sand);
+    }
+    .tagline {
+      font-size: 1.125rem;
+      color: var(--text-dim);
+    }
+    .alpha-badge {
+      display: inline-block;
+      background: rgba(200, 96, 64, 0.2);
+      color: var(--rust);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-left: 12px;
+      vertical-align: middle;
+    }
+    nav {
+      margin-top: 20px;
+    }
+    nav a {
+      color: var(--text-dim);
+      text-decoration: none;
+      margin: 0 12px;
+      font-size: 0.9rem;
+    }
+    nav a:hover {
+      color: var(--sand);
+    }
+
+    section {
+      padding: 48px 0;
+      border-bottom: 1px solid rgba(212, 165, 116, 0.1);
+    }
+    section:last-of-type {
+      border-bottom: none;
+    }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--sand-light);
+    }
+    h3 {
+      font-size: 1.125rem;
+      font-weight: 500;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    p {
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+    p:last-child {
+      margin-bottom: 0;
+    }
+    strong {
+      color: var(--text);
+    }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875em;
+      background: var(--bg-code);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .code-block {
+      background: var(--bg-code);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 20px 0;
+      overflow-x: auto;
+      border: 1px solid rgba(212, 165, 116, 0.1);
+    }
+    pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+    .comment { color: var(--comment); font-style: italic; }
+    .keyword { color: var(--sand); }
+    .tine { color: var(--tine); }
+    .scalar { color: var(--scalar); }
+    .op { color: var(--text-dim); }
+    .fn { color: var(--sand-light); }
+    .type { color: var(--rust); }
+
+    .warning {
+      background: rgba(212, 160, 84, 0.1);
+      border: 1px solid rgba(212, 160, 84, 0.3);
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 20px 0;
+      font-size: 0.9rem;
+    }
+    .warning strong {
+      color: var(--warn);
+    }
+
+    .principles-list {
+      list-style: none;
+      padding: 0;
+    }
+    .principles-list li {
+      padding: 8px 0;
+      color: var(--text-dim);
+      border-bottom: 1px solid rgba(212, 165, 116, 0.05);
+    }
+    .principles-list li:last-child {
+      border-bottom: none;
+    }
+    .principles-list strong {
+      color: var(--sand);
+    }
+
+    .ascii-diagram {
+      background: var(--bg-code);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 20px 0;
+      overflow-x: auto;
+      border: 1px solid rgba(212, 165, 116, 0.1);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      color: var(--text-dim);
+      white-space: pre;
+    }
+
+    .vocab-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 0.9rem;
+    }
+    .vocab-table th {
+      text-align: left;
+      padding: 12px 16px;
+      background: var(--bg-alt);
+      color: var(--sand);
+      font-weight: 500;
+    }
+    .vocab-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(212, 165, 116, 0.1);
+      color: var(--text-dim);
+    }
+    .vocab-table td:first-child {
+      color: var(--sand-light);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .install {
+      background: var(--bg-code);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 20px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      color: var(--text-dim);
+    }
+    .install .prompt {
+      color: var(--sand-dim);
+      user-select: none;
+    }
+
+    footer {
+      text-align: center;
+      padding: 40px 0;
+      color: var(--text-dim);
+      font-size: 0.875rem;
+    }
+    footer a {
+      color: var(--text-dim);
+      text-decoration: none;
+    }
+    footer a:hover {
+      color: var(--sand);
+    }
+
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 1.75rem; }
+      .tagline { font-size: 1rem; }
+      nav a { display: block; margin: 8px 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <img src="wallpaper.png" alt="Rake" class="hero-image">
+      <div class="hero-content">
+        <h1>Rake <span class="alpha-badge">ALPHA</span></h1>
+        <p class="tagline">A vector-first language for CPU SIMD</p>
+        <nav>
+          <a href="#principles">Principles</a>
+          <a href="#syntax">Syntax</a>
+          <a href="https://github.com/KaiStarkk/rake-lang">GitHub</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="warning">
+      <strong>Early development.</strong> Rake is a research language. Syntax and semantics
+      are still evolving. The examples below represent the current implementation.
+    </div>
+
+    <section id="principles">
+      <h2>Principles</h2>
+      <p>
+        Rake is named for its execution model: <strong>data rakes through tine patterns</strong>.
+      </p>
+      <div class="ascii-diagram">            ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓   (8 lanes of data enter)
+════════════════════════════════════
+|  tine A |███░░░███░░░███░░░██████| (some lanes blocked)
+════════════════════════════════════
+               ↓     ↓     ↓         (survivors continue)
+═══════════════════════════════════
+|  tine B |░░░███░░░░░░███░░░░░░███| (different pattern)
+═══════════════════════════════════
+                     ↓     ↓         (fewer survivors)
+    sweep:           &lt;     &lt;         (collect results)</div>
+      <p>
+        Each <strong>tine</strong> is a horizontal barrier—the teeth of a rake—that filters lanes.
+        Data flows downward through tine declarations. Results are swept up at the end.
+      </p>
+
+      <h3>Core Thesis</h3>
+      <p>
+        Auto-vectorization fails on divergent code. Traditional <code>if/else</code> branches
+        cannot map efficiently to SIMD because different lanes need different code paths.
+        Rake inverts the model:
+      </p>
+      <ul class="principles-list">
+        <li><strong>Tines declare masks</strong> — boolean vectors defining which lanes are active</li>
+        <li><strong>Through blocks execute under masks</strong> — all lanes compute, mask selects results</li>
+        <li><strong>Sweep collects results</strong> — lanes merge based on which tines they passed</li>
+      </ul>
+      <p>This is SIMD semantics made explicit in the language.</p>
+
+      <h3>Design Principles</h3>
+      <ul class="principles-list">
+        <li><strong>Vectors are primitive</strong> — A rack is one SIMD register, not an array</li>
+        <li><strong>Scalars are marked</strong> — <code>&lt;name&gt;</code> broadcasts, preventing accidental confusion</li>
+        <li><strong>Control flow is predication</strong> — No branches; tines create masks, through applies them</li>
+        <li><strong>Data layout is explicit</strong> — <code>stack</code> (SoA) vs <code>single</code> (scalars) is visible</li>
+        <li><strong>Vocabulary matches semantics</strong> — tine, rake, through, sweep reinforce parallel thinking</li>
+      </ul>
+
+      <h3>Vocabulary</h3>
+      <table class="vocab-table">
+        <tr><th>Term</th><th>Meaning</th></tr>
+        <tr><td>rack</td><td>Vector value (one per SIMD lane)</td></tr>
+        <tr><td>tine</td><td>Named mask declaration</td></tr>
+        <tr><td>through</td><td>Masked computation region</td></tr>
+        <tr><td>sweep</td><td>Collect results from tines</td></tr>
+        <tr><td>crunch</td><td>Pure function (all lanes same logic)</td></tr>
+        <tr><td>rake</td><td>Divergent function (lanes may differ)</td></tr>
+        <tr><td>stack</td><td>Structure-of-Arrays type</td></tr>
+        <tr><td>single</td><td>All-scalar configuration struct</td></tr>
+        <tr><td>pack</td><td>Collection of stack chunks</td></tr>
+        <tr><td>over</td><td>Iterate over pack in SIMD-width chunks</td></tr>
+      </table>
+    </section>
+
+    <section id="syntax">
+      <h2>Syntax</h2>
+
+      <h3>Racks</h3>
+      <p>
+        A <strong>rack</strong> is a vector of values—one per SIMD lane. Arithmetic is lane-wise.
+        <strong>Scalars</strong> use angle brackets to broadcast.
+      </p>
+      <div class="code-block">
+<pre><span class="keyword">let</span> positions <span class="op">:</span> <span class="type">float rack</span> <span class="op">=</span> load_positions()
+<span class="keyword">let</span> new_pos <span class="op">=</span> positions <span class="op">+</span> velocities <span class="op">*</span> <span class="scalar">&lt;dt&gt;</span></pre>
+      </div>
+
+      <h3>Stacks</h3>
+      <p>
+        A <strong>stack</strong> is a struct in Structure-of-Arrays format. Each field is a rack.
+      </p>
+      <div class="code-block">
+<pre><span class="keyword">stack</span> <span class="type">Ray</span> {
+  ox<span class="op">:</span> <span class="type">float rack</span>, oy<span class="op">:</span> <span class="type">float rack</span>, oz<span class="op">:</span> <span class="type">float rack</span>,
+  dx<span class="op">:</span> <span class="type">float rack</span>, dy<span class="op">:</span> <span class="type">float rack</span>, dz<span class="op">:</span> <span class="type">float rack</span>
+}</pre>
+      </div>
+
+      <h3>Crunches</h3>
+      <p>
+        A <strong>crunch</strong> is a pure function where all lanes execute identical logic. Always inlined.
+      </p>
+      <div class="code-block">
+<pre><span class="keyword">crunch</span> <span class="fn">dot</span> (ax, ay, az, bx, by, bz) <span class="op">-&gt;</span> d<span class="op">:</span>
+  <span class="keyword">let</span> d <span class="op">=</span> ax<span class="op">*</span>bx <span class="op">+</span> ay<span class="op">*</span>by <span class="op">+</span> az<span class="op">*</span>bz
+  d</pre>
+      </div>
+
+      <h3>Tines</h3>
+      <p>
+        <strong>Tines</strong> are named boolean masks that partition lanes. The <code>#</code> prefix evokes grid lines.
+      </p>
+      <div class="code-block">
+<pre><span class="op">|</span> <span class="tine">#miss</span>  <span class="op">:=</span> (disc <span class="op">&lt;</span> <span class="scalar">&lt;0.0&gt;</span>)
+<span class="op">|</span> <span class="tine">#maybe</span> <span class="op">:=</span> (<span class="op">!</span><span class="tine">#miss</span>)</pre>
+      </div>
+
+      <h3>Rakes</h3>
+      <p>
+        A <strong>rake</strong> function handles divergent control flow with tines, <strong>through</strong> blocks, and <strong>sweep</strong>.
+      </p>
+      <div class="code-block">
+<pre><span class="keyword">rake</span> <span class="fn">intersect</span> (ray_ox, ray_oy, ray_oz, ray_dx, ray_dy, ray_dz,
+               <span class="scalar">&lt;sphere_cx&gt;</span>, <span class="scalar">&lt;sphere_cy&gt;</span>, <span class="scalar">&lt;sphere_cz&gt;</span>, <span class="scalar">&lt;sphere_r&gt;</span>) <span class="op">-&gt;</span> t_result<span class="op">:</span>
+
+  <span class="keyword">let</span> disc <span class="op">=</span> b <span class="op">*</span> b <span class="op">-</span> <span class="scalar">&lt;4.0&gt;</span> <span class="op">*</span> a <span class="op">*</span> c
+
+  <span class="op">|</span> <span class="tine">#miss</span>  <span class="op">:=</span> (disc <span class="op">&lt;</span> <span class="scalar">&lt;0.0&gt;</span>)
+  <span class="op">|</span> <span class="tine">#maybe</span> <span class="op">:=</span> (<span class="op">!</span><span class="tine">#miss</span>)
+
+  <span class="keyword">through</span> <span class="tine">#maybe</span><span class="op">:</span>
+    <span class="keyword">let</span> sqrt_disc <span class="op">=</span> sqrt(disc)
+    <span class="keyword">let</span> t <span class="op">=</span> (<span class="op">-</span> b <span class="op">-</span> sqrt_disc) <span class="op">/</span> (<span class="scalar">&lt;2.0&gt;</span> <span class="op">*</span> a)
+    t
+  <span class="op">-&gt;</span> t_value
+
+  <span class="keyword">through</span> <span class="tine">#miss</span><span class="op">:</span>
+    <span class="scalar">&lt; -1.0&gt;</span>
+  <span class="op">-&gt;</span> miss_result
+
+  <span class="keyword">sweep</span><span class="op">:</span>
+    <span class="op">|</span> <span class="tine">#miss</span>  <span class="op">-&gt;</span> miss_result
+    <span class="op">|</span> <span class="tine">#maybe</span> <span class="op">-&gt;</span> t_value
+  <span class="op">-&gt;</span> t_result</pre>
+      </div>
+
+      <h3>Packs &amp; Over</h3>
+      <div class="warning">
+        <strong>Experimental.</strong> The <code>over</code> construct is still in flux.
+      </div>
+      <p>
+        A <strong>pack</strong> is a collection of stack data. <strong>over</strong> iterates in SIMD-width chunks.
+      </p>
+      <div class="code-block">
+<pre><span class="keyword">run</span> <span class="fn">render_all</span> (rays <span class="op">:</span> <span class="type">Ray pack</span>, <span class="scalar">&lt;count&gt;</span> <span class="op">:</span> <span class="type">int64</span>) <span class="op">-&gt;</span> result<span class="op">:</span>
+  <span class="keyword">over</span> rays, <span class="scalar">&lt;count&gt;</span> <span class="op">|&gt;</span> ray<span class="op">:</span>
+    <span class="keyword">let</span> t <span class="op">=</span> intersect(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, ...)
+    t</pre>
+      </div>
+    </section>
+
+    <section>
+      <h2>Install</h2>
+      <p>Prerequisites: OCaml 5.0+ with dune, LLVM/MLIR 17+</p>
+      <div class="install">
+        <span class="prompt">$</span> git clone https://github.com/KaiStarkk/rake-lang<br>
+        <span class="prompt">$</span> cd rake-lang && dune build<br>
+        <span class="prompt">$</span> ./rake examples/demo.rk --emit-mlir
+      </div>
+    </section>
+
+    <footer>
+      <p>
+        MIT License &middot;
+        <a href="https://github.com/KaiStarkk/rake-lang">GitHub</a>
+      </p>
+    </footer>
+  </div>
+</body>
+</html>
