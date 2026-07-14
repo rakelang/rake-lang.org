@@ -377,11 +377,11 @@
         <p class="tagline">Write target-sized SIMD once. Get the promised machine shape—or a compiler error.</p>
         <nav>
           <a href="#contract">Guarantee</a>
+          <a href="#principles">Principles</a>
+          <a href="#syntax">Syntax</a>
           <a href="#gpu">GPU</a>
           <a href="#comparisons">Compared</a>
           <a href="#landscape">Landscape</a>
-          <a href="#principles">Principles</a>
-          <a href="#syntax">Syntax</a>
           <a href="#status">Status</a>
           <a href="https://github.com/rakelang/rake">GitHub</a>
         </nav>
@@ -404,40 +404,12 @@
         failed obligation.
       </p>
 
-      <div class="contract-rule">
-        C and Rust can produce excellent SIMD. Rake additionally makes the required SIMD shape
-        a language contract, so checking disassembly is evidence of conformance rather than the
-        only way to discover whether vectorization survived compilation.
-      </div>
-
-      <h3>Rust's lesson, applied to performance</h3>
+      <h3>From one rack to a complete workload</h3>
       <p>
-        Rust made a compelling modern case for a strict compiler: rejecting plausible programs
-        can be more useful than accepting them when the diagnostic explains which safety rule
-        the program violated and how to repair it. Rake applies that bargain to declared
-        performance properties. A compute kernel is often written because its machine shape
-        matters, so losing vectorization is a failed requirement rather than an incidental missed
-        optimization.
-      </p>
-      <p>
-        Rake does not turn every performance surprise into a language error. The programmer opts
-        into a named native profile with specific obligations. If an irregular access requires a
-        forbidden gather, an operation requires scalar helper calls, or register pressure would
-        spill a live rack, the compiler identifies the source operation and the failed obligation
-        before the object ships. The programmer can change the algorithm, choose a profile that
-        permits the cost, or make the slower path explicit.
-      </p>
-      <p>
-        <a class="evidence-link" href="https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html">Rust's ownership diagnostics →</a>
-      </p>
-
-      <h3>How one source traverses 400 particles</h3>
-      <p>
-        The fail-closed contract applies to each rack, while a useful kernel traverses a larger
-        dataset. A <strong>rack is not the 400-particle dataset</strong>. One rack is one target-sized
-        chunk of a structure-of-arrays column: four <code>float</code> positions on SSE2 or NEON,
-        eight on AVX2, or sixteen on AVX-512. A 400-particle pack exposes 400 values in each
-        field, and <code>over</code> visits those values as many racks, one chunk at a time.
+        A <strong>rack</strong> is one target-sized chunk of a structure-of-arrays column: four
+        <code>float</code> positions on SSE2 or NEON, eight on AVX2, or sixteen on AVX-512. A
+        <strong>pack</strong> supplies the complete columns and element count for a workload.
+        <code>over</code> traverses a pack one rack at a time.
       </p>
       <p>
         The caller supplies two contiguous <code>float</code> columns and a runtime count.
@@ -483,6 +455,33 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
         <li><strong>Object code is checked</strong>Post-allocation machine IR and disassembly verify the properties claimed by the compiler.</li>
       </ul>
 
+      <div class="contract-rule">
+        C and Rust can produce excellent SIMD. Rake additionally makes the required SIMD shape
+        a language contract, so checking disassembly is evidence of conformance rather than the
+        only way to discover whether vectorization survived compilation.
+      </div>
+
+      <h3>Why rejection is a feature</h3>
+      <p>
+        Rust made a compelling modern case for a strict compiler: rejecting plausible programs
+        can be more useful than accepting them when the diagnostic explains which safety rule
+        the program violated and how to repair it. Rake applies that bargain to declared
+        performance properties. A compute kernel is often written because its machine shape
+        matters, so losing vectorization is a failed requirement rather than an incidental missed
+        optimization.
+      </p>
+      <p>
+        Rake does not turn every performance surprise into a language error. The programmer opts
+        into a named native profile with specific obligations. If an irregular access requires a
+        forbidden gather, an operation requires scalar helper calls, or register pressure would
+        spill a live rack, the compiler identifies the source operation and the failed obligation
+        before the object ships. The programmer can change the algorithm, choose a profile that
+        permits the cost, or make the slower path explicit.
+      </p>
+      <p>
+        <a class="evidence-link" href="https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html">Rust's ownership diagnostics →</a>
+      </p>
+
       <h3>The useful failure is a compiler error</h3>
       <p>
         Consider a rack-wide sine operation when the backend has no compliant packed sine
@@ -519,6 +518,111 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
       <p>
         <a class="evidence-link" href="https://github.com/rakelang/rake/tree/main/demo/soa-proof">Inspect and run the C, Rust, and Rake proof harness →</a>
       </p>
+    </section>
+
+    <section id="principles">
+      <h2>Lane choices, written directly</h2>
+      <p>
+        A <strong>rack</strong> is a fixed-width native vector. Every live rack must occupy one
+        physical SIMD register of the target's vector class. Compilation fails when that contract
+        cannot be met.
+      </p>
+      <div class="ascii-diagram">            ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓   logical rack lanes
+════════════════════════════════════
+|  tine A |███░░░███░░░███░░░██████| named lane mask
+════════════════════════════════════
+               ↓     ↓     ↓
+═══════════════════════════════════
+|  tine B |░░░███░░░░░░███░░░░░░███| another candidate
+═══════════════════════════════════
+                     ↓     ↓
+    sweep:           &lt;     &lt;         total per-lane result</div>
+      <p>
+        A <strong>tine</strong> names a boolean lane mask. A <strong>through</strong> block
+        computes a candidate under that mask. A <strong>sweep</strong> selects the first
+        matching candidate and requires a final catch-all value for every other lane.
+      </p>
+      <ul class="principles-list">
+        <li><strong>Rack width follows the target</strong> — AVX2 float racks have eight lanes and NEON float racks have four</li>
+        <li><strong>Scalar broadcasts are visible</strong> — angle brackets distinguish scalar values from racks</li>
+        <li><strong>Inactive lanes are specified as safe</strong> — masked partial operations must receive benign operands before execution</li>
+        <li><strong>Fusion is enforced</strong> — fused regions admit only operations the native backend can keep contiguous and call-free</li>
+      </ul>
+    </section>
+
+    <section id="syntax">
+      <h2>Checked syntax tour</h2>
+      <p>
+        These complete programs come from Rake's checked conformance corpus. The test suite
+        compares this page with the named source regions and checks each example with the compiler
+        frontend. Examples supported by the native AVX2 backend also pass object-code verification.
+      </p>
+
+      <h3>Crunch: uniform rack arithmetic</h3>
+      <p>
+        A <code>crunch</code> applies one expression to every lane. Here <code>&lt;0.5&gt;</code>
+        is an explicit scalar broadcast. Each fused binding must satisfy the compiler's
+        pure-SSA contract. This straight-line crunch is accepted by the Rake-owned x86-64
+        AVX2 backend and verified after assembly.
+      </p>
+      <div class="code-block">
+<!-- rake-example:crunch:start -->
+<pre data-rake-example="crunch">
+crunch advance positions velocities -&gt; result:
+  | scaled &lt;| velocities * &lt;0.5&gt;
+  | result &lt;| positions + scaled
+</pre>
+<!-- rake-example:crunch:end -->
+      </div>
+
+      <h3>Rake: safe masked work and a total sweep</h3>
+      <p>
+        <strong>Verified on the AVX2 backend.</strong> The <code>#valid</code> tine guards
+        <code>sqrt</code>, and the final <code>_</code> arm defines all unmatched lanes. Native
+        SSA explicitly replaces inactive operands with benign values before partial
+        operations. The emitted function uses YMM masks and blends without scalar lane
+        branches.
+      </p>
+      <div class="code-block">
+<!-- rake-example:safe-through:start -->
+<pre data-rake-example="safe-through">
+rake safe_root values -&gt; result:
+  | #valid := (values &gt;= &lt;0.0&gt;)
+
+  through #valid else &lt;0.0&gt;:
+    sqrt(values)
+  -&gt; rooted
+
+  sweep:
+    | #valid -&gt; rooted
+    | _ -&gt; &lt;0.0&gt;
+  -&gt; result
+</pre>
+<!-- rake-example:safe-through:end -->
+      </div>
+
+      <h3>Run: stack, pack, and over</h3>
+      <p>
+        <strong>Frontend-only in this alpha.</strong>
+        A <code>stack</code> names float-rack columns. A <code>pack</code> supplies those
+        columns to <code>run</code>, and <code>over</code> processes logical-width chunks.
+        The frontend checks the declarations and loop shape. Native memory traversal, safe
+        tails, and the C entry-point ABI are still under construction.
+      </p>
+      <div class="code-block">
+<!-- rake-example:pack-over:start -->
+<pre data-rake-example="pack-over">
+stack Samples {
+  value: float rack
+}
+
+run scale_values (input : Samples pack) (&lt;count&gt; : int64)
+                 (&lt;scale&gt; : float) -&gt; result:
+  over input, &lt;count&gt; |&gt; chunk:
+    chunk.value * &lt;scale&gt;
+</pre>
+<!-- rake-example:pack-over:end -->
+      </div>
     </section>
 
     <section id="gpu">
@@ -676,35 +780,20 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
         systems programmers.
       </p>
 
-      <h3>Specialist infrastructure, usually out of sight</h3>
-      <p>
-        ISPC is neither abandoned nor a mainstream application language. It is a successful
-        specialist compiler used for performance-critical kernels beside larger C and C++
-        systems. OSPRay's CPU renderer is based on ISPC and uses SSE4, AVX, AVX2, AVX-512, and
-        Arm NEON. Embree supports ISPC for parallel renderer code, and CMake has recognized ISPC
-        as a compilation language since version 3.19.
-      </p>
-      <p>
-        That placement explains the small public profile. An application developer encounters
-        OSPRay or Embree while the <code>.ispc</code> files remain an implementation detail.
-        Rendering and scientific visualization also produce less general-language discussion
-        than CUDA, shader languages, C++ intrinsics, or Rust SIMD libraries. Intel's name can
-        suggest a narrower hardware target than ISPC's CPU support, which includes x86 and Arm.
-      </p>
-      <p>
-        <a class="evidence-link" href="https://www.ospray.org/index.html">OSPRay CPU implementation →</a>
-        &nbsp;&nbsp;
-        <a class="evidence-link" href="https://github.com/RenderKit/embree">Embree ISPC support →</a>
-        &nbsp;&nbsp;
-        <a class="evidence-link" href="https://cmake.org/cmake/help/latest/envvar/ISPC.html">CMake ISPC language support →</a>
-      </p>
+      <h3>A substantial shared foundation</h3>
+      <ul class="guarantee-list">
+        <li><strong>Explicit lane-parallel semantics</strong>Source code describes a group of program instances instead of asking a scalar-loop optimizer to discover SIMD.</li>
+        <li><strong>Target-selected width</strong>One source can be compiled for several lane counts chosen by the target.</li>
+        <li><strong>Uniform and varying data</strong>Both languages distinguish values shared across the group from values owned by individual lanes.</li>
+        <li><strong>Masked divergent execution</strong>Different lanes may follow different logical paths under an execution mask.</li>
+        <li><strong>First-class SoA support</strong>Both languages provide syntax and types for columnar data layouts.</li>
+        <li><strong>CPU and GPU intent</strong>ISPC ships CPU and Intel GPU targets; Rake's design aims to carry one lane model across CPU SIMD and Vulkan subgroups.</li>
+      </ul>
 
-      <h3>How the shared model looks in source</h3>
+      <h3>The same operation in two syntaxes</h3>
       <p>
-        ISPC's deployments establish that explicit lane-parallel programming is practical. The
-        next example compares how ISPC and Rake express the same operation over every particle in
-        a structure-of-arrays dataset. ISPC traverses the columns in compile-time gangs, while
-        Rake traverses them in target-sized racks.
+        Both examples update every particle in a structure-of-arrays dataset. ISPC traverses the
+        columns in compile-time gangs, while Rake traverses them in target-sized racks.
       </p>
       <div class="syntax-pair">
         <div>
@@ -745,16 +834,6 @@ run advance_x
         functional language.
       </p>
 
-      <h3>A substantial shared foundation</h3>
-      <ul class="guarantee-list">
-        <li><strong>Explicit lane-parallel semantics</strong>Source code describes a group of program instances instead of asking a scalar-loop optimizer to discover SIMD.</li>
-        <li><strong>Target-selected width</strong>One source can be compiled for several lane counts chosen by the target.</li>
-        <li><strong>Uniform and varying data</strong>Both languages distinguish values shared across the group from values owned by individual lanes.</li>
-        <li><strong>Masked divergent execution</strong>Different lanes may follow different logical paths under an execution mask.</li>
-        <li><strong>First-class SoA support</strong>Both languages provide syntax and types for columnar data layouts.</li>
-        <li><strong>CPU and GPU intent</strong>ISPC ships CPU and Intel GPU targets; Rake's design aims to carry one lane model across CPU SIMD and Vulkan subgroups.</li>
-      </ul>
-
       <h3>Deliberate differences</h3>
       <div class="table-scroll">
         <table class="vocab-table">
@@ -772,6 +851,29 @@ run advance_x
         <a class="evidence-link" href="https://ispc.github.io/ispc.html">ISPC language and target guide →</a>
         &nbsp;&nbsp;
         <a class="evidence-link" href="https://ispc.github.io/ispc_for_xe.html">ISPC for Intel Xe →</a>
+      </p>
+
+      <h3>ISPC proves the model in production</h3>
+      <p>
+        ISPC is neither abandoned nor a mainstream application language. It is a successful
+        specialist compiler used for performance-critical kernels beside larger C and C++
+        systems. OSPRay's CPU renderer is based on ISPC and uses SSE4, AVX, AVX2, AVX-512, and
+        Arm NEON. Embree supports ISPC for parallel renderer code, and CMake has recognized ISPC
+        as a compilation language since version 3.19.
+      </p>
+      <p>
+        That placement explains the small public profile. An application developer encounters
+        OSPRay or Embree while the <code>.ispc</code> files remain an implementation detail.
+        Rendering and scientific visualization also produce less general-language discussion
+        than CUDA, shader languages, C++ intrinsics, or Rust SIMD libraries. Intel's name can
+        suggest a narrower hardware target than ISPC's CPU support, which includes x86 and Arm.
+      </p>
+      <p>
+        <a class="evidence-link" href="https://www.ospray.org/index.html">OSPRay CPU implementation →</a>
+        &nbsp;&nbsp;
+        <a class="evidence-link" href="https://github.com/RenderKit/embree">Embree ISPC support →</a>
+        &nbsp;&nbsp;
+        <a class="evidence-link" href="https://cmake.org/cmake/help/latest/envvar/ISPC.html">CMake ISPC language support →</a>
       </p>
 
       <h3 id="landscape">The wider language landscape</h3>
@@ -821,119 +923,12 @@ run advance_x
       </div>
     </section>
 
-    <section id="principles">
-      <h2>Lane choices, written directly</h2>
-      <p>
-        Rake's comparisons describe where the language sits among related systems. Within Rake's
-        own lane model, a <strong>rack</strong> is a fixed-width native vector. Every live rack must
-        occupy one physical SIMD register of the target's vector class. Compilation fails when
-        that contract cannot be met.
-      </p>
-      <div class="ascii-diagram">            ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓   logical rack lanes
-════════════════════════════════════
-|  tine A |███░░░███░░░███░░░██████| named lane mask
-════════════════════════════════════
-               ↓     ↓     ↓
-═══════════════════════════════════
-|  tine B |░░░███░░░░░░███░░░░░░███| another candidate
-═══════════════════════════════════
-                     ↓     ↓
-    sweep:           &lt;     &lt;         total per-lane result</div>
-      <p>
-        A <strong>tine</strong> names a boolean lane mask. A <strong>through</strong> block
-        computes a candidate under that mask. A <strong>sweep</strong> selects the first
-        matching candidate and requires a final catch-all value for every other lane.
-      </p>
-      <ul class="principles-list">
-        <li><strong>Rack width follows the target</strong> — AVX2 float racks have eight lanes and NEON float racks have four</li>
-        <li><strong>Scalar broadcasts are visible</strong> — angle brackets distinguish scalar values from racks</li>
-        <li><strong>Inactive lanes are specified as safe</strong> — masked partial operations must receive benign operands before execution</li>
-        <li><strong>Fusion is enforced</strong> — fused regions admit only operations the native backend can keep contiguous and call-free</li>
-      </ul>
-    </section>
-
-    <section id="syntax">
-      <h2>Checked syntax tour</h2>
-      <p>
-        Rake's lane vocabulary becomes concrete in complete programs. These examples come from
-        Rake's checked conformance corpus. The test suite compares this page with the named source
-        regions and checks each example with the compiler frontend. Examples supported by the
-        native AVX2 backend also pass object-code verification.
-      </p>
-
-      <h3>Crunch: uniform rack arithmetic</h3>
-      <p>
-        A <code>crunch</code> applies one expression to every lane. Here <code>&lt;0.5&gt;</code>
-        is an explicit scalar broadcast. Each fused binding must satisfy the compiler's
-        pure-SSA contract. This straight-line crunch is accepted by the Rake-owned x86-64
-        AVX2 backend and verified after assembly.
-      </p>
-      <div class="code-block">
-<!-- rake-example:crunch:start -->
-<pre data-rake-example="crunch">
-crunch advance positions velocities -&gt; result:
-  | scaled &lt;| velocities * &lt;0.5&gt;
-  | result &lt;| positions + scaled
-</pre>
-<!-- rake-example:crunch:end -->
-      </div>
-
-      <h3>Rake: safe masked work and a total sweep</h3>
-      <p>
-        <strong>Verified on the AVX2 backend.</strong> The <code>#valid</code> tine guards
-        <code>sqrt</code>, and the final <code>_</code> arm defines all unmatched lanes. Native
-        SSA explicitly replaces inactive operands with benign values before partial
-        operations. The emitted function uses YMM masks and blends without scalar lane
-        branches.
-      </p>
-      <div class="code-block">
-<!-- rake-example:safe-through:start -->
-<pre data-rake-example="safe-through">
-rake safe_root values -&gt; result:
-  | #valid := (values &gt;= &lt;0.0&gt;)
-
-  through #valid else &lt;0.0&gt;:
-    sqrt(values)
-  -&gt; rooted
-
-  sweep:
-    | #valid -&gt; rooted
-    | _ -&gt; &lt;0.0&gt;
-  -&gt; result
-</pre>
-<!-- rake-example:safe-through:end -->
-      </div>
-
-      <h3>Run: stack, pack, and over</h3>
-      <p>
-        <strong>Frontend-only in this alpha.</strong>
-        A <code>stack</code> names float-rack columns. A <code>pack</code> supplies those
-        columns to <code>run</code>, and <code>over</code> processes logical-width chunks.
-        The frontend checks the declarations and loop shape. Native memory traversal, safe
-        tails, and the C entry-point ABI are still under construction.
-      </p>
-      <div class="code-block">
-<!-- rake-example:pack-over:start -->
-<pre data-rake-example="pack-over">
-stack Samples {
-  value: float rack
-}
-
-run scale_values (input : Samples pack) (&lt;count&gt; : int64)
-                 (&lt;scale&gt; : float) -&gt; result:
-  over input, &lt;count&gt; |&gt; chunk:
-    chunk.value * &lt;scale&gt;
-</pre>
-<!-- rake-example:pack-over:end -->
-      </div>
-    </section>
-
     <section id="status">
       <h2>What this alpha ships</h2>
       <p>
-        The syntax tour includes both native-backed programs and forms that stop after frontend
-        checking. This table separates those implementation stages from targets that remain design
-        work.
+        Version 0.3.0-alpha.1 includes native-backed programs, forms that stop after frontend
+        checking, and targets that remain design work. The table identifies each implementation
+        boundary.
       </p>
       <table class="vocab-table">
         <tr><th>Area</th><th>0.3.0-alpha.1 status</th></tr>
