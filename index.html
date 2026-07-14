@@ -379,6 +379,7 @@
           <a href="#contract">Guarantee</a>
           <a href="#gpu">GPU</a>
           <a href="#comparisons">Compared</a>
+          <a href="#landscape">Landscape</a>
           <a href="#principles">Principles</a>
           <a href="#syntax">Syntax</a>
           <a href="#status">Status</a>
@@ -408,6 +409,27 @@
         a language contract, so checking disassembly is evidence of conformance rather than the
         only way to discover whether vectorization survived compilation.
       </div>
+
+      <h3>Rust's lesson, applied to performance</h3>
+      <p>
+        Rust made a compelling modern case for a strict compiler: rejecting plausible programs
+        can be more useful than accepting them when the diagnostic explains which safety rule
+        the program violated and how to repair it. Rake applies that bargain to declared
+        performance properties. A compute kernel is often written because its machine shape
+        matters, so losing vectorization is a failed requirement rather than an incidental missed
+        optimization.
+      </p>
+      <p>
+        Rake does not turn every performance surprise into a language error. The programmer opts
+        into a named native profile with specific obligations. If an irregular access requires a
+        forbidden gather, an operation requires scalar helper calls, or register pressure would
+        spill a live rack, the compiler identifies the source operation and the failed obligation
+        before the object ships. The programmer can change the algorithm, choose a profile that
+        permits the cost, or make the slower path explicit.
+      </p>
+      <p>
+        <a class="evidence-link" href="https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html">Rust's ownership diagnostics →</a>
+      </p>
 
       <h3>One 400-particle structure-of-arrays kernel</h3>
       <p>
@@ -643,6 +665,29 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
         systems programmers.
       </p>
 
+      <h3>Specialist infrastructure, usually out of sight</h3>
+      <p>
+        ISPC is neither abandoned nor a mainstream application language. It is a successful
+        specialist compiler used for performance-critical kernels beside larger C and C++
+        systems. OSPRay's CPU renderer is based on ISPC and uses SSE4, AVX, AVX2, AVX-512, and
+        Arm NEON. Embree supports ISPC for parallel renderer code, and CMake has recognized ISPC
+        as a compilation language since version 3.19.
+      </p>
+      <p>
+        That placement explains the small public profile. An application developer encounters
+        OSPRay or Embree while the <code>.ispc</code> files remain an implementation detail.
+        Rendering and scientific visualization also produce less general-language discussion
+        than CUDA, shader languages, C++ intrinsics, or Rust SIMD libraries. Intel's name can
+        suggest a narrower hardware target than ISPC's CPU support, which includes x86 and Arm.
+      </p>
+      <p>
+        <a class="evidence-link" href="https://www.ospray.org/index.html">OSPRay CPU implementation →</a>
+        &nbsp;&nbsp;
+        <a class="evidence-link" href="https://github.com/RenderKit/embree">Embree ISPC support →</a>
+        &nbsp;&nbsp;
+        <a class="evidence-link" href="https://cmake.org/cmake/help/latest/envvar/ISPC.html">CMake ISPC language support →</a>
+      </p>
+
       <h3>The same particle kernel in two idioms</h3>
       <div class="syntax-pair">
         <div>
@@ -712,13 +757,50 @@ run advance_x
         <a class="evidence-link" href="https://ispc.github.io/ispc_for_xe.html">ISPC for Intel Xe →</a>
       </p>
 
+      <h3 id="landscape">The wider language landscape</h3>
+      <p>
+        Surprisingly few languages occupy ISPC's exact niche. Several neighboring systems solve
+        parts of the same problem at a different level of abstraction or with a different machine
+        contract.
+      </p>
+      <div class="table-scroll">
+        <table class="vocab-table">
+          <tr><th>Language family</th><th>What it provides</th><th>How its contract differs</th></tr>
+          <tr><td><a class="evidence-link" href="https://halide-lang.org/docs">Halide</a></td><td>A functional, C++-embedded language for image and stencil pipelines with separate algorithm and scheduling choices across CPUs and GPUs.</td><td>Vector widths, tiling, placement, and other scheduling decisions are supplied by a programmer or autoscheduler rather than certified as Rake-style physical rack obligations.</td></tr>
+          <tr><td><a class="evidence-link" href="https://futhark-lang.org/">Futhark</a></td><td>A statically typed, purely functional array language that compiles data-parallel programs to CUDA, OpenCL, or multithreaded CPU code.</td><td>Its central abstraction is bulk and nested array parallelism rather than one target-sized rack that must remain one CPU register.</td></tr>
+          <tr><td><a class="evidence-link" href="https://docs.shader-slang.org/en/stable/external/slang/docs/user-guide/08-compiling.html">CUDA, HIP, shader languages, and Slang</a></td><td>GPU-oriented SPMD or SIMT programming over threads, warps, waves, and subgroups, with targets such as SPIR-V, DXIL, and native GPU formats.</td><td>They expose the GPU execution model well, but do not make one source construct a portable CPU SIMD register with Rake's native fail-closed contract.</td></tr>
+          <tr><td><a class="evidence-link" href="https://docs.taichi-lang.org/docs/hello_world">Taichi</a></td><td>A Python-embedded, data-oriented DSL that compiles parallel kernels for multicore CPUs and GPUs.</td><td>It concentrates on portable parallel iteration and data layout rather than proof of a fixed physical SIMD representation.</td></tr>
+          <tr><td><a class="evidence-link" href="https://docs.modular.com/mojo/std/builtin/simd/SIMD/">Mojo</a></td><td>A systems and AI language with explicit parameterized SIMD values, vectorized algorithms, and CPU/GPU facilities.</td><td>The vector width is part of the SIMD type, and Mojo documents that an oversized value may be split across registers. Rake's rack width comes from the profile and splitting is a rejection condition.</td></tr>
+          <tr><td>C++ and Rust SIMD libraries</td><td>Portable vector types and algorithms reduce direct use of architecture-specific intrinsics.</td><td>They remain library interfaces and do not ordinarily combine one-register identity, no spills, no helper calls, and no scalar lane loops into a compiler acceptance rule.</td></tr>
+          <tr><td>Research array and staging languages</td><td>Impala/AnyDSL, Lift/Shine, Accelerate, and Dex explore staged compilation, rewrite systems, and functional data-parallel programming.</td><td>They are valuable prior art, but none is a widely deployed direct replacement for ISPC's C-family SPMD-on-SIMD niche.</td></tr>
+        </table>
+      </div>
+
+      <h3>Where Rake can still differ</h3>
+      <p>
+        Rake does not claim to have invented portable SPMD-on-SIMD. ISPC established that one
+        lane-parallel program can be productive across CPU vector widths, and its mature language,
+        tooling, interoperability, and deployments are substantial advantages.
+      </p>
+      <p>
+        ISPC guarantees the program's SPMD semantics and generally emits excellent vector code.
+        Its performance guide nevertheless documents cases where irregular accesses require
+        gathers, scatters, or serialized loads. Those are legitimate implementations of ISPC
+        semantics. Rake's narrower contribution is to let a selected profile forbid such
+        implementations and turn the physical lowering into an acceptance condition.
+      </p>
+      <p>
+        <a class="evidence-link" href="https://ispc.github.io/perfguide.html">ISPC performance guide →</a>
+      </p>
+
       <div class="contract-rule">
-        <strong>Choose ISPC today</strong> for a mature C-family SPMD language, excellent CPU SIMD,
-        close C/C++ integration, and shipped Intel GPU support. <strong>Explore Rake</strong> for
-        expression-oriented vector code, explicit predication vocabulary, and a compiler contract
-        designed to reject machine-shape violations. Rake's stricter CPU contract is implemented
-        for its admitted AVX2 and NEON slices. Rake's cross-vendor GPU proposition remains a design
-        goal until its SPIR-V backend and Vulkan evidence gates ship.
+        <strong>ISPC proves that this programming model is useful.</strong> Rake explores a more
+        functional and compositional member of the same family, with explicit pack/rack and SoA
+        structure and machine-shape violations reported as compiler errors. Choose ISPC today for
+        a mature C-family SPMD language, excellent CPU SIMD, close C/C++ integration, and shipped
+        Intel GPU support. Rake's stricter CPU contract is currently implemented only for its
+        admitted AVX2 and NEON slices. Pack traversal, broader CPU profiles, and the cross-vendor
+        SPIR-V proposition remain unfinished.
       </div>
     </section>
 
