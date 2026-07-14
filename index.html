@@ -10,7 +10,7 @@
   <meta property="og:description" content="Rake is a vector-first language that either preserves the promised native SIMD machine shape or rejects the program with a compiler error.">
   <meta property="og:url" content="https://rake-lang.org/">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://rake-lang.org/wallpaper.png">
+  <meta property="og:image" content="https://rake-lang.org/social-card.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="wallpaper.png" type="image/png">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a vector-first language that either preserves the promised native SIMD machine shape or rejects the program with a compiler error.","applicationCategory":"DeveloperApplication","operatingSystem":"Cross-platform"}</script>
@@ -30,6 +30,8 @@
       --rust: #c86040;
       --tine: #f0c8a0;
       --scalar: #98d0b8;
+      --flow: #dfa6d2;
+      --number: #d9b77a;
       --comment: #908070;
       --warn: #d4a054;
     }
@@ -87,12 +89,15 @@
       vertical-align: middle;
     }
     nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px 24px;
       margin-top: 20px;
     }
     nav a {
       color: var(--text-dim);
       text-decoration: none;
-      margin: 0 12px;
       font-size: 0.9rem;
     }
     nav a:hover {
@@ -131,6 +136,8 @@
     code {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.875em;
+      font-variant-ligatures: common-ligatures contextual;
+      font-feature-settings: "liga" 1, "calt" 1;
       background: var(--bg-code);
       padding: 2px 6px;
       border-radius: 4px;
@@ -148,14 +155,22 @@
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.875rem;
       line-height: 1.6;
+      font-variant-ligatures: common-ligatures contextual;
+      font-feature-settings: "liga" 1, "calt" 1;
+      tab-size: 2;
     }
     .comment { color: var(--comment); font-style: italic; }
-    .keyword { color: var(--sand); }
-    .tine { color: var(--tine); }
-    .scalar { color: var(--scalar); }
+    .keyword { color: var(--sand); font-weight: 500; }
+    .tine { color: var(--tine); font-weight: 500; }
+    .scalar { color: var(--scalar); font-weight: 500; }
+    .flow { color: var(--flow); font-weight: 500; }
+    .number { color: var(--number); }
     .op { color: var(--text-dim); }
     .fn { color: var(--sand-light); }
     .type { color: var(--rust); }
+    pre[data-language="rake"] .flow {
+      text-shadow: 0 0 12px rgba(223, 166, 210, 0.18);
+    }
 
     .warning {
       background: rgba(212, 160, 84, 0.1);
@@ -409,7 +424,7 @@
     @media (max-width: 640px) {
       .hero h1 { font-size: 1.75rem; }
       .tagline { font-size: 1rem; }
-      nav a { display: block; margin: 8px 0; }
+      nav { gap: 6px 16px; }
       .guarantee-list, .rejection-proof, .syntax-pair { grid-template-columns: 1fr; }
       .background dl > div { grid-template-columns: 1fr; gap: 2px; }
     }
@@ -425,6 +440,7 @@
         <nav>
           <a href="#contract">Guarantee</a>
           <a href="#principles">Principles</a>
+          <a href="#fusion">Fusion</a>
           <a href="#syntax">Syntax</a>
           <a href="#comparisons">Compared</a>
           <a href="#gpu">GPU</a>
@@ -460,7 +476,8 @@
         column: four <code>f32</code> positions on 128-bit SSE2 or Arm NEON, eight on 256-bit
         AVX2, or sixteen on 512-bit AVX-512. A <strong>stack</strong> declares the columns in the
         dataset. A <strong>pack</strong> connects that declaration to the complete columns and
-        their element count, and <code>over</code> traverses the pack one rack at a time.
+        their element count. A <code>for … using … up to …</code> traversal visits the pack one
+        rack at a time.
       </p>
       <p>
         The caller supplies two contiguous <code>f32</code> columns, one dense <code>u8</code>
@@ -472,17 +489,34 @@
         source never names a CPU-specific vector function or lane count.
       </p>
       <div class="code-block">
-<pre>stack Particles {
+<pre data-language="rake">stack Particles {
   f32: position_x, velocity_x;
   u8: age;
 }
 
-run advance_x (particles : Particles pack) (&lt;count&gt; : i64)
-              (&lt;dt&gt; : f32) -&gt; result:
-  over particles by f32s, &lt;count&gt; |&gt; particle:
+run advance_x(
+  particles: pack Particles,
+  &lt;count: i64&gt;,
+  &lt;dt: f32&gt;
+) -&gt; f32:
+  for particle in particles using f32s up to &lt;count&gt;:
     let ages: u32s = widen(particle.age)
-    particle.position_x + particle.velocity_x * &lt;dt&gt;</pre>
+    yield particle.position_x + particle.velocity_x * &lt;dt&gt;</pre>
       </div>
+      <p>
+        The notation exposes distinctions that affect the machine. <code>pack Particles</code>
+        reads as “a pack of Particles”; <code>using f32s</code> names the native compute domain;
+        and angle brackets mark <code>count</code> and <code>dt</code> as one uniform scalar shared
+        by every lane. Seeing many scalar markers in a kernel should provoke the question: could
+        these values vary by lane, or be stored and processed more efficiently?
+      </p>
+      <p>
+        Inside the stack, each stored type comes before all columns that share it. That makes
+        memory density readable down the left edge: the two four-byte <code>f32</code> columns are
+        grouped separately from the one-byte <code>u8</code> column. The plural spelling keeps the
+        relationship compact: <code>f32</code> is one stored element; <code>f32s</code> is one
+        target-native rack of them.
+      </p>
       <p>
         Compiling the same source for a named profile chooses the rack width. Four hundred
         <code>f32</code> values divide exactly, so no tail is needed:
@@ -566,11 +600,11 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : i64)
       </table>
 
       <div class="warning">
-        <strong>Current alpha boundary.</strong> The AVX2 and NEON backends enforce the native-rack
-        contract for their supported register-level kernels. Native <code>run</code>/<code>pack</code>
-        traversal and the SSE2 and AVX-512 backends are still under construction, so the complete
-        400-particle example currently passes only parsing and type checking rather than the
-        complete machine-code pipeline.
+        <strong>Current alpha boundary.</strong> These examples state the canonical source
+        contract. The compiler capability report records how much of that contract a particular
+        build implements. The AVX2 and NEON backends enforce the native-rack rules for supported
+        register-level kernels; native <code>run</code>/<code>pack</code> traversal and the SSE2 and
+        AVX-512 backends remain under construction.
       </div>
       <p>
         <a class="evidence-link" href="https://github.com/rakelang/rake/tree/main/demo/soa-proof">Inspect and run the C, Rust, and Rake proof harness →</a>
@@ -603,6 +637,11 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : i64)
         first matching candidate for each lane and requires a final catch-all value, so every
         lane has a result.
       </p>
+      <p>
+        Rake writes a tine as <code>#active</code>. The hash resembles a perforated mask: values
+        fall through its open lanes and are held back by the rest. The mark has one role wherever
+        the mask is declared or used.
+      </p>
       <div class="ascii-diagram">            ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓   logical rack lanes
 ════════════════════════════════════
 |  tine A |███░░░███░░░███░░░██████| named lane mask
@@ -614,10 +653,8 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : i64)
                      ↓     ↓
     sweep:           &lt;     &lt;         total per-lane result</div>
       <ul class="principles-list">
-        <li><strong>Rack width follows the target</strong> — AVX2 <code>f32s</code> racks have eight lanes and NEON <code>f32s</code> racks have four</li>
-        <li><strong>Scalar broadcasts are visible</strong> — angle brackets distinguish scalar values from racks</li>
         <li><strong>Inactive lanes are specified as safe</strong> — an operation valid only for some inputs, such as square root, receives benign operands in lanes where it should not run</li>
-        <li><strong>Fusion is enforced</strong> — a region promised as one uninterrupted vector computation admits only operations the backend can keep contiguous and call-free</li>
+        <li><strong>Sweeps are total</strong> — every lane receives the first matching value or the required catch-all value</li>
       </ul>
 
       <aside class="background" aria-label="Background">
@@ -627,19 +664,62 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : i64)
           <div><dt>Mask / predication</dt><dd>A mask contains one true-or-false choice per lane. Predicated execution uses that mask to select which lanes contribute a result.</dd></div>
           <div><dt>Broadcast</dt><dd>Copying one scalar value into every lane of a vector, such as turning <code>0.5</code> into eight copies for AVX2 float arithmetic.</dd></div>
           <div><dt>Partial operation</dt><dd>An operation that is valid only for some inputs, such as square root on non-negative real numbers.</dd></div>
-          <div><dt>Fused region</dt><dd>A sequence Rake must keep as one contiguous, call-free and spill-free vector computation. A fused multiply-add is a separate machine instruction with a narrower meaning.</dd></div>
+        </dl>
+      </aside>
+    </section>
+
+    <section id="fusion">
+      <h2>Fusion turns bindings into a verified dataflow region</h2>
+      <p>
+        A <strong>binding</strong> gives a computed value a name. A later
+        <strong>reference</strong> tells the compiler to use that value again. Neither construct
+        creates a pointer or requires a memory load. Physical storage is a separate compiler
+        decision: a live value can occupy a register, or an ordinary compiler can temporarily
+        write it to memory and reload it later. That temporary write is a spill.
+      </p>
+      <div class="code-block">
+<pre data-language="rake">crunch advance(positions: f32s, velocities: f32s) -&gt; f32s:
+  | scaled: f32s &lt;| velocities * &lt;0.5&gt;
+  | result: f32s &lt;| positions + scaled
+  return result</pre>
+      </div>
+      <p>
+        <code>&lt;|</code> exists only in a <strong>fused-flow binding</strong>. Read it from right to
+        left: the expression flows into the name. Consecutive fused-flow bindings form one pure,
+        connected machine-level computation. Rake must keep that region inline, call-free,
+        spill-free, and free of hidden scalar work, or reject the definition.
+      </p>
+      <p>
+        Every accepted rack already obeys Rake's one-register and no-spill rules, including racks
+        introduced with an ordinary <code>let</code>. Fusion adds a stronger boundary around the
+        whole chain: its operations must remain pure, connected, and contiguous through lowering.
+        The compiler cannot interrupt the chain with memory operations or an unknown helper call.
+      </p>
+      <p>
+        The example requests a multiply followed by an addition. Fusion preserves their dataflow;
+        it does not combine them automatically. <code>fma(a, b, c)</code> separately requests one
+        fused multiply-add operation with one rounding step.
+      </p>
+
+      <aside class="background" aria-label="Background">
+        <h3>Background</h3>
+        <dl>
+          <div><dt>Binding</dt><dd>A source declaration that gives a computed value a name.</dd></div>
+          <div><dt>Reference</dt><dd>A later use of that name. It denotes the compiler value rather than a memory address.</dd></div>
+          <div><dt>SSA value</dt><dd>A compiler value defined once and then referenced by later operations. It does not prescribe a physical storage location.</dd></div>
+          <div><dt>Spill</dt><dd>A temporary write to memory when a compiler cannot keep a live value in a register.</dd></div>
+          <div><dt>Fused multiply-add</dt><dd>One arithmetic operation with one rounding step. It is narrower than Rake's fused-region contract.</dd></div>
         </dl>
       </aside>
     </section>
 
     <section id="syntax">
-      <h2>Checked syntax tour</h2>
+      <h2>Language syntax tour</h2>
       <p>
-        The Rake test suite extracts these complete programs from the page and submits each one to
-        the compiler's parser and type checker. Examples supported by the native AVX2 backend also
-        pass through instruction selection, register assignment, assembly, and a final inspection
-        of the encoded machine instructions. The same examples form part of Rake's conformance
-        corpus: its collection of programs used to check the documented language rules.
+        These complete programs use the canonical source language. Rake reports each construct's
+        implementation status separately: frontend acceptance establishes syntax and types,
+        while a production target additionally requires instruction selection, register
+        assignment, assembly, executable comparison, and inspection of the encoded machine code.
       </p>
 
       <h3>Crunch: uniform rack arithmetic</h3>
@@ -647,22 +727,23 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : i64)
         A <code>crunch</code> applies one expression to every lane. Here <code>&lt;0.5&gt;</code>
         is an explicit scalar broadcast. Each intermediate name is assigned once, which makes
         the data dependencies explicit and lets the compiler check the whole sequence as one
-        fused region. This straight-line crunch is accepted by the Rake-owned x86-64
-        AVX2 backend and verified after assembly.
+        fused region. The corresponding straight-line operation set is implemented by the
+        Rake-owned x86-64 AVX2 backend and verified after assembly.
       </p>
       <div class="code-block">
 <!-- rake-example:crunch:start -->
-<pre data-rake-example="crunch">
-crunch advance positions velocities -&gt; result:
-  | scaled &lt;| velocities * &lt;0.5&gt;
-  | result &lt;| positions + scaled
+<pre data-rake-example="crunch" data-language="rake">
+crunch advance(positions: f32s, velocities: f32s) -&gt; f32s:
+  | scaled: f32s &lt;| velocities * &lt;0.5&gt;
+  | result: f32s &lt;| positions + scaled
+  return result
 </pre>
 <!-- rake-example:crunch:end -->
       </div>
 
       <h3>Rake: safe masked work and a total sweep</h3>
       <p>
-        <strong>Verified on the AVX2 backend.</strong> The <code>#valid</code> tine guards
+        <strong>The corresponding masked operation is verified by the AVX2 backend.</strong> The <code>#valid</code> tine guards
         <code>sqrt</code>, and the final <code>_</code> arm defines all unmatched lanes. Native
         lowering explicitly replaces inactive operands with benign values before partial
         operations. The emitted function uses AVX2 vector masks and blends without scalar lane
@@ -670,46 +751,48 @@ crunch advance positions velocities -&gt; result:
       </p>
       <div class="code-block">
 <!-- rake-example:safe-through:start -->
-<pre data-rake-example="safe-through">
-rake safe_root values -&gt; result:
-  | #valid := (values &gt;= &lt;0.0&gt;)
+<pre data-rake-example="safe-through" data-language="rake">
+rake safe_root(values: f32s) -&gt; f32s:
+  tine #valid when values &gt;= &lt;0.0&gt;
 
-  through #valid else &lt;0.0&gt;:
+  through #valid else &lt;0.0&gt; into rooted:
     sqrt(values)
-  -&gt; rooted
 
-  sweep:
-    | #valid -&gt; rooted
-    | _ -&gt; &lt;0.0&gt;
-  -&gt; result
+  return sweep:
+    | #valid =&gt; rooted
+    | _      =&gt; &lt;0.0&gt;
 </pre>
 <!-- rake-example:safe-through:end -->
       </div>
 
-      <h3>Run: stack, pack, and over</h3>
+      <h3>Run: stack, pack, and target-sized traversal</h3>
       <p>
-        <strong>Parser and type checker only in this alpha.</strong>
+        <strong>Canonical language contract; native traversal remains in flight.</strong>
         A <code>stack</code> groups columns by their compact storage types. A <code>pack</code>
-        supplies the complete columns to <code>run</code>, and <code>over … by f32s</code>
-        selects one physical rack and its logical lane count. A narrower column cannot enter
+        supplies the complete columns to <code>run</code>, and <code>using f32s</code>
+        selects one physical rack and its logical lane count. <code>up to &lt;count&gt;</code> makes the
+        uniform record bound explicit. A narrower column cannot enter
         arithmetic until <code>widen</code> converts its values while preserving that lane count.
-        Those early compiler stages check the declarations, widening, and loop shape. Native memory
+        The frontend contract covers the declarations, widening, and loop shape. Native memory
         traversal, safe final partial racks, and the machine-level convention for calling the
         function from C—its ABI—are still under construction.
       </p>
       <div class="code-block">
 <!-- rake-example:pack-over:start -->
-<pre data-rake-example="pack-over">
+<pre data-rake-example="pack-over" data-language="rake">
 stack Samples {
   f32: value;
   u8: quality;
 }
 
-run scale_values (input : Samples pack) (&lt;count&gt; : i64)
-                 (&lt;scale&gt; : f32) -&gt; result:
-  over input by f32s, &lt;count&gt; |&gt; chunk:
+run scale_values(
+  input: pack Samples,
+  &lt;count: i64&gt;,
+  &lt;scale: f32&gt;
+) -&gt; f32:
+  for chunk in input using f32s up to &lt;count&gt;:
     let quality: u32s = widen(chunk.quality)
-    chunk.value * &lt;scale&gt;
+    yield chunk.value * &lt;scale&gt;
 </pre>
 <!-- rake-example:pack-over:end -->
       </div>
@@ -772,23 +855,24 @@ run scale_values (input : Samples pack) (&lt;count&gt; : i64)
         </div>
         <div>
           <h4>Rake: expression-oriented dataflow</h4>
-          <div class="code-block"><pre>stack Particles {
+          <div class="code-block"><pre data-language="rake">stack Particles {
   f32: position_x, velocity_x;
 }
 
-run advance_x
-    (particles : Particles pack)
-    (&lt;count&gt; : i64) (&lt;dt&gt; : f32)
-    -&gt; result:
-  over particles by f32s, &lt;count&gt; |&gt; particle:
-    particle.position_x
+run advance_x(
+  particles: pack Particles,
+  &lt;count: i64&gt;,
+  &lt;dt: f32&gt;
+) -&gt; f32:
+  for particle in particles using f32s up to &lt;count&gt;:
+    yield particle.position_x
       + particle.velocity_x * &lt;dt&gt;</pre></div>
         </div>
       </div>
       <p>
         ISPC keeps the familiar loop, index, assignment, pointer, and C interoperability model.
         Values inside the gang are varying unless marked <code>uniform</code>. Rake moves the
-        traversal and columnar schema into <code>over</code>, <code>pack</code>, and
+        traversal and columnar schema into <code>for … using … up to …</code>, <code>pack</code>, and
         <code>stack</code>, while angle brackets mark scalar values. Rake's core vector forms
         favor pure expressions and SSA-like bindings, although Rake is not defined as a purely
         functional language.
@@ -1068,14 +1152,14 @@ run advance_x
     <section id="status">
       <h2>What this alpha ships</h2>
       <p>
-        Version 0.3.0-alpha.1 includes native-backed programs, forms that stop after parsing and
-        type checking, and targets that remain design work. The table identifies each implementation
-        boundary.
+        The language contract includes native-backed operations, forms whose implementations stop
+        in the frontend, and targets that remain design work. The table identifies each
+        implementation boundary in version 0.3.0-alpha.1.
       </p>
       <table class="vocab-table">
         <tr><th>Area</th><th>0.3.0-alpha.1 status</th></tr>
         <tr><td>Native CPU</td><td>Rake-owned x86-64 AVX2 and AArch64 NEON backends for supported <code>crunch</code> and predicated <code>rake</code> programs, including uniform 32-bit floating-point (<code>f32</code>) parameters, no-spill allocation, textual assembly, and post-assembly verification</td></tr>
-        <tr><td>Frontend-only</td><td><code>run</code>, <code>over</code>, stacks, and packs are checked source constructs whose native lowering is unfinished</td></tr>
+        <tr><td>Language contract</td><td><code>run</code>, pack traversal, stacks, packs, and explicit widening are canonical source constructs; the capability report identifies the frontend and native subset implemented by this build</td></tr>
         <tr><td>Other targets</td><td>AVX-512, SSE2, and GPU native backends remain unimplemented</td></tr>
         <tr><td>C boundary</td><td>The tested alpha crunch boundary uses the eight vector-argument registers provided by the System V x86-64 calling convention; no production <code>run</code> wrapper or stable cross-release ABI yet</td></tr>
         <tr><td>Performance</td><td>No representative published benchmark or generated-code performance claim</td></tr>
@@ -1133,5 +1217,112 @@ run advance_x
       <p class="project-credit">A research project by <a href="https://over-yonder.tech/">over<span class="divider">|</span>yonder&nbsp;↗</a></p>
     </footer>
   </div>
+  <script>
+    (() => {
+      const keywords = new Set([
+        'stack', 'crunch', 'rake', 'run', 'pack', 'let', 'return', 'yield',
+        'tine', 'when', 'through', 'else', 'into', 'sweep',
+        'for', 'in', 'using', 'up', 'to', 'and', 'or', 'not'
+      ]);
+      const types = new Set([
+        'f32', 'f64', 'i8', 'i16', 'i32', 'i64',
+        'u8', 'u16', 'u32', 'u64', 'bool',
+        'f32s', 'f64s', 'i8s', 'i16s', 'i32s', 'i64s',
+        'u8s', 'u16s', 'u32s', 'u64s', 'bools', 'mask'
+      ]);
+      const builtins = new Set([
+        'widen', 'fma', 'sqrt', 'sum', 'product', 'minimum', 'maximum',
+        'all', 'any', 'scan_sum', 'scan_product', 'scan_minimum',
+        'scan_maximum', 'shuffle', 'zip_low', 'shift_left', 'shift_right',
+        'rotate_left', 'rotate_right'
+      ]);
+      const escaped = value => value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+      const span = (kind, value) => `<span class="${kind}">${escaped(value)}</span>`;
+
+      const highlightRake = source => {
+        let index = 0;
+        let output = '';
+        let expectFunctionName = false;
+
+        while (index < source.length) {
+          const rest = source.slice(index);
+          const whitespace = rest.match(/^\s+/);
+          if (whitespace) {
+            output += whitespace[0];
+            index += whitespace[0].length;
+            continue;
+          }
+
+          const comment = rest.match(/^~~[^\n]*/);
+          if (comment) {
+            output += span('comment', comment[0]);
+            index += comment[0].length;
+            continue;
+          }
+
+          const flow = rest.match(/^(?:<\||=>|->|<-|:=|<=|>=|!=)/);
+          if (flow) {
+            output += span(flow[0] === '<|' ? 'flow' : 'op', flow[0]);
+            index += flow[0].length;
+            continue;
+          }
+
+          const scalar = rest.match(/^<(?:[a-zA-Z_][a-zA-Z0-9_.]*(?:\s*:\s*[a-zA-Z][a-zA-Z0-9]*)?|[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?|true|false)>/);
+          if (scalar) {
+            output += span('scalar', scalar[0]);
+            index += scalar[0].length;
+            continue;
+          }
+
+          const tine = rest.match(/^#[a-zA-Z_][a-zA-Z0-9_]*/);
+          if (tine) {
+            output += span('tine', tine[0]);
+            index += tine[0].length;
+            continue;
+          }
+
+          const number = rest.match(/^(?:0x[0-9a-fA-F]+|\d+(?:\.\d*)?(?:[eE][-+]?\d+)?)/);
+          if (number) {
+            output += span('number', number[0]);
+            index += number[0].length;
+            continue;
+          }
+
+          const word = rest.match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
+          if (word) {
+            const value = word[0];
+            const next = source.slice(index + value.length).match(/^\s*\(/);
+            let kind = '';
+            if (keywords.has(value)) kind = 'keyword';
+            if (types.has(value) || /^[A-Z]/.test(value)) kind = 'type';
+            if (builtins.has(value) || next || expectFunctionName) kind = 'fn';
+            output += kind ? span(kind, value) : escaped(value);
+            expectFunctionName = ['crunch', 'rake', 'run'].includes(value);
+            index += value.length;
+            continue;
+          }
+
+          const operator = rest.match(/^[|+\-*\/%<>=!@]/);
+          if (operator) {
+            output += span('op', operator[0]);
+            index += operator[0].length;
+            continue;
+          }
+
+          output += escaped(source[index]);
+          index += 1;
+        }
+        return output;
+      };
+
+      document.querySelectorAll('pre[data-language="rake"]').forEach(block => {
+        block.innerHTML = highlightRake(block.textContent);
+        block.classList.add('is-highlighted');
+      });
+    })();
+  </script>
 </body>
 </html>

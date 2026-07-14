@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#1e1410"/>
+  <path d="M0 525L1200 212V630H0Z" fill="#2a1c16"/>
+  <g fill="none" stroke="#c86040" stroke-width="3" opacity=".8"><path d="M770 118L1120 118M770 180L1080 180M770 242L1040 242M770 304L1000 304M770 366L960 366M770 428L920 428"/></g>
+  <g fill="#e0c090"><rect x="770" y="106" width="18" height="24"/><rect x="770" y="168" width="18" height="24"/><rect x="770" y="230" width="18" height="24"/><rect x="770" y="292" width="18" height="24"/><rect x="770" y="354" width="18" height="24"/><rect x="770" y="416" width="18" height="24"/></g>
+  <text x="70" y="112" fill="#c86040" font-family="ui-monospace, monospace" font-size="22" letter-spacing="6">VECTOR-FIRST LANGUAGE</text>
+  <text x="64" y="333" fill="#f0e6d8" font-family="Arial, sans-serif" font-size="170" font-weight="700">Rake</text>
+  <text x="72" y="417" fill="#e0c090" font-family="Arial, sans-serif" font-size="44">SIMD the compiler must prove.</text>
+  <text x="73" y="558" fill="#b8a090" font-family="ui-monospace, monospace" font-size="19" letter-spacing="3">PRESERVE THE MACHINE SHAPE · OR REJECT</text>
+</svg>
