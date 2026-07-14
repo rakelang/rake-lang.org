@@ -565,8 +565,8 @@ run advance_x(
         forbidden <strong>gather</strong> from non-contiguous addresses, an operation requires
         scalar helper calls, or register pressure would
         spill a live rack, the compiler identifies the source operation and the failed obligation
-        before the object ships. The programmer can change the algorithm, choose a profile that
-        permits the cost, or make the slower path explicit.
+        before the object ships. The programmer can change the algorithm or choose a profile whose
+        published contract permits the required operation.
       </p>
       <p>
         <a class="evidence-link" href="https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html">Rust's ownership diagnostics →</a>
@@ -696,9 +696,25 @@ run advance_x(
         The compiler cannot interrupt the chain with memory operations or an unknown helper call.
       </p>
       <p>
-        The example requests a multiply followed by an addition. Fusion preserves their dataflow;
-        it does not combine them automatically. <code>fma(a, b, c)</code> separately requests one
-        fused multiply-add operation with one rounding step.
+        <code>scaled</code> is a readable alias inside the fused graph. It creates no storage,
+        evaluation point, or rounding boundary, so the compiler immediately sees the graph as
+        <code>positions + velocities * &lt;0.5&gt;</code>. The backend then chooses the cheapest legal
+        target operations. On AVX2 and AArch64 NEON, this graph becomes one native fused
+        multiply-add and the dead multiply disappears.
+      </p>
+      <p>
+        The language contract also permits the backend to reassociate, factor, distribute,
+        eliminate common expressions, and form other fused instructions when its target cost
+        model finds a cheaper graph. The current alpha implements the first useful slice:
+        transparent alias substitution, dead-intermediate removal, and multiply-add contraction.
+        The broader algebraic optimizer remains under construction.
+      </p>
+      <p>
+        <code>fma(a, b, c)</code> is needed only when correctness specifically depends on one fused
+        multiply-add operation with one rounding step. Rake provides no slower arithmetic mode for
+        preserving instruction boundaries that ordinary operators did not request. Named strict
+        reductions and scans retain their published ascending-lane order; fusion does not silently
+        reassociate those operations.
       </p>
 
       <aside class="background" aria-label="Background">
@@ -708,7 +724,7 @@ run advance_x(
           <div><dt>Reference</dt><dd>A later use of that name. It denotes the compiler value rather than a memory address.</dd></div>
           <div><dt>SSA value</dt><dd>A compiler value defined once and then referenced by later operations. It does not prescribe a physical storage location.</dd></div>
           <div><dt>Spill</dt><dd>A temporary write to memory when a compiler cannot keep a live value in a register.</dd></div>
-          <div><dt>Fused multiply-add</dt><dd>One arithmetic operation with one rounding step. It is narrower than Rake's fused-region contract.</dd></div>
+          <div><dt>Fused multiply-add</dt><dd>One multiplication and addition performed as one operation with one rounding step. Rake may select it automatically; <code>fma(...)</code> requires those exact arithmetic semantics.</dd></div>
         </dl>
       </aside>
     </section>
@@ -1169,8 +1185,10 @@ run advance_x(
         The compiler's <code>--print-capabilities</code> report describes the parser and type
         checker's accepted language surface. The native backend rejects every construct it cannot yet lower without
         violating rack identity, mask safety, fusion, or no-spill allocation. Native crunches and
-        predicated rakes support explicit fused multiply-add (<strong>FMA</strong>), which performs
-        a multiplication and addition with one rounding step. AVX2 also supports strict
+        predicated rakes substitute fused aliases and optimize ordinary multiply-add graphs into
+        native <strong>FMA</strong> instructions. Source-level <code>fma(...)</code> requires the same
+        one-rounding arithmetic when correctness depends on it. Broader reassociation, factoring,
+        distribution, and common-expression optimization remain roadmap work. AVX2 also supports strict
         <code>f32</code> reductions, which combine all lanes into one value, and inclusive scans,
         which produce every running partial result. Records, tuples, lane rearrangement, lambdas,
         and expression pipelines remain unavailable.
