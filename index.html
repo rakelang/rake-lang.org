@@ -431,11 +431,20 @@
         <a class="evidence-link" href="https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html">Rust's ownership diagnostics →</a>
       </p>
 
-      <h3>One 400-particle structure-of-arrays kernel</h3>
+      <h3>How one source traverses 400 particles</h3>
+      <p>
+        The fail-closed contract applies to each rack, while a useful kernel traverses a larger
+        dataset. A <strong>rack is not the 400-particle dataset</strong>. One rack is one target-sized
+        chunk of a structure-of-arrays column: four <code>float</code> positions on SSE2 or NEON,
+        eight on AVX2, or sixteen on AVX-512. A 400-particle pack exposes 400 values in each
+        field, and <code>over</code> visits those values as many racks, one chunk at a time.
+      </p>
       <p>
         The caller supplies two contiguous <code>float</code> columns and a runtime count.
         The <code>stack</code> declares the columnar schema; the <code>pack</code> connects that
-        schema to storage. The source never names an intrinsic width.
+        schema to the complete 400-particle storage. On each iteration, <code>particle.position_x</code>
+        and <code>particle.velocity_x</code> are racks containing the current target-width chunk.
+        The source never names an intrinsic width.
       </p>
       <div class="code-block">
 <pre>stack Particles {
@@ -464,6 +473,7 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
         specialization rather than runtime dispatch.
       </p>
 
+      <h3>What the profile proves for every rack</h3>
       <ul class="guarantee-list">
         <li><strong>One rack, one register</strong>The backend may not split a rack across registers, narrow it, or represent it in memory.</li>
         <li><strong>No silent scalar fallback</strong>A native SIMD profile may not turn unsupported rack work into a scalar lane loop.</li>
@@ -556,14 +566,15 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
         </table>
       </div>
 
-      <h3>The 400-particle SoA kernel on a GPU</h3>
+      <h3>How 400 particles traverse GPU racks</h3>
       <p>
-        The particle source still describes 400 logical lanes of SoA work. A
-        <code>vulkan-subgroup32</code> profile divides that work into twelve complete subgroups
-        and one subgroup with sixteen active invocations. A <code>vulkan-subgroup64</code> profile
-        uses six complete subgroups and one with sixteen active invocations. Vulkan dispatch is
-        rounded to the configured workgroup size, and Rake's generated bounds predicate prevents
-        padded invocations from touching memory or performing unsafe partial operations.
+        The dataset contains 400 particle elements. One GPU rack covers one logical subgroup's
+        worth of those elements, with one element assigned to each active invocation. A
+        <code>vulkan-subgroup32</code> profile therefore traverses the dataset as twelve complete
+        racks and one rack with sixteen active invocations. A <code>vulkan-subgroup64</code> profile
+        uses six complete racks and one with sixteen active invocations. Vulkan dispatch is rounded
+        to the configured workgroup size, and Rake's generated bounds predicate prevents padded
+        invocations from touching memory or performing unsafe partial operations.
       </p>
       <div class="table-scroll">
         <table class="vocab-table target-table">
@@ -688,7 +699,13 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
         <a class="evidence-link" href="https://cmake.org/cmake/help/latest/envvar/ISPC.html">CMake ISPC language support →</a>
       </p>
 
-      <h3>The same particle kernel in two idioms</h3>
+      <h3>How the shared model looks in source</h3>
+      <p>
+        ISPC's deployments establish that explicit lane-parallel programming is practical. The
+        next example compares how ISPC and Rake express the same operation over every particle in
+        a structure-of-arrays dataset. ISPC traverses the columns in compile-time gangs, while
+        Rake traverses them in target-sized racks.
+      </p>
       <div class="syntax-pair">
         <div>
           <h4>ISPC: imperative SPMD</h4>
@@ -807,10 +824,10 @@ run advance_x
     <section id="principles">
       <h2>Lane choices, written directly</h2>
       <p>
-        Rake is an experimental vector-first language for CPU SIMD. A <strong>rack</strong>
-        is a fixed-width native vector. Every live rack must occupy one physical SIMD
-        register of the target's vector class. Compilation fails when that contract cannot
-        be met.
+        Rake's comparisons describe where the language sits among related systems. Within Rake's
+        own lane model, a <strong>rack</strong> is a fixed-width native vector. Every live rack must
+        occupy one physical SIMD register of the target's vector class. Compilation fails when
+        that contract cannot be met.
       </p>
       <div class="ascii-diagram">            ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓   logical rack lanes
 ════════════════════════════════════
@@ -838,10 +855,10 @@ run advance_x
     <section id="syntax">
       <h2>Checked syntax tour</h2>
       <p>
-        These complete examples come from Rake's checked conformance corpus. The test suite
-        compares this page with the named source regions and checks each example with the
-        compiler frontend. Examples supported by the native AVX2 backend also pass object-code
-        verification.
+        Rake's lane vocabulary becomes concrete in complete programs. These examples come from
+        Rake's checked conformance corpus. The test suite compares this page with the named source
+        regions and checks each example with the compiler frontend. Examples supported by the
+        native AVX2 backend also pass object-code verification.
       </p>
 
       <h3>Crunch: uniform rack arithmetic</h3>
@@ -913,6 +930,11 @@ run scale_values (input : Samples pack) (&lt;count&gt; : int64)
 
     <section id="status">
       <h2>What this alpha ships</h2>
+      <p>
+        The syntax tour includes both native-backed programs and forms that stop after frontend
+        checking. This table separates those implementation stages from targets that remain design
+        work.
+      </p>
       <table class="vocab-table">
         <tr><th>Area</th><th>0.3.0-alpha.1 status</th></tr>
         <tr><td>Native CPU</td><td>Rake-owned x86-64 AVX2 and AArch64 NEON backends for supported <code>crunch</code> and predicated <code>rake</code> programs, including uniform f32 parameters, no-spill allocation, textual assembly, and post-assembly verification</td></tr>
