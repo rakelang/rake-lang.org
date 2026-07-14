@@ -6,6 +6,14 @@
   <title>Rake — SIMD the compiler must prove</title>
   <meta name="description" content="Rake is a vector-first language that either preserves the promised native SIMD machine shape or rejects the program with a compiler error.">
   <link rel="canonical" href="https://rake-lang.org/">
+  <meta property="og:title" content="Rake — SIMD the compiler must prove">
+  <meta property="og:description" content="Rake is a vector-first language that either preserves the promised native SIMD machine shape or rejects the program with a compiler error.">
+  <meta property="og:url" content="https://rake-lang.org/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/wallpaper.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="wallpaper.png" type="image/png">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a vector-first language that either preserves the promised native SIMD machine shape or rejects the program with a compiler error.","applicationCategory":"DeveloperApplication","operatingSystem":"Cross-platform"}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
@@ -449,32 +457,35 @@
       <p>
         Compute kernels often store each field in its own contiguous column, a layout called a
         <strong>structure of arrays</strong>. One rack is one target-sized chunk of one such
-        column: four <code>float</code> positions on 128-bit SSE2 or Arm NEON, eight on 256-bit
+        column: four <code>f32</code> positions on 128-bit SSE2 or Arm NEON, eight on 256-bit
         AVX2, or sixteen on 512-bit AVX-512. A <strong>stack</strong> declares the columns in the
         dataset. A <strong>pack</strong> connects that declaration to the complete columns and
         their element count, and <code>over</code> traverses the pack one rack at a time.
       </p>
       <p>
-        The caller supplies two contiguous <code>float</code> columns and a runtime count.
+        The caller supplies two contiguous <code>f32</code> columns, one dense <code>u8</code>
+        age column, and a runtime count.
         The <code>Particles</code> stack below declares their columnar schema; the pack connects
         that schema to the complete 400-particle storage. On each iteration, <code>particle.position_x</code>
         and <code>particle.velocity_x</code> are racks containing the current target-width chunk.
-        The source never names a CPU-specific vector function or width.
+        The narrower age column requires an explicit <code>widen</code> before computation. The
+        source never names a CPU-specific vector function or lane count.
       </p>
       <div class="code-block">
 <pre>stack Particles {
-  position_x: float rack,
-  velocity_x: float rack
+  f32: position_x, velocity_x;
+  u8: age;
 }
 
-run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
-              (&lt;dt&gt; : float) -&gt; result:
-  over particles, &lt;count&gt; |&gt; particle:
+run advance_x (particles : Particles pack) (&lt;count&gt; : i64)
+              (&lt;dt&gt; : f32) -&gt; result:
+  over particles by f32s, &lt;count&gt; |&gt; particle:
+    let ages: u32s = widen(particle.age)
     particle.position_x + particle.velocity_x * &lt;dt&gt;</pre>
       </div>
       <p>
         Compiling the same source for a named profile chooses the rack width. Four hundred
-        <code>float</code> values divide exactly, so no tail is needed:
+        <code>f32</code> values divide exactly, so no tail is needed:
       </p>
       <table class="vocab-table target-table">
         <tr><th>Target profile</th><th>Float lanes per rack</th><th>400-particle traversal</th></tr>
@@ -603,7 +614,7 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
                      ↓     ↓
     sweep:           &lt;     &lt;         total per-lane result</div>
       <ul class="principles-list">
-        <li><strong>Rack width follows the target</strong> — AVX2 float racks have eight lanes and NEON float racks have four</li>
+        <li><strong>Rack width follows the target</strong> — AVX2 <code>f32s</code> racks have eight lanes and NEON <code>f32s</code> racks have four</li>
         <li><strong>Scalar broadcasts are visible</strong> — angle brackets distinguish scalar values from racks</li>
         <li><strong>Inactive lanes are specified as safe</strong> — an operation valid only for some inputs, such as square root, receives benign operands in lanes where it should not run</li>
         <li><strong>Fusion is enforced</strong> — a region promised as one uninterrupted vector computation admits only operations the backend can keep contiguous and call-free</li>
@@ -678,9 +689,11 @@ rake safe_root values -&gt; result:
       <h3>Run: stack, pack, and over</h3>
       <p>
         <strong>Parser and type checker only in this alpha.</strong>
-        A <code>stack</code> names float-rack columns. A <code>pack</code> supplies those
-        columns to <code>run</code>, and <code>over</code> processes logical-width chunks.
-        Those early compiler stages check the declarations and loop shape. Native memory
+        A <code>stack</code> groups columns by their compact storage types. A <code>pack</code>
+        supplies the complete columns to <code>run</code>, and <code>over … by f32s</code>
+        selects one physical rack and its logical lane count. A narrower column cannot enter
+        arithmetic until <code>widen</code> converts its values while preserving that lane count.
+        Those early compiler stages check the declarations, widening, and loop shape. Native memory
         traversal, safe final partial racks, and the machine-level convention for calling the
         function from C—its ABI—are still under construction.
       </p>
@@ -688,12 +701,14 @@ rake safe_root values -&gt; result:
 <!-- rake-example:pack-over:start -->
 <pre data-rake-example="pack-over">
 stack Samples {
-  value: float rack
+  f32: value;
+  u8: quality;
 }
 
-run scale_values (input : Samples pack) (&lt;count&gt; : int64)
-                 (&lt;scale&gt; : float) -&gt; result:
-  over input, &lt;count&gt; |&gt; chunk:
+run scale_values (input : Samples pack) (&lt;count&gt; : i64)
+                 (&lt;scale&gt; : f32) -&gt; result:
+  over input by f32s, &lt;count&gt; |&gt; chunk:
+    let quality: u32s = widen(chunk.quality)
     chunk.value * &lt;scale&gt;
 </pre>
 <!-- rake-example:pack-over:end -->
@@ -707,6 +722,7 @@ run scale_values (input : Samples pack) (&lt;count&gt; : int64)
           <div><dt>YMM register</dt><dd>A 256-bit x86 register used by AVX and AVX2 instructions. One YMM register can hold eight 32-bit floats.</dd></div>
           <div><dt>Object code</dt><dd>Encoded machine instructions and data ready for a linker to place into an executable or library.</dd></div>
           <div><dt>ABI</dt><dd>Application binary interface: the machine-level rules for passing arguments, returning values, laying out data, and calling compiled functions.</dd></div>
+          <div><dt>Widening</dt><dd>Converting compact stored elements such as <code>u8</code> into larger compute lanes such as <code>u32s</code> while preserving their numerical values.</dd></div>
           <div><dt>Conformance corpus</dt><dd>A collection of accepted and rejected example programs used to check that the compiler and documentation follow the stated language rules.</dd></div>
         </dl>
       </aside>
@@ -757,15 +773,14 @@ run scale_values (input : Samples pack) (&lt;count&gt; : int64)
         <div>
           <h4>Rake: expression-oriented dataflow</h4>
           <div class="code-block"><pre>stack Particles {
-  position_x: float rack,
-  velocity_x: float rack
+  f32: position_x, velocity_x;
 }
 
 run advance_x
     (particles : Particles pack)
-    (&lt;count&gt; : int64) (&lt;dt&gt; : float)
+    (&lt;count&gt; : i64) (&lt;dt&gt; : f32)
     -&gt; result:
-  over particles, &lt;count&gt; |&gt; particle:
+  over particles by f32s, &lt;count&gt; |&gt; particle:
     particle.position_x
       + particle.velocity_x * &lt;dt&gt;</pre></div>
         </div>
