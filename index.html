@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rake - Vector-first SIMD Programming</title>
-  <meta name="description" content="A programming language where vectors are primitive. Write clean code, get full SIMD performance.">
+  <title>Rake — SIMD the compiler must prove</title>
+  <meta name="description" content="Rake is a vector-first language that either preserves the promised native SIMD machine shape or rejects the program with a compiler error.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #1e1410;
@@ -62,6 +62,9 @@
     .tagline {
       font-size: 1.125rem;
       color: var(--text-dim);
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
     }
     .alpha-badge {
       display: inline-block;
@@ -173,6 +176,110 @@
       color: var(--sand);
     }
 
+    .contract-lede {
+      max-width: 720px;
+      color: var(--sand-light);
+      font-size: 1.15rem;
+      line-height: 1.65;
+    }
+    .contract-rule {
+      margin: 28px 0;
+      padding: 20px 0;
+      border-top: 1px solid rgba(224, 192, 144, 0.25);
+      border-bottom: 1px solid rgba(224, 192, 144, 0.25);
+      color: var(--text);
+      font-size: 1.05rem;
+    }
+    .target-table td:nth-child(2),
+    .target-table td:nth-child(3) {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text);
+    }
+    .table-scroll {
+      margin: 20px 0;
+      overflow-x: auto;
+    }
+    .table-scroll .vocab-table {
+      min-width: 720px;
+      margin: 0;
+    }
+    .guarantee-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 28px;
+      list-style: none;
+      margin: 24px 0 36px;
+    }
+    .guarantee-list li {
+      padding: 16px 0;
+      border-top: 1px solid rgba(212, 165, 116, 0.12);
+      color: var(--text-dim);
+    }
+    .guarantee-list strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--sand);
+    }
+    .rejection-proof {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin: 20px 0 32px;
+    }
+    .rejection-proof > div {
+      padding-top: 16px;
+      border-top: 2px solid var(--sand-dim);
+    }
+    .rejection-proof > div:last-child {
+      border-color: var(--rust);
+    }
+    .rejection-proof h4 {
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .syntax-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin: 24px 0 36px;
+    }
+    .syntax-pair > div {
+      min-width: 0;
+      padding-top: 16px;
+      border-top: 2px solid var(--sand-dim);
+    }
+    .syntax-pair > div:last-child {
+      border-color: var(--rust);
+    }
+    .syntax-pair h4 {
+      margin-bottom: 10px;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .syntax-pair .code-block {
+      height: calc(100% - 34px);
+      margin: 0;
+    }
+    .rejection-proof p {
+      font-size: 0.9rem;
+    }
+    .diagnostic {
+      color: var(--rust);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+    }
+    .evidence-link {
+      display: inline-block;
+      color: var(--sand-light);
+      text-decoration: none;
+      border-bottom: 1px solid var(--sand-dim);
+    }
+    .evidence-link:hover {
+      color: var(--text);
+      border-color: var(--sand-light);
+    }
+
     .ascii-diagram {
       background: var(--bg-code);
       border-radius: 8px;
@@ -237,11 +344,27 @@
     footer a:hover {
       color: var(--sand);
     }
+    .project-credit {
+      margin-top: 10px;
+      color: var(--comment);
+      font-size: 0.8rem;
+    }
+    .project-credit a {
+      border-bottom: 1px solid rgba(224, 192, 144, 0.3);
+      color: var(--sand-dim);
+    }
+    .project-credit a:hover {
+      border-color: var(--sand);
+    }
+    .project-credit .divider {
+      color: var(--rust);
+    }
 
     @media (max-width: 640px) {
       .hero h1 { font-size: 1.75rem; }
       .tagline { font-size: 1rem; }
       nav a { display: block; margin: 8px 0; }
+      .guarantee-list, .rejection-proof, .syntax-pair { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -250,181 +373,500 @@
     <div class="hero">
       <img src="wallpaper.png" alt="Rake" class="hero-image">
       <div class="hero-content">
-        <h1>Rake <span class="alpha-badge">ALPHA</span></h1>
-        <p class="tagline">A vector-first language for CPU SIMD</p>
+        <h1>Rake <span class="alpha-badge" data-release-version="0.3.0-alpha.1">0.3.0-alpha.1 ALPHA</span></h1>
+        <p class="tagline">Write target-sized SIMD once. Get the promised machine shape—or a compiler error.</p>
         <nav>
+          <a href="#contract">Guarantee</a>
+          <a href="#gpu">GPU</a>
+          <a href="#comparisons">Compared</a>
           <a href="#principles">Principles</a>
           <a href="#syntax">Syntax</a>
-          <a href="https://github.com/KaiStarkk/rake-lang">GitHub</a>
+          <a href="#status">Status</a>
+          <a href="https://github.com/rakelang/rake">GitHub</a>
         </nav>
       </div>
     </div>
 
     <div class="warning">
-      <strong>Early development.</strong> Rake is a research language. Syntax and semantics
-      are still evolving. The examples below represent the current implementation.
+      <strong>Alpha release.</strong> Version 0.3.0-alpha.1 coordinates the compiler,
+      Tree-sitter grammar, documentation, and this site. The source language and native
+      calling convention may change incompatibly before a stable release.
     </div>
 
-    <section id="principles">
-      <h2>Principles</h2>
-      <p>
-        Rake is named for its execution model: <strong>data rakes through tine patterns</strong>.
-      </p>
-      <div class="ascii-diagram">            ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓   (8 lanes of data enter)
-════════════════════════════════════
-|  tine A |███░░░███░░░███░░░██████| (some lanes blocked)
-════════════════════════════════════
-               ↓     ↓     ↓         (survivors continue)
-═══════════════════════════════════
-|  tine B |░░░███░░░░░░███░░░░░░███| (different pattern)
-═══════════════════════════════════
-                     ↓     ↓         (fewer survivors)
-    sweep:           &lt;     &lt;         (collect results)</div>
-      <p>
-        Each <strong>tine</strong> is a horizontal barrier—the teeth of a rake—that filters lanes.
-        Data flows downward through tine declarations. Results are swept up at the end.
+    <section id="contract">
+      <h2>SIMD the compiler must prove</h2>
+      <p class="contract-lede">
+        Rake makes machine-level vector properties part of compilation success. An accepted
+        native program keeps each live <strong>rack</strong> in one physical SIMD register.
+        Supported fused regions stay packed, call-free, and spill-free. If the selected target
+        cannot preserve those properties, the compiler rejects the source and identifies the
+        failed obligation.
       </p>
 
-      <h3>Core Thesis</h3>
+      <div class="contract-rule">
+        C and Rust can produce excellent SIMD. Rake additionally makes the required SIMD shape
+        a language contract, so checking disassembly is evidence of conformance rather than the
+        only way to discover whether vectorization survived compilation.
+      </div>
+
+      <h3>One 400-particle structure-of-arrays kernel</h3>
       <p>
-        Auto-vectorization fails on divergent code. Traditional <code>if/else</code> branches
-        cannot map efficiently to SIMD because different lanes need different code paths.
-        Rake inverts the model:
+        The caller supplies two contiguous <code>float</code> columns and a runtime count.
+        The <code>stack</code> declares the columnar schema; the <code>pack</code> connects that
+        schema to storage. The source never names an intrinsic width.
       </p>
-      <ul class="principles-list">
-        <li><strong>Tines declare masks</strong> — boolean vectors defining which lanes are active</li>
-        <li><strong>Through blocks execute under masks</strong> — all lanes compute, mask selects results</li>
-        <li><strong>Sweep collects results</strong> — lanes merge based on which tines they passed</li>
-      </ul>
-      <p>This is SIMD semantics made explicit in the language.</p>
+      <div class="code-block">
+<pre>stack Particles {
+  position_x: float rack,
+  velocity_x: float rack
+}
 
-      <h3>Design Principles</h3>
-      <ul class="principles-list">
-        <li><strong>Vectors are primitive</strong> — A rack is one SIMD register, not an array</li>
-        <li><strong>Scalars are marked</strong> — <code>&lt;name&gt;</code> broadcasts, preventing accidental confusion</li>
-        <li><strong>Control flow is predication</strong> — No branches; tines create masks, through applies them</li>
-        <li><strong>Data layout is explicit</strong> — <code>stack</code> (SoA) vs <code>single</code> (scalars) is visible</li>
-        <li><strong>Vocabulary matches semantics</strong> — tine, rake, through, sweep reinforce parallel thinking</li>
-      </ul>
-
-      <h3>Vocabulary</h3>
-      <table class="vocab-table">
-        <tr><th>Term</th><th>Meaning</th></tr>
-        <tr><td>rack</td><td>Vector value (one per SIMD lane)</td></tr>
-        <tr><td>tine</td><td>Named mask declaration</td></tr>
-        <tr><td>through</td><td>Masked computation region</td></tr>
-        <tr><td>sweep</td><td>Collect results from tines</td></tr>
-        <tr><td>crunch</td><td>Pure function (all lanes same logic)</td></tr>
-        <tr><td>rake</td><td>Divergent function (lanes may differ)</td></tr>
-        <tr><td>stack</td><td>Structure-of-Arrays type</td></tr>
-        <tr><td>single</td><td>All-scalar configuration struct</td></tr>
-        <tr><td>pack</td><td>Collection of stack chunks</td></tr>
-        <tr><td>over</td><td>Iterate over pack in SIMD-width chunks</td></tr>
+run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
+              (&lt;dt&gt; : float) -&gt; result:
+  over particles, &lt;count&gt; |&gt; particle:
+    particle.position_x + particle.velocity_x * &lt;dt&gt;</pre>
+      </div>
+      <p>
+        Compiling the same source for a named profile chooses the rack width. Four hundred
+        <code>float</code> values divide exactly, so no tail is needed:
+      </p>
+      <table class="vocab-table target-table">
+        <tr><th>Target profile</th><th>Float lanes per rack</th><th>400-particle traversal</th></tr>
+        <tr><td>SSE2 / NEON</td><td>4</td><td>100 racks</td></tr>
+        <tr><td>AVX2</td><td>8</td><td>50 racks</td></tr>
+        <tr><td>AVX-512</td><td>16</td><td>25 racks</td></tr>
       </table>
+      <p>
+        The programmer does not maintain three intrinsic kernels, three loop strides, and three
+        tail paths. Rake compiles separately for each selected target; this is static target
+        specialization rather than runtime dispatch.
+      </p>
+
+      <ul class="guarantee-list">
+        <li><strong>One rack, one register</strong>The backend may not split a rack across registers, narrow it, or represent it in memory.</li>
+        <li><strong>No silent scalar fallback</strong>A native SIMD profile may not turn unsupported rack work into a scalar lane loop.</li>
+        <li><strong>No hidden calls or spills</strong>Accepted fused regions remain inline and within the target's physical register budget.</li>
+        <li><strong>Predication stays vector</strong>Lane choices use masks and blends, with safe inactive operands and no per-lane branches.</li>
+        <li><strong>Widths follow the profile</strong>The element type and named target determine the lane count; source code does not hard-code it.</li>
+        <li><strong>Object code is checked</strong>Post-allocation machine IR and disassembly verify the properties claimed by the compiler.</li>
+      </ul>
+
+      <h3>The useful failure is a compiler error</h3>
+      <p>
+        Consider a rack-wide sine operation when the backend has no compliant packed sine
+        sequence. Ordinary C and Rust compilation can accept the source and emit scalar library
+        calls. Rake refuses to describe that result as native rack execution.
+      </p>
+      <div class="rejection-proof">
+        <div>
+          <h4>C or Rust</h4>
+          <p>The program compiles. Under the strict comparison build, the resulting loop contains scalar <code>sinf</code> calls. A different toolchain or flag set may make a different choice.</p>
+        </div>
+        <div>
+          <h4>Rake</h4>
+          <p>The frontend understands <code>sin(values)</code>, but native emission stops before assembly.</p>
+          <p class="diagnostic">call to 'sin' is not supported by native crunch lowering</p>
+        </div>
+      </div>
+
+      <h3>The contract C, Rust, and SIMD crates do not provide</h3>
+      <table class="vocab-table">
+        <tr><th>Approach</th><th>What remains the programmer's responsibility</th></tr>
+        <tr><td>C / Rust scalar loop</td><td>Confirm that autovectorization happened, used the intended width, avoided helper calls, and did not regress after a source or compiler change.</td></tr>
+        <tr><td>SIMD crates</td><td>Portable vector types can remove some target-specific syntax, but they do not ordinarily make Rake's combined one-register, no-spill, no-call, and no-scalarization contract a condition of compilation.</td></tr>
+        <tr><td>C / Rust intrinsics</td><td>Maintain target-width implementations and dispatch. Intrinsics request vector operations, while the compiler still owns register allocation and may spill intermediate vectors.</td></tr>
+        <tr><td>Rake native profile</td><td>Select the target profile. The compiler either proves the advertised machine properties or rejects the program.</td></tr>
+      </table>
+
+      <div class="warning">
+        <strong>Current alpha boundary.</strong> The AVX2 and NEON backends enforce the native-rack
+        contract for their supported register-level kernels. Native <code>run</code>/<code>pack</code>
+        traversal and the SSE2 and AVX-512 backends are still under construction, so the complete
+        400-particle example is currently frontend-checked rather than an end-to-end native claim.
+      </div>
+      <p>
+        <a class="evidence-link" href="https://github.com/rakelang/rake/tree/main/demo/soa-proof">Inspect and run the C, Rust, and Rake proof harness →</a>
+      </p>
+    </section>
+
+    <section id="gpu">
+      <h2>GPU compute: where the guarantee ends</h2>
+      <p class="contract-lede">
+        Rake can carry its fail-closed philosophy into GPU compute, but the CPU promise cannot be
+        copied word for word. A CPU rack is one value held in one SIMD register. A GPU rack would
+        be one logical subgroup distributed across many shader invocations, with one lane of data
+        owned by each invocation.
+      </p>
+
+      <h3>SPIR-V defines the portable boundary</h3>
+
+      <div class="ascii-diagram">Rake source semantics
+        │
+        ├── CPU profile ── target MIR ── register allocation ── assembly ── native object
+        │                                  Rake controls and verifies ────────────────┘
+        │
+        └── GPU profile ── validated SPIR-V ── Vulkan driver ── device-specific GPU ISA
+                              Rake proves ───┘    driver controls ────────────────┘</div>
+
+      <h3>A GPU rack maps to a subgroup</h3>
+      <p>
+        A SPIR-V vector is normally a small two-, three-, or four-component value inside one
+        shader invocation. A Vulkan subgroup is a set of invocations that can exchange data and
+        execute collective operations efficiently. Hardware commonly executes those invocations
+        together as a wave or warp, although Vulkan defines subgroup behavior rather than a
+        vendor instruction format.
+      </p>
+      <p>
+        A Rake GPU profile should map one logical rack lane to one subgroup invocation. Rack
+        addition then becomes one scalar addition in every invocation. A rack reduction becomes
+        a SPIR-V subgroup reduction. A shuffle becomes a subgroup shuffle. Tines become explicit
+        per-invocation predicates. Treating a 32-lane rack as <code>OpTypeVector 32</code> would
+        describe the wrong execution model.
+      </p>
+      <div class="table-scroll">
+        <table class="vocab-table">
+          <tr><th>Property</th><th>CPU rack</th><th>GPU rack</th></tr>
+          <tr><td>Physical interpretation</td><td>One native SIMD register</td><td>One logical subgroup spread across shader invocations</td></tr>
+          <tr><td>Lane storage</td><td>One component of the register</td><td>One scalar value owned by each invocation</td></tr>
+          <tr><td>Width selection</td><td>Element type and CPU profile</td><td>Required subgroup size in the Vulkan pipeline profile</td></tr>
+          <tr><td>Portable evidence</td><td>Allocated machine IR and object disassembly</td><td>Validated SPIR-V, declared capabilities, and pipeline requirements</td></tr>
+          <tr><td>Final register allocation</td><td>Owned by Rake</td><td>Owned by the Vulkan driver</td></tr>
+        </table>
+      </div>
+
+      <h3>The 400-particle SoA kernel on a GPU</h3>
+      <p>
+        The particle source still describes 400 logical lanes of SoA work. A
+        <code>vulkan-subgroup32</code> profile divides that work into twelve complete subgroups
+        and one subgroup with sixteen active invocations. A <code>vulkan-subgroup64</code> profile
+        uses six complete subgroups and one with sixteen active invocations. Vulkan dispatch is
+        rounded to the configured workgroup size, and Rake's generated bounds predicate prevents
+        padded invocations from touching memory or performing unsafe partial operations.
+      </p>
+      <div class="table-scroll">
+        <table class="vocab-table target-table">
+          <tr><th>Selected profile</th><th>Logical rack width</th><th>400-particle decomposition</th></tr>
+          <tr><td>x86-avx2</td><td>8 values</td><td>50 complete racks</td></tr>
+          <tr><td>vulkan-subgroup32</td><td>32 invocations</td><td>12 complete + 16 active</td></tr>
+          <tr><td>vulkan-subgroup64</td><td>64 invocations</td><td>6 complete + 16 active</td></tr>
+        </table>
+      </div>
+
+      <h3>What Rake could guarantee before the driver</h3>
+      <p>
+        A named Vulkan profile would include a SPIR-V version, required Vulkan features,
+        subgroup width, floating-point modes, memory model, and permitted operation set. Pipeline
+        creation would check the physical device and reject a profile whose required subgroup
+        size or capabilities are unavailable.
+      </p>
+      <ul class="guarantee-list">
+        <li><strong>Fixed logical subgroup width</strong>The runtime requests the profile's subgroup size and refuses an incompatible device or shader stage.</li>
+        <li><strong>No generated lane loop</strong>Rack arithmetic remains distributed across invocations rather than becoming a loop over logical lanes.</li>
+        <li><strong>Subgroup collectives stay explicit</strong>Reductions, shuffles, ballots, and broadcasts use SPIR-V subgroup operations instead of generated workgroup-memory algorithms.</li>
+        <li><strong>Uniformity is typed</strong>Rake distinguishes one value shared by the subgroup from one value per invocation and rejects invalid crossings.</li>
+        <li><strong>Inactive invocations are safe</strong>Tail predicates and benign operands prevent out-of-bounds memory access and exceptional inactive-lane arithmetic.</li>
+        <li><strong>Memory intent is inspectable</strong>Adjacent lane IDs address adjacent SoA elements; the generated SPIR-V exposes that address calculation for validation.</li>
+        <li><strong>Capabilities are fail-closed</strong>An unavailable operation or required execution mode produces a source-located error instead of an unadvertised fallback.</li>
+        <li><strong>The module is mechanically checked</strong>SPIR-V validation and Rake-specific structural checks run before the shader reaches Vulkan.</li>
+      </ul>
+
+      <h3>What portable SPIR-V cannot guarantee</h3>
+      <p>
+        Vulkan drivers compile SPIR-V into device-specific executables during pipeline creation.
+        The driver may change instruction selection, schedule operations, allocate registers, or
+        spill values. Consequently a portable Rake SPIR-V profile cannot promise any of the
+        following properties solely from the emitted module:
+      </p>
+      <ul class="principles-list">
+        <li><strong>No physical register spills</strong> — SPIR-V identifiers do not prescribe GPU registers</li>
+        <li><strong>One operation, one instruction</strong> — subgroup and arithmetic operations may expand or combine</li>
+        <li><strong>A fixed register count or occupancy</strong> — those depend on the device compiler and complete pipeline</li>
+        <li><strong>One coalesced memory transaction</strong> — Rake can prove adjacent addresses, while hardware decides transactions and caching</li>
+        <li><strong>Identical code across driver versions</strong> — the same SPIR-V may produce different device executables</li>
+      </ul>
+
+      <h3>A stronger device-certified mode</h3>
+      <p>
+        Rake could recover a stronger guarantee for a named physical device and driver. A
+        certification tool would create the Vulkan pipeline, capture executable statistics and
+        any exposed internal representation, and apply a vendor-specific checker for spills,
+        register use, helper code, and prohibited instructions. The certificate would bind the
+        SPIR-V hash, pipeline state, device identity, driver version, subgroup size, and checker
+        version.
+      </p>
+      <p>
+        Vulkan exposes pipeline executable statistics and internal representations through an
+        optional developer-tools extension. Those representations are implementation-dependent
+        and may include final shader assembly. A missing extension or unavailable assembly would
+        make certification fail rather than weaken the claim. The resulting certificate would
+        prove properties for one device and driver combination; it would not extend to every
+        device that accepts the SPIR-V module.
+      </p>
+
+      <h3>Why use Rake for GPU kernels?</h3>
+      <p>
+        GLSL, HLSL, ISPC, and other shader compilers can emit excellent SPIR-V, including the
+        subgroup operations described above. Rake's prospective advantage is the compilation
+        contract around those operations: the same lane semantics used for CPU racks, explicit
+        SoA traversal and predication, named reproducible GPU profiles, and rejection whenever
+        the emitted SPIR-V cannot preserve the selected profile.
+      </p>
+      <p>
+        Rake's combined contract would let one kernel express CPU SIMD and GPU subgroup execution without
+        relying on CPU autovectorization or accepting silent GPU emulation. The advantage comes
+        from validation and refusal. SPIR-V already has the necessary expressive capability.
+      </p>
+
+      <div class="warning">
+        <strong>Proposed GPU contract.</strong> Rake does not currently have a production SPIR-V
+        backend, Vulkan runtime profile, or device-certification pipeline. The GPU contract becomes
+        a real advantage only after those components have executable semantics, negative tests,
+        SPIR-V inspection, device fixtures, and published evidence.
+      </div>
+      <p>
+        <a class="evidence-link" href="https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html">SPIR-V specification →</a>
+        &nbsp;&nbsp;
+        <a class="evidence-link" href="https://docs.vulkan.org/guide/latest/subgroups.html">Vulkan subgroup model →</a>
+        &nbsp;&nbsp;
+        <a class="evidence-link" href="https://docs.vulkan.org/refpages/latest/refpages/source/VK_KHR_pipeline_executable_properties.html">Pipeline executable inspection →</a>
+      </p>
+    </section>
+
+    <section id="comparisons">
+      <h2>Rake and ISPC: two approaches to explicit lane-parallel code</h2>
+      <p class="contract-lede">
+        Intel ISPC and Rake belong to the same useful language family. Both let programmers write
+        one program for a compile-time group of lanes and retarget that program across hardware
+        widths. ISPC presents the model through a mature, imperative C-family SPMD language.
+        Rake explores an expression-oriented, dataflow-heavy syntax with a stricter compile-or-
+        reject machine contract. More than one good design for this problem is an advantage for
+        systems programmers.
+      </p>
+
+      <h3>The same particle kernel in two idioms</h3>
+      <div class="syntax-pair">
+        <div>
+          <h4>ISPC: imperative SPMD</h4>
+          <div class="code-block"><pre>export void advance_x(
+    uniform float position_x[],
+    uniform float velocity_x[],
+    uniform float output_x[],
+    uniform int count,
+    uniform float dt) {
+  foreach (i = 0 ... count)
+    output_x[i] = position_x[i]
+                + velocity_x[i] * dt;
+}</pre></div>
+        </div>
+        <div>
+          <h4>Rake: expression-oriented dataflow</h4>
+          <div class="code-block"><pre>stack Particles {
+  position_x: float rack,
+  velocity_x: float rack
+}
+
+run advance_x
+    (particles : Particles pack)
+    (&lt;count&gt; : int64) (&lt;dt&gt; : float)
+    -&gt; result:
+  over particles, &lt;count&gt; |&gt; particle:
+    particle.position_x
+      + particle.velocity_x * &lt;dt&gt;</pre></div>
+        </div>
+      </div>
+      <p>
+        ISPC keeps the familiar loop, index, assignment, pointer, and C interoperability model.
+        Values inside the gang are varying unless marked <code>uniform</code>. Rake moves the
+        traversal and columnar schema into <code>over</code>, <code>pack</code>, and
+        <code>stack</code>, while angle brackets mark scalar values. Rake's core vector forms
+        favor pure expressions and SSA-like bindings, although Rake is not defined as a purely
+        functional language.
+      </p>
+
+      <h3>A substantial shared foundation</h3>
+      <ul class="guarantee-list">
+        <li><strong>Explicit lane-parallel semantics</strong>Source code describes a group of program instances instead of asking a scalar-loop optimizer to discover SIMD.</li>
+        <li><strong>Target-selected width</strong>One source can be compiled for several lane counts chosen by the target.</li>
+        <li><strong>Uniform and varying data</strong>Both languages distinguish values shared across the group from values owned by individual lanes.</li>
+        <li><strong>Masked divergent execution</strong>Different lanes may follow different logical paths under an execution mask.</li>
+        <li><strong>First-class SoA support</strong>Both languages provide syntax and types for columnar data layouts.</li>
+        <li><strong>CPU and GPU intent</strong>ISPC ships CPU and Intel GPU targets; Rake's design aims to carry one lane model across CPU SIMD and Vulkan subgroups.</li>
+      </ul>
+
+      <h3>Deliberate differences</h3>
+      <div class="table-scroll">
+        <table class="vocab-table">
+          <tr><th>Design choice</th><th>ISPC</th><th>Rake</th></tr>
+          <tr><td>Syntax and mental model</td><td>Imperative C-family SPMD with loops, assignments, pointers, functions, and familiar control flow.</td><td>Expression-oriented vector dataflow with explicit scalar markers, fused bindings, tines, through blocks, and total sweeps.</td></tr>
+          <tr><td>Parallel unit</td><td>A gang of program instances. The selected gang may be wider than one native CPU vector.</td><td>A CPU rack is exactly one native vector register; a proposed GPU rack is exactly one logical subgroup.</td></tr>
+          <tr><td>SoA model</td><td><code>soa&lt;n&gt;</code> creates an explicitly <code>n</code>-wide SoA representation and supports layout conversion.</td><td><code>stack</code> declares columns; <code>pack</code> supplies runtime storage and count; the target profile selects the traversal width.</td></tr>
+          <tr><td>Divergence vocabulary</td><td>Ordinary <code>if</code>, loops, and function calls acquire uniform or varying behavior from their operands.</td><td>Named tines expose masks; safe <code>through</code> blocks produce candidates; a total <code>sweep</code> selects each lane's result.</td></tr>
+          <tr><td>CPU machine contract</td><td>ISPC preserves gang semantics while LLVM owns instruction selection and register allocation.</td><td>Rake additionally rejects splitting, scalar lane loops, rack spills, and helper calls wherever the selected profile forbids them.</td></tr>
+          <tr><td>Backend strategy</td><td>LLVM-based native CPU compilation plus documented Intel Xe SPIR-V and native-binary targets.</td><td>Rake-owned CPU instruction selection and allocation; a proposed cross-vendor Vulkan SPIR-V backend with a separate driver trust boundary.</td></tr>
+          <tr><td>Maturity</td><td>Established production compiler, broad language, C/C++ interoperability, tasking, libraries, tools, and deployed CPU/GPU targets.</td><td>Experimental alpha with verified AVX2 and NEON register-level slices; pack traversal, broader CPU profiles, and SPIR-V remain unfinished.</td></tr>
+        </table>
+      </div>
+      <p>
+        <a class="evidence-link" href="https://ispc.github.io/ispc.html">ISPC language and target guide →</a>
+        &nbsp;&nbsp;
+        <a class="evidence-link" href="https://ispc.github.io/ispc_for_xe.html">ISPC for Intel Xe →</a>
+      </p>
+
+      <div class="contract-rule">
+        <strong>Choose ISPC today</strong> for a mature C-family SPMD language, excellent CPU SIMD,
+        close C/C++ integration, and shipped Intel GPU support. <strong>Explore Rake</strong> for
+        expression-oriented vector code, explicit predication vocabulary, and a compiler contract
+        designed to reject machine-shape violations. Rake's stricter CPU contract is implemented
+        for its admitted AVX2 and NEON slices. Rake's cross-vendor GPU proposition remains a design
+        goal until its SPIR-V backend and Vulkan evidence gates ship.
+      </div>
+    </section>
+
+    <section id="principles">
+      <h2>Lane choices, written directly</h2>
+      <p>
+        Rake is an experimental vector-first language for CPU SIMD. A <strong>rack</strong>
+        is a fixed-width native vector. Every live rack must occupy one physical SIMD
+        register of the target's vector class. Compilation fails when that contract cannot
+        be met.
+      </p>
+      <div class="ascii-diagram">            ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓   logical rack lanes
+════════════════════════════════════
+|  tine A |███░░░███░░░███░░░██████| named lane mask
+════════════════════════════════════
+               ↓     ↓     ↓
+═══════════════════════════════════
+|  tine B |░░░███░░░░░░███░░░░░░███| another candidate
+═══════════════════════════════════
+                     ↓     ↓
+    sweep:           &lt;     &lt;         total per-lane result</div>
+      <p>
+        A <strong>tine</strong> names a boolean lane mask. A <strong>through</strong> block
+        computes a candidate under that mask. A <strong>sweep</strong> selects the first
+        matching candidate and requires a final catch-all value for every other lane.
+      </p>
+      <ul class="principles-list">
+        <li><strong>Rack width follows the target</strong> — AVX2 float racks have eight lanes and NEON float racks have four</li>
+        <li><strong>Scalar broadcasts are visible</strong> — angle brackets distinguish scalar values from racks</li>
+        <li><strong>Inactive lanes are specified as safe</strong> — masked partial operations must receive benign operands before execution</li>
+        <li><strong>Fusion is enforced</strong> — fused regions admit only operations the native backend can keep contiguous and call-free</li>
+      </ul>
     </section>
 
     <section id="syntax">
-      <h2>Syntax</h2>
-
-      <h3>Racks</h3>
+      <h2>Checked syntax tour</h2>
       <p>
-        A <strong>rack</strong> is a vector of values—one per SIMD lane. Arithmetic is lane-wise.
-        <strong>Scalars</strong> use angle brackets to broadcast.
+        These complete examples come from Rake's checked conformance corpus. The test suite
+        compares this page with the named source regions and checks each example with the
+        compiler frontend. Examples supported by the native AVX2 backend also pass object-code
+        verification.
+      </p>
+
+      <h3>Crunch: uniform rack arithmetic</h3>
+      <p>
+        A <code>crunch</code> applies one expression to every lane. Here <code>&lt;0.5&gt;</code>
+        is an explicit scalar broadcast. Each fused binding must satisfy the compiler's
+        pure-SSA contract. This straight-line crunch is accepted by the Rake-owned x86-64
+        AVX2 backend and verified after assembly.
       </p>
       <div class="code-block">
-<pre><span class="keyword">let</span> positions <span class="op">:</span> <span class="type">float rack</span> <span class="op">=</span> load_positions()
-<span class="keyword">let</span> new_pos <span class="op">=</span> positions <span class="op">+</span> velocities <span class="op">*</span> <span class="scalar">&lt;dt&gt;</span></pre>
+<!-- rake-example:crunch:start -->
+<pre data-rake-example="crunch">
+crunch advance positions velocities -&gt; result:
+  | scaled &lt;| velocities * &lt;0.5&gt;
+  | result &lt;| positions + scaled
+</pre>
+<!-- rake-example:crunch:end -->
       </div>
 
-      <h3>Stacks</h3>
+      <h3>Rake: safe masked work and a total sweep</h3>
       <p>
-        A <strong>stack</strong> is a struct in Structure-of-Arrays format. Each field is a rack.
+        <strong>Verified on the AVX2 backend.</strong> The <code>#valid</code> tine guards
+        <code>sqrt</code>, and the final <code>_</code> arm defines all unmatched lanes. Native
+        SSA explicitly replaces inactive operands with benign values before partial
+        operations. The emitted function uses YMM masks and blends without scalar lane
+        branches.
       </p>
       <div class="code-block">
-<pre><span class="keyword">stack</span> <span class="type">Ray</span> {
-  ox<span class="op">:</span> <span class="type">float rack</span>, oy<span class="op">:</span> <span class="type">float rack</span>, oz<span class="op">:</span> <span class="type">float rack</span>,
-  dx<span class="op">:</span> <span class="type">float rack</span>, dy<span class="op">:</span> <span class="type">float rack</span>, dz<span class="op">:</span> <span class="type">float rack</span>
-}</pre>
+<!-- rake-example:safe-through:start -->
+<pre data-rake-example="safe-through">
+rake safe_root values -&gt; result:
+  | #valid := (values &gt;= &lt;0.0&gt;)
+
+  through #valid else &lt;0.0&gt;:
+    sqrt(values)
+  -&gt; rooted
+
+  sweep:
+    | #valid -&gt; rooted
+    | _ -&gt; &lt;0.0&gt;
+  -&gt; result
+</pre>
+<!-- rake-example:safe-through:end -->
       </div>
 
-      <h3>Crunches</h3>
+      <h3>Run: stack, pack, and over</h3>
       <p>
-        A <strong>crunch</strong> is a pure function where all lanes execute identical logic. Always inlined.
+        <strong>Frontend-only in this alpha.</strong>
+        A <code>stack</code> names float-rack columns. A <code>pack</code> supplies those
+        columns to <code>run</code>, and <code>over</code> processes logical-width chunks.
+        The frontend checks the declarations and loop shape. Native memory traversal, safe
+        tails, and the C entry-point ABI are still under construction.
       </p>
       <div class="code-block">
-<pre><span class="keyword">crunch</span> <span class="fn">dot</span> (ax, ay, az, bx, by, bz) <span class="op">-&gt;</span> d<span class="op">:</span>
-  <span class="keyword">let</span> d <span class="op">=</span> ax<span class="op">*</span>bx <span class="op">+</span> ay<span class="op">*</span>by <span class="op">+</span> az<span class="op">*</span>bz
-  d</pre>
-      </div>
+<!-- rake-example:pack-over:start -->
+<pre data-rake-example="pack-over">
+stack Samples {
+  value: float rack
+}
 
-      <h3>Tines</h3>
+run scale_values (input : Samples pack) (&lt;count&gt; : int64)
+                 (&lt;scale&gt; : float) -&gt; result:
+  over input, &lt;count&gt; |&gt; chunk:
+    chunk.value * &lt;scale&gt;
+</pre>
+<!-- rake-example:pack-over:end -->
+      </div>
+    </section>
+
+    <section id="status">
+      <h2>What this alpha ships</h2>
+      <table class="vocab-table">
+        <tr><th>Area</th><th>0.3.0-alpha.1 status</th></tr>
+        <tr><td>Native CPU</td><td>Rake-owned x86-64 AVX2 and AArch64 NEON backends for supported <code>crunch</code> and predicated <code>rake</code> programs, including uniform f32 parameters, no-spill allocation, textual assembly, and post-assembly verification</td></tr>
+        <tr><td>Frontend-only</td><td><code>run</code>, <code>over</code>, stacks, and packs are checked source constructs whose native lowering is unfinished</td></tr>
+        <tr><td>Other targets</td><td>AVX-512, SSE2, and GPU native backends remain unimplemented</td></tr>
+        <tr><td>C boundary</td><td>The tested alpha crunch boundary follows eight SysV SSE-class argument slots; no production <code>run</code> wrapper or stable cross-release ABI yet</td></tr>
+        <tr><td>Performance</td><td>No representative published benchmark or generated-code performance claim</td></tr>
+        <tr><td>Future syntax</td><td>Some forms parse for design work but fail with source-located <code>WIP:</code> diagnostics</td></tr>
+      </table>
       <p>
-        <strong>Tines</strong> are named boolean masks that partition lanes. The <code>#</code> prefix evokes grid lines.
+        The compiler's <code>--print-capabilities</code> report describes the checked frontend
+        contract. The native backend rejects every construct it cannot yet lower without
+        violating rack identity, mask safety, fusion, or no-spill allocation. Explicit FMA
+        is supported in native crunches and predicated rakes. Strict f32 reductions and inclusive
+        scans are supported by AVX2; records, tuples, lane rearrangement, lambdas, and expression
+        pipelines remain unavailable.
       </p>
-      <div class="code-block">
-<pre><span class="op">|</span> <span class="tine">#miss</span>  <span class="op">:=</span> (disc <span class="op">&lt;</span> <span class="scalar">&lt;0.0&gt;</span>)
-<span class="op">|</span> <span class="tine">#maybe</span> <span class="op">:=</span> (<span class="op">!</span><span class="tine">#miss</span>)</pre>
-      </div>
-
-      <h3>Rakes</h3>
-      <p>
-        A <strong>rake</strong> function handles divergent control flow with tines, <strong>through</strong> blocks, and <strong>sweep</strong>.
-      </p>
-      <div class="code-block">
-<pre><span class="keyword">rake</span> <span class="fn">intersect</span> (ray_ox, ray_oy, ray_oz, ray_dx, ray_dy, ray_dz,
-               <span class="scalar">&lt;sphere_cx&gt;</span>, <span class="scalar">&lt;sphere_cy&gt;</span>, <span class="scalar">&lt;sphere_cz&gt;</span>, <span class="scalar">&lt;sphere_r&gt;</span>) <span class="op">-&gt;</span> t_result<span class="op">:</span>
-
-  <span class="keyword">let</span> disc <span class="op">=</span> b <span class="op">*</span> b <span class="op">-</span> <span class="scalar">&lt;4.0&gt;</span> <span class="op">*</span> a <span class="op">*</span> c
-
-  <span class="op">|</span> <span class="tine">#miss</span>  <span class="op">:=</span> (disc <span class="op">&lt;</span> <span class="scalar">&lt;0.0&gt;</span>)
-  <span class="op">|</span> <span class="tine">#maybe</span> <span class="op">:=</span> (<span class="op">!</span><span class="tine">#miss</span>)
-
-  <span class="keyword">through</span> <span class="tine">#maybe</span><span class="op">:</span>
-    <span class="keyword">let</span> sqrt_disc <span class="op">=</span> sqrt(disc)
-    <span class="keyword">let</span> t <span class="op">=</span> (<span class="op">-</span> b <span class="op">-</span> sqrt_disc) <span class="op">/</span> (<span class="scalar">&lt;2.0&gt;</span> <span class="op">*</span> a)
-    t
-  <span class="op">-&gt;</span> t_value
-
-  <span class="keyword">through</span> <span class="tine">#miss</span><span class="op">:</span>
-    <span class="scalar">&lt; -1.0&gt;</span>
-  <span class="op">-&gt;</span> miss_result
-
-  <span class="keyword">sweep</span><span class="op">:</span>
-    <span class="op">|</span> <span class="tine">#miss</span>  <span class="op">-&gt;</span> miss_result
-    <span class="op">|</span> <span class="tine">#maybe</span> <span class="op">-&gt;</span> t_value
-  <span class="op">-&gt;</span> t_result</pre>
-      </div>
-
-      <h3>Packs &amp; Over</h3>
-      <div class="warning">
-        <strong>Experimental.</strong> The <code>over</code> construct is still in flux.
-      </div>
-      <p>
-        A <strong>pack</strong> is a collection of stack data. <strong>over</strong> iterates in SIMD-width chunks.
-      </p>
-      <div class="code-block">
-<pre><span class="keyword">run</span> <span class="fn">render_all</span> (rays <span class="op">:</span> <span class="type">Ray pack</span>, <span class="scalar">&lt;count&gt;</span> <span class="op">:</span> <span class="type">int64</span>) <span class="op">-&gt;</span> result<span class="op">:</span>
-  <span class="keyword">over</span> rays, <span class="scalar">&lt;count&gt;</span> <span class="op">|&gt;</span> ray<span class="op">:</span>
-    <span class="keyword">let</span> t <span class="op">=</span> intersect(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, ...)
-    t</pre>
-      </div>
     </section>
 
     <section>
       <h2>Install</h2>
-      <p>Prerequisites: OCaml 5.0+ with dune, LLVM/MLIR 17+</p>
+      <p>Use the pinned Nix development shell for OCaml, Dune, and the system assembler. These commands build <code>rakec</code> and verify one supported crunch through the native AVX2 object-code gate.</p>
       <div class="install">
-        <span class="prompt">$</span> git clone https://github.com/KaiStarkk/rake-lang<br>
-        <span class="prompt">$</span> cd rake-lang && dune build<br>
-        <span class="prompt">$</span> ./rake examples/demo.rk --emit-mlir
+        <span class="prompt">$</span> git clone https://github.com/rakelang/rake<br>
+        <span class="prompt">$</span> cd rake &amp;&amp; nix develop --command dune build<br>
+        <span class="prompt">$</span> nix develop --command dune exec rakec -- --version<br>
+        <span class="prompt">$</span> nix develop --command dune exec rakec -- --verify-native --target x86-avx2 test/native/docs_crunch.rk
       </div>
     </section>
 
     <footer>
       <p>
         MIT License &middot;
-        <a href="https://github.com/KaiStarkk/rake-lang">GitHub</a>
+        <a href="https://github.com/rakelang/rake">GitHub</a>
       </p>
+      <p class="project-credit">A research project by <a href="https://over-yonder.tech/">over<span class="divider">|</span>yonder&nbsp;↗</a></p>
     </footer>
   </div>
 </body>
