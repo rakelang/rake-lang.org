@@ -160,6 +160,43 @@
       color: var(--warn);
     }
 
+    .background {
+      margin-top: 32px;
+      padding: 14px 18px;
+      border: 1px solid rgba(212, 165, 116, 0.14);
+      border-left: 3px solid var(--sand-dim);
+      border-radius: 6px;
+      background: rgba(224, 192, 144, 0.035);
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+    .background h3 {
+      margin: 0 0 7px;
+      color: var(--sand-dim);
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .background dl {
+      margin: 0;
+    }
+    .background dl > div {
+      display: grid;
+      grid-template-columns: minmax(130px, 0.32fr) 1fr;
+      gap: 14px;
+      padding: 7px 0;
+      border-top: 1px solid rgba(212, 165, 116, 0.08);
+    }
+    .background dt {
+      color: var(--sand-light);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+    }
+    .background dd {
+      color: var(--text-dim);
+    }
+
     .principles-list {
       list-style: none;
       padding: 0;
@@ -365,6 +402,7 @@
       .tagline { font-size: 1rem; }
       nav a { display: block; margin: 8px 0; }
       .guarantee-list, .rejection-proof, .syntax-pair { grid-template-columns: 1fr; }
+      .background dl > div { grid-template-columns: 1fr; gap: 2px; }
     }
   </style>
 </head>
@@ -518,6 +556,19 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
       <p>
         <a class="evidence-link" href="https://github.com/rakelang/rake/tree/main/demo/soa-proof">Inspect and run the C, Rust, and Rake proof harness →</a>
       </p>
+
+      <aside class="background" aria-label="Background">
+        <h3>Background</h3>
+        <dl>
+          <div><dt>SIMD</dt><dd>Single instruction, multiple data: one CPU instruction performs the same operation on several values packed into a vector register.</dd></div>
+          <div><dt>Vector register</dt><dd>Small, fast storage inside a CPU that holds several numbers for one vector instruction to process together.</dd></div>
+          <div><dt>SSE / AVX</dt><dd>Families of x86 vector instructions. The profiles discussed here use 128-bit SSE2, 256-bit AVX2, and 512-bit AVX-512 registers.</dd></div>
+          <div><dt>NEON</dt><dd>Arm's 128-bit vector instruction set, called Advanced SIMD in the 64-bit Arm architecture.</dd></div>
+          <div><dt>Structure of arrays</dt><dd>A layout that stores each field in its own contiguous column. An array of structures instead stores all fields of each record together.</dd></div>
+          <div><dt>Intrinsic</dt><dd>A compiler-provided function that exposes a particular machine operation without requiring the programmer to write assembly.</dd></div>
+          <div><dt>Spill / scalarize</dt><dd>A spill temporarily moves a value from a register into memory. Scalarization replaces one vector operation with separate one-value operations.</dd></div>
+        </dl>
+      </aside>
     </section>
 
     <section id="principles">
@@ -548,6 +599,17 @@ run advance_x (particles : Particles pack) (&lt;count&gt; : int64)
         <li><strong>Inactive lanes are specified as safe</strong> — masked partial operations must receive benign operands before execution</li>
         <li><strong>Fusion is enforced</strong> — fused regions admit only operations the native backend can keep contiguous and call-free</li>
       </ul>
+
+      <aside class="background" aria-label="Background">
+        <h3>Background</h3>
+        <dl>
+          <div><dt>Lane</dt><dd>One element position inside a vector. An eight-lane float vector holds eight independent 32-bit floating-point values.</dd></div>
+          <div><dt>Mask / predication</dt><dd>A mask contains one true-or-false choice per lane. Predicated execution uses that mask to select which lanes contribute a result.</dd></div>
+          <div><dt>Broadcast</dt><dd>Copying one scalar value into every lane of a vector, such as turning <code>0.5</code> into eight copies for AVX2 float arithmetic.</dd></div>
+          <div><dt>Partial operation</dt><dd>An operation that is valid only for some inputs, such as square root on non-negative real numbers.</dd></div>
+          <div><dt>Fused region</dt><dd>A sequence Rake must keep as one contiguous, call-free and spill-free vector computation. A fused multiply-add is a separate machine instruction with a narrower meaning.</dd></div>
+        </dl>
+      </aside>
     </section>
 
     <section id="syntax">
@@ -623,6 +685,18 @@ run scale_values (input : Samples pack) (&lt;count&gt; : int64)
 </pre>
 <!-- rake-example:pack-over:end -->
       </div>
+
+      <aside class="background" aria-label="Background">
+        <h3>Background</h3>
+        <dl>
+          <div><dt>Frontend / backend</dt><dd>The frontend parses and checks source code. The backend selects machine instructions, assigns registers, and emits the target program.</dd></div>
+          <div><dt>SSA</dt><dd>Static single assignment, a compiler representation in which each intermediate value is defined once. It makes data dependencies explicit.</dd></div>
+          <div><dt>YMM register</dt><dd>A 256-bit x86 register used by AVX and AVX2 instructions. One YMM register can hold eight 32-bit floats.</dd></div>
+          <div><dt>Object code</dt><dd>Encoded machine instructions and data ready for a linker to place into an executable or library.</dd></div>
+          <div><dt>ABI</dt><dd>Application binary interface: the machine-level rules for passing arguments, returning values, laying out data, and calling compiled functions.</dd></div>
+          <div><dt>Conformance corpus</dt><dd>A collection of accepted and rejected example programs used to check that the compiler and documentation follow the stated language rules.</dd></div>
+        </dl>
+      </aside>
     </section>
 
     <section id="gpu">
@@ -767,6 +841,19 @@ run scale_values (input : Samples pack) (&lt;count&gt; : int64)
         &nbsp;&nbsp;
         <a class="evidence-link" href="https://docs.vulkan.org/refpages/latest/refpages/source/VK_KHR_pipeline_executable_properties.html">Pipeline executable inspection →</a>
       </p>
+
+      <aside class="background" aria-label="Background">
+        <h3>Background</h3>
+        <dl>
+          <div><dt>GPU compute</dt><dd>Using a graphics processor for general parallel calculations rather than drawing pixels.</dd></div>
+          <div><dt>SPIR-V</dt><dd>A standardized binary instruction format consumed by Vulkan and other compute or graphics systems. A driver later translates it into GPU-native instructions.</dd></div>
+          <div><dt>Vulkan</dt><dd>A cross-platform API for submitting graphics and compute work to GPUs.</dd></div>
+          <div><dt>Driver</dt><dd>Vendor software that translates portable GPU programs into device-specific instructions and schedules them on the hardware.</dd></div>
+          <div><dt>Shader invocation</dt><dd>One logical execution of a GPU program. A compute dispatch normally launches many invocations over different data elements.</dd></div>
+          <div><dt>Subgroup</dt><dd>A set of shader invocations that execute together and can exchange values directly. Vendors also call comparable hardware groups warps or waves.</dd></div>
+          <div><dt>Workgroup</dt><dd>A programmer-declared collection of GPU invocations that may share local memory. A workgroup can contain several hardware subgroups.</dd></div>
+        </dl>
+      </aside>
     </section>
 
     <section id="comparisons">
@@ -921,6 +1008,17 @@ run advance_x
         admitted AVX2 and NEON slices. Pack traversal, broader CPU profiles, and the cross-vendor
         SPIR-V proposition remain unfinished.
       </div>
+
+      <aside class="background" aria-label="Background">
+        <h3>Background</h3>
+        <dl>
+          <div><dt>ISPC</dt><dd>Intel's open-source compiler for a C-like language that runs one program across a group of CPU SIMD lanes.</dd></div>
+          <div><dt>SPMD / SIMT</dt><dd>Single program, multiple data describes many program instances following one source program. GPUs commonly call their hardware execution model single instruction, multiple threads.</dd></div>
+          <div><dt>LLVM</dt><dd>A widely used compiler infrastructure that provides optimization, instruction selection, register allocation, and machine-code generation for many targets.</dd></div>
+          <div><dt>Gather / scatter</dt><dd>Vector operations that load from or store to non-contiguous addresses. They support irregular data access but can cost more than contiguous vector memory operations.</dd></div>
+          <div><dt>Autovectorization</dt><dd>A compiler optimization that discovers vector operations in ordinary scalar loops without an explicit vector programming model in the source.</dd></div>
+        </dl>
+      </aside>
     </section>
 
     <section id="status">
@@ -947,6 +1045,17 @@ run advance_x
         scans are supported by AVX2; records, tuples, lane rearrangement, lambdas, and expression
         pipelines remain unavailable.
       </p>
+
+      <aside class="background" aria-label="Background">
+        <h3>Background</h3>
+        <dl>
+          <div><dt>Alpha release</dt><dd>An early release intended for evaluation. Features, syntax, and binary interfaces can still change incompatibly.</dd></div>
+          <div><dt>SysV ABI</dt><dd>The System V calling convention used by most Unix-like x86-64 systems. It specifies where function arguments and return values are placed.</dd></div>
+          <div><dt>f32</dt><dd>A 32-bit IEEE 754 floating-point number, commonly called <code>float</code> in C.</dd></div>
+          <div><dt>FMA</dt><dd>Fused multiply-add: computes a multiplication and addition as one operation with a single rounding step.</dd></div>
+          <div><dt>Reduction / scan</dt><dd>A reduction combines many lanes into one value. A scan produces every running partial result, such as all prefix sums.</dd></div>
+        </dl>
+      </aside>
     </section>
 
     <section>
@@ -958,6 +1067,16 @@ run advance_x
         <span class="prompt">$</span> nix develop --command dune exec rakec -- --version<br>
         <span class="prompt">$</span> nix develop --command dune exec rakec -- --verify-native --target x86-avx2 test/native/docs_crunch.rk
       </div>
+
+      <aside class="background" aria-label="Background">
+        <h3>Background</h3>
+        <dl>
+          <div><dt>Nix</dt><dd>A package manager and build system. <code>nix develop</code> opens the project with pinned compiler and tool versions.</dd></div>
+          <div><dt>OCaml</dt><dd>The statically typed functional programming language used to implement the Rake compiler.</dd></div>
+          <div><dt>Dune</dt><dd>The build system used by OCaml projects. It compiles Rake and runs its development commands.</dd></div>
+          <div><dt>Assembler</dt><dd>A system tool that converts textual assembly instructions into encoded machine code inside an object file.</dd></div>
+        </dl>
+      </aside>
     </section>
 
     <footer>
