@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rake — SIMD the compiler must prove</title>
-  <meta name="description" content="Rake is a vector-first language that either preserves the promised native SIMD machine shape or rejects the program with a compiler error.">
+  <title>Rake — A vector-first kernel language</title>
+  <meta name="description" content="Rake is an experimental vector-first kernel language with target-specific SIMD profiles and machine-code verification.">
   <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
   <link rel="canonical" href="https://rake-lang.org/">
-  <meta property="og:title" content="Rake — SIMD the compiler must prove">
-  <meta property="og:description" content="Rake is a vector-first language that either preserves the promised native SIMD machine shape or rejects the program with a compiler error.">
+  <meta property="og:title" content="Rake — A vector-first kernel language">
+  <meta property="og:description" content="Rake is an experimental vector-first kernel language with target-specific SIMD profiles and machine-code verification.">
   <meta property="og:url" content="https://rake-lang.org/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/social-card.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="wallpaper.png" type="image/png">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a vector-first language that either preserves the promised native SIMD machine shape or rejects the program with a compiler error.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is an experimental vector-first kernel language with target-specific SIMD profiles and machine-code verification.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
@@ -57,6 +57,7 @@
     .hero-image {
       width: 100%;
       max-width: 400px;
+      height: auto;
       display: block;
       margin: 0 auto;
     }
@@ -440,10 +441,10 @@
       <img src="wallpaper.webp" alt="Rake" class="hero-image" width="1024" height="1536">
       <div class="hero-content">
         <h1>Rake <span class="alpha-badge" data-release-version="0.3.0-alpha.1">0.3.0-alpha.1 ALPHA</span></h1>
-        <p class="tagline">Write one data-parallel kernel for several CPU vector widths. Get the promised machine code—or a compiler error.</p>
+        <p class="tagline">A vector-first kernel language with target-specific SIMD profiles and machine-code verification.</p>
         <nav>
-          <a href="#contract">Guarantee</a>
-          <a href="#principles">Principles</a>
+          <a href="#contract">CPU profiles</a>
+          <a href="#principles">Masks</a>
           <a href="#fusion">Fusion</a>
           <a href="#syntax">Syntax</a>
           <a href="#comparisons">Compared</a>
@@ -462,13 +463,13 @@
     </div>
 
     <section id="contract">
-      <h2>The vector unit Rake promises</h2>
+      <h2>Racks and native CPU profiles</h2>
       <p class="contract-lede">
         Modern CPUs can apply one instruction to several numbers held together in a vector
         register, a model called <strong>SIMD</strong>. Rake calls one target-sized vector of
         values a <strong>rack</strong>, and each value position inside it a <strong>lane</strong>.
         A native Rake <strong>profile</strong> names a CPU target and the machine-code properties
-        required for that target. Its central promise is that every live rack stays in one
+        required for that target. The profile requires every live rack to stay in one
         physical SIMD register. If the compiler's backend—the part that produces machine
         code—cannot preserve that representation, compilation stops with the failed obligation.
       </p>
@@ -508,11 +509,7 @@ run advance_x(
     yield particle.position_x + particle.velocity_x * &lt;dt&gt;</pre>
       </div>
       <p>
-        The notation exposes distinctions that affect the machine. <code>pack Particles</code>
-        reads as “a pack of Particles”; <code>using f32s</code> names the native compute domain;
-        and angle brackets mark <code>count</code> and <code>dt</code> as one uniform scalar shared
-        by every lane. Seeing many scalar markers in a kernel should provoke the question: could
-        these values vary by lane, or be stored and processed more efficiently?
+        <code>pack Particles</code> supplies the columnar dataset, <code>using f32s</code> selects the native compute domain, and angle brackets mark <code>count</code> and <code>dt</code> as uniform scalars shared by every lane.
       </p>
       <p>
         Inside the stack, each stored type comes before all columns that share it. That makes
@@ -532,13 +529,10 @@ run advance_x(
         <tr><td>AVX-512</td><td>16</td><td>25 racks</td></tr>
       </table>
       <p>
-        The programmer does not maintain three target-specific vector kernels, three loop strides, and three
-        ways to handle a final partial chunk. Rake instead produces a separate executable for
-        each selected target. The
-        choice is made while compiling, not by a width check each time the kernel runs.
+        Rake selects the rack width and traversal stride at compile time and produces a separate executable for each selected target. The source expresses the traversal once, with the target profile determining its vector width.
       </p>
 
-      <h3>What the profile proves for every rack</h3>
+      <h3>Native profile requirements</h3>
       <ul class="guarantee-list">
         <li><strong>One rack, one register</strong>The backend may not split a rack across registers, narrow it, or represent it in memory.</li>
         <li><strong>No silent scalar fallback</strong>A native SIMD profile may not turn unsupported rack work into a scalar lane loop.</li>
@@ -549,38 +543,22 @@ run advance_x(
       </ul>
 
       <div class="contract-rule">
-        C and Rust can produce excellent SIMD. Rake additionally makes the required SIMD shape
-        a language contract, so inspecting the emitted instructions is evidence of conformance rather than the
-        only way to discover whether vectorization survived compilation.
+        Native profile checks run after register allocation and on the encoded instructions.
+        Compilation succeeds only when the generated code satisfies the selected profile's requirements.
       </div>
 
-      <h3>Why rejection is a feature</h3>
+      <h3>Profile violations and diagnostics</h3>
       <p>
-        Rust made a compelling modern case for a strict compiler: rejecting plausible programs
-        can be more useful than accepting them when the diagnostic explains which safety rule
-        the program violated and how to repair it. Rake applies that bargain to declared
-        performance properties. A compute kernel is often written because its machine shape
-        matters, so losing vectorization is a failed requirement rather than an incidental missed
-        optimization.
+        A native profile defines acceptance conditions for the generated code. The compiler reports a source-located diagnostic when an operation or its register allocation violates those conditions.
       </p>
       <p>
-        Rake does not turn every performance surprise into a language error. The programmer opts
-        into a named native profile with specific obligations. If an irregular access requires a
-        forbidden <strong>gather</strong> from non-contiguous addresses, an operation requires
-        scalar helper calls, or register pressure would
-        spill a live rack, the compiler identifies the source operation and the failed obligation
-        before the object ships. The programmer can change the algorithm or choose a profile whose
-        published contract permits the required operation.
-      </p>
-      <p>
-        <a class="evidence-link" href="https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html">Rust's ownership diagnostics →</a>
+        The checks apply to the obligations declared by the selected profile. For example, an irregular access may require a forbidden <strong>gather</strong> from non-contiguous addresses, an operation may require scalar helper calls, or register pressure may require spilling a live rack. The diagnostic identifies the operation and failed obligation. Resolving it requires changing the kernel or selecting a profile that permits the operation.
       </p>
 
-      <h3>The useful failure is a compiler error</h3>
+
+      <h3>Example: unsupported vector sine</h3>
       <p>
-        Consider a rack-wide sine operation when the backend has no compliant packed sine
-        sequence. Ordinary C and Rust compilation can accept the source and emit scalar library
-        calls. Rake refuses to describe that result as native rack execution.
+        In the comparison harness, a rack-wide sine operation has no supported native lowering. The C and Rust builds emit scalar library calls; the Rake build reports an unsupported operation during machine-code emission. The result depends on the toolchains and flags used by the harness.
       </p>
       <div class="rejection-proof">
         <div>
@@ -594,7 +572,7 @@ run advance_x(
         </div>
       </div>
 
-      <h3>The contract C, Rust, and SIMD crates do not provide</h3>
+      <h3>SIMD control and verification by approach</h3>
       <table class="vocab-table">
         <tr><th>Approach</th><th>What remains the programmer's responsibility</th></tr>
         <tr><td>C / Rust scalar loop</td><td>Confirm that autovectorization—the compiler's automatic conversion of a scalar loop into vector operations—happened, used the intended width, avoided helper calls, and did not regress after a source or compiler change.</td></tr>
@@ -629,11 +607,9 @@ run advance_x(
     </section>
 
     <section id="principles">
-      <h2>Masks make per-lane choices explicit</h2>
+      <h2>Per-lane masks and conditional expressions</h2>
       <p>
-        Ordinary rack arithmetic performs the same operation in every lane. Conditional work
-        needs a way to say which
-        lanes participate without turning the rack back into a scalar loop.
+        Rack arithmetic applies the same operation to every lane. Conditional expressions use masks to select the participating lanes while retaining vector execution.
       </p>
       <p>
         A <strong>tine</strong> names a boolean choice for every lane. A <strong>through</strong>
@@ -642,9 +618,7 @@ run advance_x(
         lane has a result.
       </p>
       <p>
-        Rake writes a tine as <code>#active</code>. The hash resembles a perforated mask: values
-        fall through its open lanes and are held back by the rest. The mark has one role wherever
-        the mask is declared or used.
+        A tine name uses the <code>#</code> prefix, as in <code>#active</code>, at both its declaration and each use.
       </p>
       <div class="ascii-diagram">            ↓  ↓  ↓  ↓  ↓  ↓  ↓  ↓   logical rack lanes
 ════════════════════════════════════
@@ -673,7 +647,7 @@ run advance_x(
     </section>
 
     <section id="fusion">
-      <h2>Fusion turns bindings into a verified dataflow region</h2>
+      <h2>Fused dataflow and register allocation</h2>
       <p>
         A <strong>binding</strong> gives a computed value a name. A later
         <strong>reference</strong> tells the compiler to use that value again. Neither construct
@@ -709,16 +683,12 @@ run advance_x(
       <p>
         The language contract also permits the backend to reassociate, factor, distribute,
         eliminate common expressions, and form other fused instructions when its target cost
-        model finds a cheaper graph. The current alpha implements the first useful slice:
+        model finds a cheaper graph. The current alpha implements
         transparent alias substitution, dead-intermediate removal, and multiply-add contraction.
         The broader algebraic optimizer remains under construction.
       </p>
       <p>
-        <code>fma(a, b, c)</code> is needed only when correctness specifically depends on one fused
-        multiply-add operation with one rounding step. Rake provides no slower arithmetic mode for
-        preserving instruction boundaries that ordinary operators did not request. Named strict
-        reductions and scans retain their published ascending-lane order; fusion does not silently
-        reassociate those operations.
+        <code>fma(a, b, c)</code> explicitly requires one fused multiply-add with one rounding step. Ordinary arithmetic operators permit the transformations described above, so intermediate expression boundaries do not require separate rounding. Named strict reductions and scans retain their published ascending-lane order.
       </p>
 
       <aside class="background" aria-label="Background">
@@ -787,7 +757,7 @@ rake safe_root(values: f32s) -&gt; f32s:
 
       <h3>Run: stack, pack, and target-sized traversal</h3>
       <p>
-        <strong>Canonical language contract; native traversal remains in flight.</strong>
+        <strong>Source contract; native traversal is under development.</strong>
         A <code>stack</code> groups columns by their compact storage types. A <code>pack</code>
         supplies the complete columns to <code>run</code>, and <code>using f32s</code>
         selects one physical rack and its logical lane count. <code>up to &lt;count&gt;</code> makes the
@@ -832,19 +802,12 @@ run scale_values(
     </section>
 
     <section id="comparisons">
-      <h2>Rake and ISPC: two approaches to explicit lane-parallel code</h2>
-      <p class="contract-lede">
-        Intel's <strong>ISPC</strong> is a mature C-like language for writing one program that
-        runs across a group of CPU vector lanes. ISPC and Rake therefore belong to the same useful
-        language family: both let programmers write one lane-parallel program and retarget it
-        across hardware widths. ISPC presents this single-program, multiple-data
-        (<strong>SPMD</strong>) model through an imperative C-family language.
-        Rake explores an expression-oriented, dataflow-heavy syntax with a stricter
-        compile-or-reject machine contract. More than one good design for this problem is an advantage for
-        systems programmers.
+      <h2>Rake and ISPC</h2>
+      <p>
+        Intel's <strong>ISPC</strong> is a C-like language for writing one program across a group of CPU vector lanes. Both ISPC and Rake express lane-parallel work with target-selected widths. ISPC uses an imperative single-program, multiple-data (<strong>SPMD</strong>) model. Rake uses expression-oriented vector dataflow and native profiles that constrain instruction selection and register allocation.
       </p>
 
-      <h3>A substantial shared foundation</h3>
+      <h3>Shared execution concepts</h3>
       <ul class="guarantee-list">
         <li><strong>Explicit lane-parallel semantics</strong>Source code describes a group of program instances instead of asking a scalar-loop optimizer to discover SIMD.</li>
         <li><strong>Target-selected width</strong>One source can be compiled for several lane counts chosen by the target.</li>
@@ -898,7 +861,7 @@ run advance_x(
         functional language.
       </p>
 
-      <h3>Deliberate differences</h3>
+      <h3>Language and backend differences</h3>
       <div class="table-scroll">
         <table class="vocab-table">
           <tr><th>Design choice</th><th>ISPC</th><th>Rake</th></tr>
@@ -917,21 +880,11 @@ run advance_x(
         <a class="evidence-link" href="https://ispc.github.io/ispc_for_xe.html">ISPC for Intel Xe →</a>
       </p>
 
-      <h3>ISPC proves the model in production</h3>
+      <h3>ISPC integration and deployment</h3>
       <p>
-        ISPC is neither abandoned nor a mainstream application language. It is a successful
-        specialist compiler used for performance-critical kernels beside larger C and C++
-        systems. OSPRay's CPU renderer is based on ISPC and uses SSE4, AVX, AVX2, AVX-512, and
-        Arm NEON. Embree supports ISPC for parallel renderer code, and CMake has recognized ISPC
-        as a compilation language since version 3.19.
+        ISPC is used for performance-critical kernels within C and C++ systems. OSPRay's CPU renderer is based on ISPC and uses SSE4, AVX, AVX2, AVX-512, and Arm NEON. Embree supports ISPC for parallel renderer code, and CMake has recognized ISPC as a compilation language since version 3.19.
       </p>
-      <p>
-        That placement explains the small public profile. An application developer encounters
-        OSPRay or Embree while the <code>.ispc</code> files remain an implementation detail.
-        Rendering and scientific visualization also produce less general-language discussion
-        than CUDA, shader languages, C++ intrinsics, or Rust SIMD libraries. Intel's name can
-        suggest a narrower hardware target than ISPC's CPU support, which includes x86 and Arm.
-      </p>
+
       <p>
         <a class="evidence-link" href="https://www.ospray.org/index.html">OSPRay CPU implementation →</a>
         &nbsp;&nbsp;
@@ -940,32 +893,19 @@ run advance_x(
         <a class="evidence-link" href="https://cmake.org/cmake/help/latest/envvar/ISPC.html">CMake ISPC language support →</a>
       </p>
 
-      <h3>Where Rake can still differ</h3>
+      <h3>Instruction selection and acceptance rules</h3>
+
       <p>
-        Rake does not claim to have invented portable SPMD-on-SIMD. ISPC established that one
-        lane-parallel program can be productive across CPU vector widths, and its mature language,
-        tooling, interoperability, and deployments are substantial advantages.
-      </p>
-      <p>
-        ISPC guarantees the program's SPMD semantics and generally emits excellent vector code.
-        Its performance guide nevertheless documents cases where irregular accesses require
-        non-contiguous vector loads and stores called gathers and scatters, or one-at-a-time
-        serialized loads. Those are legitimate implementations of ISPC
-        semantics. Rake's narrower contribution is to let a selected profile forbid such
-        implementations and turn the physical lowering into an acceptance condition.
+        ISPC preserves SPMD semantics while LLVM selects instructions and allocates registers. Its performance guide describes irregular accesses that lower to gathers, scatters, or serialized loads. A Rake native profile can make particular instruction sequences and storage choices rejection conditions. The distinction is the set of permitted lowerings for a selected profile.
       </p>
       <p>
         <a class="evidence-link" href="https://ispc.github.io/perfguide.html">ISPC performance guide →</a>
       </p>
 
       <div class="contract-rule">
-        <strong>ISPC proves that this programming model is useful.</strong> Rake explores a more
-        functional and compositional member of the same family, with explicit pack/rack and SoA
-        structure and machine-shape violations reported as compiler errors. Choose ISPC today for
-        a mature C-family SPMD language, excellent CPU SIMD, close C/C++ integration, and shipped
-        Intel GPU support. Rake's stricter CPU contract is currently implemented only for its
-        admitted AVX2 and NEON slices. Pack traversal, broader CPU profiles, and the cross-vendor
-        GPU proposition remain unfinished.
+        Rake's native profile checks are implemented for supported AVX2 and NEON register-level
+        kernels. Pack traversal, broader CPU profiles, and GPU code generation remain under development.
+        ISPC provides production CPU and Intel GPU targets with C/C++ integration.
       </div>
 
       <aside class="background" aria-label="Background">
@@ -981,13 +921,9 @@ run advance_x(
     </section>
 
     <section id="gpu">
-      <h2>GPU compute: where the guarantee ends</h2>
-      <p class="contract-lede">
-        Rake can carry its fail-closed philosophy into GPU compute, but the CPU promise cannot be
-        copied word for word. Vulkan runs many copies, or <strong>shader invocations</strong>, of
-        a GPU program. A <strong>subgroup</strong> is a set of those invocations that execute
-        together and exchange values directly. A CPU rack is one value held in one SIMD register;
-        a GPU rack would be one logical subgroup, with one lane owned by each invocation.
+      <h2>Proposed GPU profiles and verification boundaries</h2>
+      <p>
+        The proposed GPU backend maps Rake lanes to Vulkan <strong>shader invocations</strong>, individual executions of a GPU program. A <strong>subgroup</strong> is a set of invocations that execute together and exchange values directly. A CPU rack occupies one SIMD register; the proposed GPU rack spans one logical subgroup, with one lane per invocation.
       </p>
 
       <h3>SPIR-V defines the portable boundary</h3>
@@ -1018,11 +954,7 @@ run advance_x(
         vendor instruction format.
       </p>
       <p>
-        A Rake GPU profile should map one logical rack lane to one subgroup invocation. Rack
-        addition then becomes one scalar addition in every invocation. A rack reduction becomes
-        a SPIR-V subgroup reduction. A shuffle becomes a subgroup shuffle. Tines become explicit
-        per-invocation predicates. Treating a 32-lane rack as <code>OpTypeVector 32</code> would
-        describe the wrong execution model.
+        The proposed mapping assigns one rack lane to each subgroup invocation. Rack arithmetic becomes scalar arithmetic within each invocation, while reductions and shuffles use SPIR-V subgroup operations. Tines become per-invocation predicates. A 32-lane rack therefore spans 32 invocations; it is not an <code>OpTypeVector 32</code> value within one invocation.
       </p>
       <div class="table-scroll">
         <table class="vocab-table">
@@ -1055,7 +987,7 @@ run advance_x(
         </table>
       </div>
 
-      <h3>What Rake could guarantee before the driver</h3>
+      <h3>Proposed SPIR-V checks</h3>
       <p>
         A named Vulkan profile would include a SPIR-V version, required Vulkan features,
         subgroup width, floating-point modes, memory model, and permitted operation set. Pipeline
@@ -1069,11 +1001,11 @@ run advance_x(
         <li><strong>Uniformity is typed</strong>Rake distinguishes one value shared by the subgroup from one value per invocation and rejects invalid crossings.</li>
         <li><strong>Inactive invocations are safe</strong>Tail predicates and benign operands prevent out-of-bounds memory access and exceptional inactive-lane arithmetic.</li>
         <li><strong>Memory intent is inspectable</strong>Adjacent lane IDs address adjacent SoA elements; the generated SPIR-V exposes that address calculation for validation.</li>
-        <li><strong>Capabilities are fail-closed</strong>An unavailable operation or required execution mode produces a source-located error instead of an unadvertised fallback.</li>
+        <li><strong>Required capability checks</strong>An unavailable operation or required execution mode produces a source-located error instead of an unadvertised fallback.</li>
         <li><strong>The module is mechanically checked</strong>SPIR-V validation and Rake-specific structural checks run before the shader reaches Vulkan.</li>
       </ul>
 
-      <h3>What portable SPIR-V cannot guarantee</h3>
+      <h3>Properties controlled by the device compiler</h3>
       <p>
         Vulkan drivers compile SPIR-V into device-specific executables during pipeline creation.
         The driver may change instruction selection, schedule operations, allocate registers, or
@@ -1088,14 +1020,9 @@ run advance_x(
         <li><strong>Identical code across driver versions</strong> — the same SPIR-V may produce different device executables</li>
       </ul>
 
-      <h3>A stronger device-certified mode</h3>
+      <h3>Proposed device-specific verification</h3>
       <p>
-        Rake could recover a stronger guarantee for a named physical device and driver. A
-        certification tool would create the Vulkan pipeline, capture executable statistics and
-        any exposed internal representation, and apply a vendor-specific checker for spills,
-        register use, helper code, and prohibited instructions. The certificate would bind the
-        SPIR-V hash, pipeline state, device identity, driver version, subgroup size, and checker
-        version.
+        Device-specific verification would require a named physical device and driver. A certification tool would create the Vulkan pipeline, capture executable statistics and any exposed internal representation, and apply a vendor-specific checker for spills, register use, helper code, and prohibited instructions. The certificate would bind the SPIR-V hash, pipeline state, device identity, driver version, subgroup size, and checker version.
       </p>
       <p>
         Vulkan exposes pipeline executable statistics and internal representations through an
@@ -1106,25 +1033,16 @@ run advance_x(
         device that accepts the SPIR-V module.
       </p>
 
-      <h3>Why use Rake for GPU kernels?</h3>
+      <h3>Shared CPU and GPU source semantics</h3>
       <p>
-        Shader languages such as GLSL and HLSL, as well as ISPC and other compilers, can emit excellent SPIR-V, including the
-        subgroup operations described above. Rake's prospective advantage is the compilation
-        contract around those operations: the same lane semantics used for CPU racks, explicit
-        SoA traversal and predication, named reproducible GPU profiles, and rejection whenever
-        the emitted SPIR-V cannot preserve the selected profile.
+        The proposed backend would use the same lane semantics, columnar data declarations, and predication constructs as the CPU profiles. A GPU profile would specify the permitted SPIR-V operations and required Vulkan capabilities, with structural checks applied before pipeline creation.
       </p>
-      <p>
-        Rake's combined contract would let one kernel express CPU SIMD and GPU subgroup execution without
-        relying on CPU autovectorization or accepting silent GPU emulation. The advantage comes
-        from validation and refusal. SPIR-V already has the necessary expressive capability.
-      </p>
+
 
       <div class="warning">
         <strong>Proposed GPU contract.</strong> Rake does not currently have a production SPIR-V
-        backend, Vulkan runtime profile, or device-certification pipeline. The GPU contract becomes
-        a real advantage only after those components have executable semantics, negative tests,
-        SPIR-V inspection, device fixtures, and published evidence.
+        backend, Vulkan runtime profile, or device-certification pipeline. Implementing the proposal
+        requires executable semantics, rejection tests, SPIR-V inspection, and validation on supported devices.
       </div>
       <p>
         <a class="evidence-link" href="https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html">SPIR-V specification →</a>
@@ -1149,7 +1067,7 @@ run advance_x(
     </section>
 
     <section id="landscape">
-      <h2>The wider language landscape</h2>
+      <h2>Related languages and compilation models</h2>
       <p>
         ISPC is Rake's closest established relative. Several neighboring systems solve parts of
         the CPU-and-GPU problem at a different level of abstraction or with a different machine
@@ -1164,13 +1082,13 @@ run advance_x(
           <tr><td><a class="evidence-link" href="https://docs.taichi-lang.org/docs/hello_world">Taichi</a></td><td>A Python-embedded, data-oriented DSL that compiles parallel kernels for multicore CPUs and GPUs.</td><td>It concentrates on portable parallel iteration and data layout rather than proof of a fixed physical SIMD representation.</td></tr>
           <tr><td><a class="evidence-link" href="https://docs.modular.com/mojo/std/builtin/simd/SIMD/">Mojo</a></td><td>A systems and AI language with explicit parameterized SIMD values, vectorized algorithms, and CPU/GPU facilities.</td><td>The vector width is part of the SIMD type, and Mojo documents that an oversized value may be split across registers. Rake's rack width comes from the profile and splitting is a rejection condition.</td></tr>
           <tr><td>C++ and Rust SIMD libraries</td><td>Portable vector types and algorithms reduce direct use of architecture-specific intrinsics.</td><td>They remain library interfaces and do not ordinarily combine one-register identity, no spills, no helper calls, and no scalar lane loops into a compiler acceptance rule.</td></tr>
-          <tr><td>Research array and staging languages</td><td>Impala/AnyDSL, Lift/Shine, Accelerate, and Dex explore staged compilation, rewrite systems, and functional data-parallel programming.</td><td>They are valuable prior art, but none is a widely deployed direct replacement for ISPC's C-family SPMD-on-SIMD niche.</td></tr>
+          <tr><td>Research array and staging languages</td><td>Impala/AnyDSL, Lift/Shine, Accelerate, and Dex explore staged compilation, rewrite systems, and functional data-parallel programming.</td><td>These systems examine compilation and parallelism through staging, array operations, and rewrite rules; their abstractions and implementation status differ by project.</td></tr>
         </table>
       </div>
     </section>
 
     <section id="status">
-      <h2>What this alpha ships</h2>
+      <h2>Version 0.3.0-alpha.1 implementation status</h2>
       <p>
         The language contract includes native-backed operations, forms whose implementations stop
         in the frontend, and targets that remain design work. The table identifies each

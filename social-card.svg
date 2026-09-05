@@ -5,6 +5,6 @@
   <g fill="#e0c090"><rect x="770" y="106" width="18" height="24"/><rect x="770" y="168" width="18" height="24"/><rect x="770" y="230" width="18" height="24"/><rect x="770" y="292" width="18" height="24"/><rect x="770" y="354" width="18" height="24"/><rect x="770" y="416" width="18" height="24"/></g>
   <text x="70" y="112" fill="#c86040" font-family="ui-monospace, monospace" font-size="22" letter-spacing="6">VECTOR-FIRST LANGUAGE</text>
   <text x="64" y="333" fill="#f0e6d8" font-family="Arial, sans-serif" font-size="170" font-weight="700">Rake</text>
-  <text x="72" y="417" fill="#e0c090" font-family="Arial, sans-serif" font-size="44">SIMD the compiler must prove.</text>
-  <text x="73" y="558" fill="#b8a090" font-family="ui-monospace, monospace" font-size="19" letter-spacing="3">PRESERVE THE MACHINE SHAPE · OR REJECT</text>
+  <text x="72" y="417" fill="#e0c090" font-family="Arial, sans-serif" font-size="44">Vector-first kernel language.</text>
+  <text x="73" y="558" fill="#b8a090" font-family="ui-monospace, monospace" font-size="19" letter-spacing="3">NATIVE SIMD PROFILES · CODE VERIFICATION</text>
 </svg>
