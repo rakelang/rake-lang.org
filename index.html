@@ -465,33 +465,15 @@
     <section id="contract">
       <h2>Racks and native CPU profiles</h2>
       <p class="contract-lede">
-        Modern CPUs can apply one instruction to several numbers held together in a vector
-        register, a model called <strong>SIMD</strong>. Rake calls one target-sized vector of
-        values a <strong>rack</strong>, and each value position inside it a <strong>lane</strong>.
-        A native Rake <strong>profile</strong> names a CPU target and the machine-code properties
-        required for that target. The profile requires every live rack to stay in one
-        physical SIMD register. If the compiler's backend—the part that produces machine
-        code—cannot preserve that representation, compilation stops with the failed obligation.
+        Modern CPUs can apply one instruction to several numbers held together in a vector register, a model called <strong>SIMD</strong>. Rake calls one target-sized vector of values a <strong>rack</strong>, and each value position inside it a <strong>lane</strong>. Racks are meant to map directly onto that hardware, so a native Rake <strong>profile</strong>, which names a CPU target and the machine-code properties required for that target, requires every live rack to stay in one physical SIMD register. If the compiler's backend, the part that produces machine code, can't keep a rack that way, compilation stops and reports the obligation that failed instead of quietly producing different code.
       </p>
 
       <h3>From one rack to a complete workload</h3>
       <p>
-        Compute kernels often store each field in its own contiguous column, a layout called a
-        <strong>structure of arrays</strong>. One rack is one target-sized chunk of one such
-        column: four <code>f32</code> positions on 128-bit SSE2 or Arm NEON, eight on 256-bit
-        AVX2, or sixteen on 512-bit AVX-512. A <strong>stack</strong> declares the columns in the
-        dataset. A <strong>pack</strong> connects that declaration to the complete columns and
-        their element count. A <code>for … using … up to …</code> traversal visits the pack one
-        rack at a time.
+        Compute kernels often store each field in its own contiguous column, a layout called a <strong>structure of arrays</strong>. One rack is one target-sized chunk of one such column: four <code>f32</code> positions on 128-bit SSE2 or Arm NEON, eight on 256-bit AVX2, or sixteen on 512-bit AVX-512. Rake describes a whole dataset in three steps. A <strong>stack</strong> declares its columns, a <strong>pack</strong> connects that declaration to the actual columns and their element count, and a <code>for … using … up to …</code> traversal walks through the pack one rack at a time.
       </p>
       <p>
-        The caller supplies two contiguous <code>f32</code> columns, one dense <code>u8</code>
-        age column, and a runtime count.
-        The <code>Particles</code> stack below declares their columnar schema. The pack connects
-        that schema to the complete 400-particle storage. On each iteration, <code>particle.position_x</code>
-        and <code>particle.velocity_x</code> are racks containing the current target-width chunk.
-        The narrower age column requires an explicit <code>widen</code> before computation. The
-        source never names a CPU-specific vector function or lane count.
+        In the example below, the caller supplies two contiguous <code>f32</code> columns, one dense <code>u8</code> age column and a runtime count. The <code>Particles</code> stack declares that columnar schema, and the pack connects it to the storage for all 400 particles. On each iteration, <code>particle.position_x</code> and <code>particle.velocity_x</code> are racks holding the current target-width chunk, while the narrower age column has to go through an explicit <code>widen</code> before it can take part in the arithmetic. Nowhere does the source name a CPU-specific vector function or a lane count, which is what lets the same code compile for every target.
       </p>
       <div class="code-block">
 <pre data-language="rake">stack Particles {
@@ -552,18 +534,20 @@ run advance_x(
         A native profile defines acceptance conditions for the generated code. The compiler reports a source-located diagnostic when an operation or its register allocation violates those conditions.
       </p>
       <p>
-        The checks apply to the obligations declared by the selected profile. For example, an irregular access may require a forbidden <strong>gather</strong> from non-contiguous addresses, an operation may require scalar helper calls, or register pressure may require spilling a live rack. The diagnostic identifies the operation and failed obligation. Resolving it requires changing the kernel or selecting a profile that permits the operation.
+        The checks apply to the obligations declared by the selected profile. For example, an irregular access may require a forbidden <strong>gather</strong> from non-contiguous addresses, an operation may require scalar helper calls, or register pressure may require spilling a live rack. The diagnostic names the operation and the obligation it failed, and the way forward is either to change the kernel or to select a profile that permits the operation.
       </p>
 
 
       <h3>Example: unsupported vector sine</h3>
       <p>
-        In the comparison harness, a rack-wide sine operation has no supported native lowering. The C and Rust builds emit scalar library calls. The Rake build reports an unsupported operation during machine-code emission. The result depends on the toolchains and flags used by the harness.
+        The comparison harness includes a rack-wide sine operation to show what each language does when it can't produce vector code. None of the builds has a native vector lowering for it. The C and Rust builds compile without an error and fall back to scalar library calls, while the Rake build stops with an unsupported-operation error during machine-code emission. These results depend on the toolchains and flags the harness uses.
       </p>
       <div class="rejection-proof">
         <div>
           <h4>C or Rust</h4>
-          <p>The program compiles. Under the strict comparison build, the resulting loop contains scalar <code>sinf</code> calls. A different toolchain or flag set may make a different choice.</p>
+          <p>
+            The program compiles, but under the strict comparison build the resulting loop calls scalar <code>sinf</code> once per value. A different toolchain or flag set may make a different choice.
+          </p>
         </div>
         <div>
           <h4>Rake</h4>
@@ -612,10 +596,7 @@ run advance_x(
         Rack arithmetic applies the same operation to every lane. Conditional expressions use masks to select the participating lanes while retaining vector execution.
       </p>
       <p>
-        A <strong>tine</strong> names a boolean choice for every lane. A <strong>through</strong>
-        block computes a candidate where that tine is true. A <strong>sweep</strong> selects the
-        first matching candidate for each lane and requires a final catch-all value, so every
-        lane has a result.
+        Rake builds a conditional from three pieces. A <strong>tine</strong> names a boolean choice for every lane, and a <strong>through</strong> block computes a candidate value in the lanes where its tine is true. A <strong>sweep</strong> then selects the first matching candidate for each lane, and it has to end with a catch-all value so that every lane gets a result.
       </p>
       <p>
         A tine name uses the <code>#</code> prefix, as in <code>#active</code>, at both its declaration and each use.
@@ -649,11 +630,7 @@ run advance_x(
     <section id="fusion">
       <h2>Fused dataflow and register allocation</h2>
       <p>
-        A <strong>binding</strong> gives a computed value a name. A later
-        <strong>reference</strong> tells the compiler to use that value again. Neither construct
-        creates a pointer or requires a memory load. Physical storage is a separate compiler
-        decision: a live value can occupy a register, or an ordinary compiler can temporarily
-        write it to memory and reload it later. That temporary write is a spill.
+        A <strong>binding</strong> gives a computed value a name, and a later <strong>reference</strong> to that name tells the compiler to use the value again. Neither creates a pointer or requires a memory load, because where the value physically lives is a separate decision for the compiler. A live value can stay in a register, or an ordinary compiler can temporarily write it to memory and reload it later, which is called a spill.
       </p>
       <div class="code-block">
 <pre data-language="rake">crunch advance(positions: f32s, velocities: f32s) -&gt; f32s:
@@ -662,10 +639,7 @@ run advance_x(
   return result</pre>
       </div>
       <p>
-        <code>&lt;|</code> exists only in a <strong>fused-flow binding</strong>. Read it from right to
-        left: the expression flows into the name. Consecutive fused-flow bindings form one pure,
-        connected machine-level computation. Rake must keep that region inline, call-free,
-        spill-free, and free of hidden scalar work, or reject the definition.
+        <code>&lt;|</code> appears only in a <strong>fused-flow binding</strong>, and it reads from right to left, with the expression flowing into the name. A run of consecutive fused-flow bindings forms one pure, connected machine-level computation, and Rake either keeps that whole region inline, call-free, spill-free and free of hidden scalar work, or rejects the definition.
       </p>
       <p>
         Every accepted rack already obeys Rake's one-register and no-spill rules, including racks
@@ -714,11 +688,7 @@ run advance_x(
 
       <h3>Crunch: uniform rack arithmetic</h3>
       <p>
-        A <code>crunch</code> applies one expression to every lane. Here <code>&lt;0.5&gt;</code>
-        is an explicit scalar broadcast. Each intermediate name is assigned once, which makes
-        the data dependencies explicit and lets the compiler check the whole sequence as one
-        fused region. The corresponding straight-line operation set is implemented by the
-        Rake-owned x86-64 AVX2 backend and verified after assembly.
+        A <code>crunch</code> applies one expression to every lane, and here <code>&lt;0.5&gt;</code> is an explicit scalar broadcast of the same value to all of them. Each intermediate name is assigned once, which makes the data dependencies explicit and lets the compiler check the whole sequence as one fused region. The corresponding straight-line operation set is implemented by the Rake-owned x86-64 AVX2 backend and verified after assembly.
       </p>
       <div class="code-block">
 <!-- rake-example:crunch:start -->
@@ -733,11 +703,7 @@ crunch advance(positions: f32s, velocities: f32s) -&gt; f32s:
 
       <h3>Rake: safe masked work and a total sweep</h3>
       <p>
-        <strong>The corresponding masked operation is verified by the AVX2 backend.</strong> The <code>#valid</code> tine guards
-        <code>sqrt</code>, and the final <code>_</code> arm defines all unmatched lanes. Native
-        lowering explicitly replaces inactive operands with benign values before partial
-        operations. The emitted function uses AVX2 vector masks and blends without scalar lane
-        branches.
+        <strong>The corresponding masked operation is verified by the AVX2 backend.</strong> The <code>#valid</code> tine guards <code>sqrt</code>, and the final <code>_</code> arm gives every unmatched lane its value. Before a partial operation such as <code>sqrt</code> runs, native lowering replaces the operands in inactive lanes with benign values, so it can run across the whole rack safely, and the emitted function uses AVX2 vector masks and blends instead of branching lane by lane.
       </p>
       <div class="code-block">
 <!-- rake-example:safe-through:start -->
@@ -757,15 +723,7 @@ rake safe_root(values: f32s) -&gt; f32s:
 
       <h3>Run: stack, pack, and target-sized traversal</h3>
       <p>
-        <strong>Source contract. Native traversal is under development.</strong>
-        A <code>stack</code> groups columns by their compact storage types. A <code>pack</code>
-        supplies the complete columns to <code>run</code>, and <code>using f32s</code>
-        selects one physical rack and its logical lane count. <code>up to &lt;count&gt;</code> makes the
-        uniform record bound explicit. A narrower column cannot enter
-        arithmetic until <code>widen</code> converts its values while preserving that lane count.
-        The frontend contract covers the declarations, widening, and loop shape. Native memory
-        traversal, safe final partial racks, and the machine-level convention for calling the
-        function from C—its ABI—are still under construction.
+        <strong>Source contract. Native traversal is under development.</strong> A <code>stack</code> groups columns by their compact storage types, a <code>pack</code> supplies the complete columns to <code>run</code>, and <code>using f32s</code> selects one physical rack and its logical lane count. <code>up to &lt;count&gt;</code> makes the uniform record bound explicit, and a narrower column can't enter arithmetic until <code>widen</code> converts its values while preserving that lane count. The frontend already covers the declarations, widening and loop shape, while native memory traversal, safe final partial racks and the machine-level convention for calling the function from C, its ABI, are still under construction.
       </p>
       <div class="code-block">
 <!-- rake-example:pack-over:start -->
@@ -804,7 +762,7 @@ run scale_values(
     <section id="comparisons">
       <h2>Rake and ISPC</h2>
       <p>
-        Intel's <strong>ISPC</strong> is a C-like language for writing one program across a group of CPU vector lanes. Both ISPC and Rake express lane-parallel work with target-selected widths. ISPC uses an imperative single-program, multiple-data (<strong>SPMD</strong>) model. Rake uses expression-oriented vector dataflow and native profiles that constrain instruction selection and register allocation.
+        Intel's <strong>ISPC</strong> is a C-like language for writing one program across a group of CPU vector lanes. Both ISPC and Rake express lane-parallel work with widths chosen by the target, but they get there differently. ISPC uses an imperative single-program, multiple-data (<strong>SPMD</strong>) model, while Rake uses expression-oriented vector dataflow and native profiles that constrain instruction selection and register allocation.
       </p>
 
       <h3>Shared execution concepts</h3>
@@ -923,7 +881,7 @@ run advance_x(
     <section id="gpu">
       <h2>Proposed GPU profiles and verification boundaries</h2>
       <p>
-        The proposed GPU backend maps Rake lanes to Vulkan <strong>shader invocations</strong>, individual executions of a GPU program. A <strong>subgroup</strong> is a set of invocations that execute together and exchange values directly. A CPU rack occupies one SIMD register. The proposed GPU rack spans one logical subgroup, with one lane per invocation.
+        The proposed GPU backend maps Rake lanes to Vulkan <strong>shader invocations</strong>, the individual executions of a GPU program. Invocations run in <strong>subgroups</strong>, sets of invocations that execute together and exchange values directly. So where a CPU rack occupies one SIMD register, the proposed GPU rack spans one logical subgroup, with one lane per invocation.
       </p>
 
       <h3>SPIR-V defines the portable boundary</h3>
@@ -954,7 +912,7 @@ run advance_x(
         vendor instruction format.
       </p>
       <p>
-        The proposed mapping assigns one rack lane to each subgroup invocation. Rack arithmetic becomes scalar arithmetic within each invocation, while reductions and shuffles use SPIR-V subgroup operations. Tines become per-invocation predicates. A 32-lane rack therefore spans 32 invocations. It is not an <code>OpTypeVector 32</code> value within one invocation.
+        The proposed mapping assigns one rack lane to each subgroup invocation. Rack arithmetic becomes scalar arithmetic within each invocation, reductions and shuffles use SPIR-V subgroup operations, and tines become per-invocation predicates. A 32-lane rack therefore spans 32 invocations, rather than being an <code>OpTypeVector 32</code> value inside one invocation.
       </p>
       <div class="table-scroll">
         <table class="vocab-table">
@@ -969,14 +927,7 @@ run advance_x(
 
       <h3>How 400 particles traverse GPU racks</h3>
       <p>
-        The dataset contains 400 particle elements. One GPU rack covers one logical subgroup's
-        worth of those elements, with one element assigned to each active invocation. A
-        <code>vulkan-subgroup32</code> profile therefore traverses the dataset as twelve complete
-        racks and one rack with sixteen active invocations. A <code>vulkan-subgroup64</code> profile
-        uses six complete racks and one with sixteen active invocations. Vulkan dispatch is rounded
-        to the configured <strong>workgroup</strong> size, the larger programmer-declared batch
-        that may contain several subgroups. Rake's generated bounds predicate prevents padded
-        invocations from touching memory or performing unsafe partial operations.
+        Take the same 400 particles. One GPU rack covers one logical subgroup's worth of them, with one element for each active invocation, so a <code>vulkan-subgroup32</code> profile covers the dataset in twelve complete racks plus a final rack with only sixteen active invocations. A <code>vulkan-subgroup64</code> profile needs six complete racks and the same sixteen-invocation remainder. Vulkan also rounds the dispatch up to the configured <strong>workgroup</strong> size, the larger programmer-declared batch that may contain several subgroups. The padding invocations still run, so Rake's generated bounds predicate stops them from touching memory or performing unsafe partial operations.
       </p>
       <div class="table-scroll">
         <table class="vocab-table target-table">
@@ -1025,12 +976,7 @@ run advance_x(
         Device-specific verification would require a named physical device and driver. A certification tool would create the Vulkan pipeline, capture executable statistics and any exposed internal representation, and apply a vendor-specific checker for spills, register use, helper code, and prohibited instructions. The certificate would bind the SPIR-V hash, pipeline state, device identity, driver version, subgroup size, and checker version.
       </p>
       <p>
-        Vulkan exposes pipeline executable statistics and internal representations through an
-        optional developer-tools extension. Those representations are implementation-dependent
-        and may include final shader assembly. A missing extension or unavailable assembly would
-        make certification fail rather than weaken the claim. The resulting certificate would
-        prove properties for one device and driver combination. It would not extend to every
-        device that accepts the SPIR-V module.
+        Vulkan exposes pipeline executable statistics and internal representations through an optional developer-tools extension. Those representations are implementation-dependent and may include final shader assembly, so a missing extension or unavailable assembly would make certification fail rather than weaken the claim. Because the checker reads what one driver produced for one device, the resulting certificate would prove properties for that device and driver combination, not for every device that accepts the SPIR-V module.
       </p>
 
       <h3>Shared CPU and GPU source semantics</h3>
@@ -1130,7 +1076,9 @@ run advance_x(
 
     <section>
       <h2>Install</h2>
-      <p>Rake is written in the OCaml programming language and built with its Dune build system. The repository uses Nix to provide pinned versions of those tools and the system assembler. These commands build <code>rakec</code> and verify one supported crunch through the native AVX2 object-code gate.</p>
+      <p>
+        Rake is written in the OCaml programming language and built with its Dune build system, and the repository uses Nix to provide pinned versions of those tools and the system assembler. The commands below build <code>rakec</code> and verify one supported crunch through the native AVX2 object-code gate.
+      </p>
       <div class="install">
         <span class="prompt">$</span> git clone https://github.com/rakelang/rake<br>
         <span class="prompt">$</span> cd rake &amp;&amp; nix develop --command dune build<br>
