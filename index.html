@@ -487,7 +487,7 @@
       <p>
         The caller supplies two contiguous <code>f32</code> columns, one dense <code>u8</code>
         age column, and a runtime count.
-        The <code>Particles</code> stack below declares their columnar schema; the pack connects
+        The <code>Particles</code> stack below declares their columnar schema. The pack connects
         that schema to the complete 400-particle storage. On each iteration, <code>particle.position_x</code>
         and <code>particle.velocity_x</code> are racks containing the current target-width chunk.
         The narrower age column requires an explicit <code>widen</code> before computation. The
@@ -515,7 +515,7 @@ run advance_x(
         Inside the stack, each stored type comes before all columns that share it. That makes
         memory density readable down the left edge: the two four-byte <code>f32</code> columns are
         grouped separately from the one-byte <code>u8</code> column. The plural spelling keeps the
-        relationship compact: <code>f32</code> is one stored element; <code>f32s</code> is one
+        relationship compact: <code>f32</code> is one stored element, and <code>f32s</code> is one
         target-native rack of them.
       </p>
       <p>
@@ -538,7 +538,7 @@ run advance_x(
         <li><strong>No silent scalar fallback</strong>A native SIMD profile may not turn unsupported rack work into a scalar lane loop.</li>
         <li><strong>No hidden calls or spills</strong>Accepted fused regions—sequences that must remain one contiguous vector computation—stay inline. The allocator may not spill a live rack by moving it temporarily from a register into memory.</li>
         <li><strong>Predication stays vector</strong>Per-value choices use boolean masks and vector blends, with safe inactive operands and no one-value-at-a-time branches.</li>
-        <li><strong>Widths follow the profile</strong>The element type and named target determine the lane count; source code does not hard-code it.</li>
+        <li><strong>Widths follow the profile</strong>The element type and named target determine the lane count. Source code does not hard-code it.</li>
         <li><strong>Object code is checked</strong>The final register-assigned program and an inspection of its encoded machine instructions verify the properties claimed by the compiler.</li>
       </ul>
 
@@ -558,7 +558,7 @@ run advance_x(
 
       <h3>Example: unsupported vector sine</h3>
       <p>
-        In the comparison harness, a rack-wide sine operation has no supported native lowering. The C and Rust builds emit scalar library calls; the Rake build reports an unsupported operation during machine-code emission. The result depends on the toolchains and flags used by the harness.
+        In the comparison harness, a rack-wide sine operation has no supported native lowering. The C and Rust builds emit scalar library calls. The Rake build reports an unsupported operation during machine-code emission. The result depends on the toolchains and flags used by the harness.
       </p>
       <div class="rejection-proof">
         <div>
@@ -577,7 +577,7 @@ run advance_x(
         <tr><th>Approach</th><th>What remains the programmer's responsibility</th></tr>
         <tr><td>C / Rust scalar loop</td><td>Confirm that autovectorization—the compiler's automatic conversion of a scalar loop into vector operations—happened, used the intended width, avoided helper calls, and did not regress after a source or compiler change.</td></tr>
         <tr><td>SIMD crates</td><td>Portable vector types can remove some target-specific syntax, but they do not ordinarily make Rake's combined one-register, no-spill, no-call, and no-replacement-with-scalar-operations contract a condition of compilation.</td></tr>
-        <tr><td>C / Rust intrinsics</td><td>Maintain target-width implementations and dispatch. Intrinsics are compiler-provided functions for requesting particular machine operations; the compiler still owns register allocation and may spill intermediate vectors.</td></tr>
+        <tr><td>C / Rust intrinsics</td><td>Maintain target-width implementations and dispatch. Intrinsics are compiler-provided functions for requesting particular machine operations. The compiler still owns register allocation and may spill intermediate vectors.</td></tr>
         <tr><td>Rake native profile</td><td>Select the target profile. The compiler either proves the advertised machine properties or rejects the program.</td></tr>
       </table>
 
@@ -698,7 +698,7 @@ run advance_x(
           <div><dt>Reference</dt><dd>A later use of that name. It denotes the compiler value rather than a memory address.</dd></div>
           <div><dt>SSA value</dt><dd>A compiler value defined once and then referenced by later operations. It does not prescribe a physical storage location.</dd></div>
           <div><dt>Spill</dt><dd>A temporary write to memory when a compiler cannot keep a live value in a register.</dd></div>
-          <div><dt>Fused multiply-add</dt><dd>One multiplication and addition performed as one operation with one rounding step. Rake may select it automatically; <code>fma(...)</code> requires those exact arithmetic semantics.</dd></div>
+          <div><dt>Fused multiply-add</dt><dd>One multiplication and addition performed as one operation with one rounding step. Rake may select it automatically. Writing <code>fma(...)</code> requires those exact arithmetic semantics.</dd></div>
         </dl>
       </aside>
     </section>
@@ -757,7 +757,7 @@ rake safe_root(values: f32s) -&gt; f32s:
 
       <h3>Run: stack, pack, and target-sized traversal</h3>
       <p>
-        <strong>Source contract; native traversal is under development.</strong>
+        <strong>Source contract. Native traversal is under development.</strong>
         A <code>stack</code> groups columns by their compact storage types. A <code>pack</code>
         supplies the complete columns to <code>run</code>, and <code>using f32s</code>
         selects one physical rack and its logical lane count. <code>up to &lt;count&gt;</code> makes the
@@ -866,12 +866,12 @@ run advance_x(
         <table class="vocab-table">
           <tr><th>Design choice</th><th>ISPC</th><th>Rake</th></tr>
           <tr><td>Syntax and mental model</td><td>Imperative C-family SPMD with loops, assignments, pointers, functions, and familiar control flow.</td><td>Expression-oriented vector dataflow with explicit scalar markers, fused bindings, tines, through blocks, and total sweeps.</td></tr>
-          <tr><td>Parallel unit</td><td>A gang of program instances. The selected gang may be wider than one native CPU vector.</td><td>A CPU rack is exactly one native vector register; the proposed GPU mapping is described in the next section.</td></tr>
-          <tr><td>SoA model</td><td><code>soa&lt;n&gt;</code> creates an explicitly <code>n</code>-wide SoA representation and supports layout conversion.</td><td><code>stack</code> declares columns; <code>pack</code> supplies runtime storage and count; the target profile selects the traversal width.</td></tr>
-          <tr><td>Divergence vocabulary</td><td>Ordinary <code>if</code>, loops, and function calls acquire uniform or varying behavior from their operands.</td><td>Named tines expose masks; safe <code>through</code> blocks produce candidates; a total <code>sweep</code> selects each lane's result.</td></tr>
+          <tr><td>Parallel unit</td><td>A gang of program instances. The selected gang may be wider than one native CPU vector.</td><td>A CPU rack is exactly one native vector register. The proposed GPU mapping is described in the next section.</td></tr>
+          <tr><td>SoA model</td><td><code>soa&lt;n&gt;</code> creates an explicitly <code>n</code>-wide SoA representation and supports layout conversion.</td><td><code>stack</code> declares columns and <code>pack</code> supplies runtime storage and count. The target profile selects the traversal width.</td></tr>
+          <tr><td>Divergence vocabulary</td><td>Ordinary <code>if</code>, loops, and function calls acquire uniform or varying behavior from their operands.</td><td>Named tines expose masks. Safe <code>through</code> blocks produce candidates. A total <code>sweep</code> selects each lane's result.</td></tr>
           <tr><td>CPU machine contract</td><td>ISPC preserves gang semantics while the LLVM compiler infrastructure owns instruction selection and register allocation.</td><td>Rake additionally rejects splitting, scalar lane loops, rack spills, and helper calls wherever the selected profile forbids them.</td></tr>
-          <tr><td>Backend strategy</td><td>LLVM-based native CPU compilation plus documented Intel Xe GPU targets.</td><td>Rake-owned CPU instruction selection and allocation; a proposed cross-vendor GPU backend with a separate driver trust boundary.</td></tr>
-          <tr><td>Maturity</td><td>Established production compiler, broad language, C/C++ interoperability, tasking, libraries, tools, and deployed CPU/GPU targets.</td><td>Experimental alpha with verified AVX2 and NEON register-level slices; pack traversal, broader CPU profiles, and GPU emission remain unfinished.</td></tr>
+          <tr><td>Backend strategy</td><td>LLVM-based native CPU compilation plus documented Intel Xe GPU targets.</td><td>Rake-owned CPU instruction selection and allocation. A proposed cross-vendor GPU backend with a separate driver trust boundary.</td></tr>
+          <tr><td>Maturity</td><td>Established production compiler, broad language, C/C++ interoperability, tasking, libraries, tools, and deployed CPU/GPU targets.</td><td>Experimental alpha with verified AVX2 and NEON register-level slices. Pack traversal, broader CPU profiles, and GPU emission remain unfinished.</td></tr>
         </table>
       </div>
       <p>
@@ -923,7 +923,7 @@ run advance_x(
     <section id="gpu">
       <h2>Proposed GPU profiles and verification boundaries</h2>
       <p>
-        The proposed GPU backend maps Rake lanes to Vulkan <strong>shader invocations</strong>, individual executions of a GPU program. A <strong>subgroup</strong> is a set of invocations that execute together and exchange values directly. A CPU rack occupies one SIMD register; the proposed GPU rack spans one logical subgroup, with one lane per invocation.
+        The proposed GPU backend maps Rake lanes to Vulkan <strong>shader invocations</strong>, individual executions of a GPU program. A <strong>subgroup</strong> is a set of invocations that execute together and exchange values directly. A CPU rack occupies one SIMD register. The proposed GPU rack spans one logical subgroup, with one lane per invocation.
       </p>
 
       <h3>SPIR-V defines the portable boundary</h3>
@@ -954,7 +954,7 @@ run advance_x(
         vendor instruction format.
       </p>
       <p>
-        The proposed mapping assigns one rack lane to each subgroup invocation. Rack arithmetic becomes scalar arithmetic within each invocation, while reductions and shuffles use SPIR-V subgroup operations. Tines become per-invocation predicates. A 32-lane rack therefore spans 32 invocations; it is not an <code>OpTypeVector 32</code> value within one invocation.
+        The proposed mapping assigns one rack lane to each subgroup invocation. Rack arithmetic becomes scalar arithmetic within each invocation, while reductions and shuffles use SPIR-V subgroup operations. Tines become per-invocation predicates. A 32-lane rack therefore spans 32 invocations. It is not an <code>OpTypeVector 32</code> value within one invocation.
       </p>
       <div class="table-scroll">
         <table class="vocab-table">
@@ -1000,7 +1000,7 @@ run advance_x(
         <li><strong>Subgroup collectives stay explicit</strong>Reductions, shuffles, ballots, and broadcasts use SPIR-V subgroup operations instead of generated workgroup-memory algorithms.</li>
         <li><strong>Uniformity is typed</strong>Rake distinguishes one value shared by the subgroup from one value per invocation and rejects invalid crossings.</li>
         <li><strong>Inactive invocations are safe</strong>Tail predicates and benign operands prevent out-of-bounds memory access and exceptional inactive-lane arithmetic.</li>
-        <li><strong>Memory intent is inspectable</strong>Adjacent lane IDs address adjacent SoA elements; the generated SPIR-V exposes that address calculation for validation.</li>
+        <li><strong>Memory intent is inspectable</strong>Adjacent lane IDs address adjacent SoA elements. The generated SPIR-V exposes that address calculation for validation.</li>
         <li><strong>Required capability checks</strong>An unavailable operation or required execution mode produces a source-located error instead of an unadvertised fallback.</li>
         <li><strong>The module is mechanically checked</strong>SPIR-V validation and Rake-specific structural checks run before the shader reaches Vulkan.</li>
       </ul>
@@ -1029,7 +1029,7 @@ run advance_x(
         optional developer-tools extension. Those representations are implementation-dependent
         and may include final shader assembly. A missing extension or unavailable assembly would
         make certification fail rather than weaken the claim. The resulting certificate would
-        prove properties for one device and driver combination; it would not extend to every
+        prove properties for one device and driver combination. It would not extend to every
         device that accepts the SPIR-V module.
       </p>
 
@@ -1082,7 +1082,7 @@ run advance_x(
           <tr><td><a class="evidence-link" href="https://docs.taichi-lang.org/docs/hello_world">Taichi</a></td><td>A Python-embedded, data-oriented DSL that compiles parallel kernels for multicore CPUs and GPUs.</td><td>It concentrates on portable parallel iteration and data layout rather than proof of a fixed physical SIMD representation.</td></tr>
           <tr><td><a class="evidence-link" href="https://docs.modular.com/mojo/std/builtin/simd/SIMD/">Mojo</a></td><td>A systems and AI language with explicit parameterized SIMD values, vectorized algorithms, and CPU/GPU facilities.</td><td>The vector width is part of the SIMD type, and Mojo documents that an oversized value may be split across registers. Rake's rack width comes from the profile and splitting is a rejection condition.</td></tr>
           <tr><td>C++ and Rust SIMD libraries</td><td>Portable vector types and algorithms reduce direct use of architecture-specific intrinsics.</td><td>They remain library interfaces and do not ordinarily combine one-register identity, no spills, no helper calls, and no scalar lane loops into a compiler acceptance rule.</td></tr>
-          <tr><td>Research array and staging languages</td><td>Impala/AnyDSL, Lift/Shine, Accelerate, and Dex explore staged compilation, rewrite systems, and functional data-parallel programming.</td><td>These systems examine compilation and parallelism through staging, array operations, and rewrite rules; their abstractions and implementation status differ by project.</td></tr>
+          <tr><td>Research array and staging languages</td><td>Impala/AnyDSL, Lift/Shine, Accelerate, and Dex explore staged compilation, rewrite systems, and functional data-parallel programming.</td><td>These systems examine compilation and parallelism through staging, array operations, and rewrite rules. Their abstractions and implementation status differ by project.</td></tr>
         </table>
       </div>
     </section>
@@ -1097,9 +1097,9 @@ run advance_x(
       <table class="vocab-table">
         <tr><th>Area</th><th>0.3.0-alpha.1 status</th></tr>
         <tr><td>Native CPU</td><td>Rake-owned x86-64 AVX2 and AArch64 NEON backends for supported <code>crunch</code> and predicated <code>rake</code> programs, including uniform 32-bit floating-point (<code>f32</code>) parameters, no-spill allocation, textual assembly, and post-assembly verification</td></tr>
-        <tr><td>Language contract</td><td><code>run</code>, pack traversal, stacks, packs, and explicit widening are canonical source constructs; the capability report identifies the frontend and native subset implemented by this build</td></tr>
+        <tr><td>Language contract</td><td><code>run</code>, pack traversal, stacks, packs, and explicit widening are canonical source constructs. The capability report identifies the frontend and native subset implemented by this build</td></tr>
         <tr><td>Other targets</td><td>AVX-512, SSE2, and GPU native backends remain unimplemented</td></tr>
-        <tr><td>C boundary</td><td>The tested alpha crunch boundary uses the eight vector-argument registers provided by the System V x86-64 calling convention; no production <code>run</code> wrapper or stable cross-release ABI yet</td></tr>
+        <tr><td>C boundary</td><td>The tested alpha crunch boundary uses the eight vector-argument registers provided by the System V x86-64 calling convention. No production <code>run</code> wrapper or stable cross-release ABI yet</td></tr>
         <tr><td>Performance</td><td>No representative published benchmark or generated-code performance claim</td></tr>
         <tr><td>Future syntax</td><td>Some forms parse for design work but fail with source-located <code>WIP:</code> diagnostics</td></tr>
       </table>
