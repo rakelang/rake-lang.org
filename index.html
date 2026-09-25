@@ -896,7 +896,7 @@ run advance_x(
       <h3>Instruction selection and acceptance rules</h3>
 
       <p>
-        ISPC preserves SPMD semantics while LLVM selects instructions and allocates registers. Its performance guide describes irregular accesses that lower to gathers, scatters, or serialized loads. A Rake native profile can make particular instruction sequences and storage choices rejection conditions. The distinction is the set of permitted lowerings for a selected profile.
+        ISPC preserves SPMD semantics while LLVM selects instructions and allocates registers. Its performance guide describes irregular accesses that lower to gathers, scatters, or serialized loads. A Rake native profile names the operations it forbids, such as gathers, rack spills or helper calls, and rejects any program that would need one. Given the same irregular access, ISPC compiles a gather and its guide explains the cost. A profile that forbids gathers rejects the program instead, and the diagnostic names the operation that needed one.
       </p>
       <p>
         <a class="evidence-link" href="https://ispc.github.io/perfguide.html">ISPC performance guide →</a>
