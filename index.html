@@ -496,6 +496,7 @@
         <h1>Rake <span class="alpha-badge" data-release-version="0.3.0-alpha.1">0.3.0-alpha.1 ALPHA</span></h1>
         <p class="tagline">A vector-first kernel language with target-specific SIMD profiles and machine-code verification.</p>
         <nav>
+          <a href="#projects">Projects</a>
           <a href="#contract">CPU profiles</a>
           <a href="#principles">Masks</a>
           <a href="#fusion">Fusion</a>
@@ -504,7 +505,6 @@
           <a href="#gpu">GPU</a>
           <a href="#landscape">Landscape</a>
           <a href="#status">Status</a>
-          <a href="#projects">Projects</a>
           <a href="https://github.com/rakelang/rake">GitHub</a>
         </nav>
       </div>
@@ -515,6 +515,23 @@
       editor grammar, documentation, and this site. The source language and machine-level
       calling rules may change incompatibly before a stable release.
     </div>
+
+    <section id="projects">
+      <h2>Projects using Rake</h2>
+      <ul class="project-carousel">
+        <li class="project-card">
+          <img src="the-loong-game.svg" alt="" width="1440" height="960" loading="lazy">
+          <div class="project-card-body">
+            <h3>The Loong Game</h3>
+            <p>An open source bot and toolkit for the 2026 UNSW Battlecode tournament. A Rake profile for WebAssembly writes its room-count masks as C the tournament's judge accepts, at 437 points a turn against 435 for hand-written intrinsics.</p>
+            <ul>
+              <li><a href="https://over-yonder.tech/games/loong/the-choice/#rake-for-vector-kernels">The choice: Rake for vector kernels&nbsp;↗</a></li>
+              <li><a href="https://over-yonder.tech/games/loong/counting-room-faster/#keeping-it-vectorised">Counting room faster: keeping it vectorised&nbsp;↗</a></li>
+            </ul>
+          </div>
+        </li>
+      </ul>
+    </section>
 
     <section id="contract">
       <h2>Racks and native CPU profiles</h2>
@@ -1126,23 +1143,6 @@ run advance_x(
           <div><dt>Reduction / scan</dt><dd>A reduction combines many lanes into one value. A scan produces every running partial result, such as all prefix sums.</dd></div>
         </dl>
       </aside>
-    </section>
-
-    <section id="projects">
-      <h2>Projects using Rake</h2>
-      <ul class="project-carousel">
-        <li class="project-card">
-          <img src="the-loong-game.svg" alt="" width="1440" height="960" loading="lazy">
-          <div class="project-card-body">
-            <h3>The Loong Game</h3>
-            <p>A blog series on bots for the 2026 UNSW Battlecode tournament. A Rake profile for WebAssembly writes the bot's room-count masks as C the tournament's judge accepts, and costs 437 points against 435 for hand-written intrinsics.</p>
-            <ul>
-              <li><a href="https://over-yonder.tech/games/loong/the-choice/#rake-for-vector-kernels">The choice: Rake for vector kernels&nbsp;↗</a></li>
-              <li><a href="https://over-yonder.tech/games/loong/counting-room-faster/#keeping-it-vectorised">Counting room faster: keeping it vectorised&nbsp;↗</a></li>
-            </ul>
-          </div>
-        </li>
-      </ul>
     </section>
 
     <section>
