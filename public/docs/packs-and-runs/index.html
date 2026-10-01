@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Packs and runs | Rake</title>
+  <meta name="description" content="Rake's runs: stacks and packs of columns, traversals a rack at a time, safe tails, general loops over views, address forming, and the wasm32 C boundary.">
+  <link rel="canonical" href="https://rake-lang.org/docs/packs-and-runs/">
+  <meta property="og:title" content="Packs and runs | Rake">
+  <meta property="og:description" content="Rake's runs: stacks and packs of columns, traversals a rack at a time, safe tails, general loops over views, address forming, and the wasm32 C boundary.">
+  <meta property="og:url" content="https://rake-lang.org/docs/packs-and-runs/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Packs and runs | Rake","name":"Packs and runs | Rake","description":"Rake's runs: stacks and packs of columns, traversals a rack at a time, safe tails, general loops over views, address forming, and the wasm32 C boundary.","url":"https://rake-lang.org/docs/packs-and-runs/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/" aria-current="page">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="packs-and-runs">Packs and runs</h1>
+<p>A run is vector code over memory. It traverses columnar data a rack at a
+time, loops over views, and writes its results to memory. Runs are
+implemented for <code>wasm-simd128</code>. The x86 and AArch64 backends reject them, and
+the <a href="#planned-x86-64-boundary">x86-64 boundary</a> at the end of this page is a
+design.</p>
+<h2 id="stacks-and-packs">Stacks and packs</h2>
+<p>A <code>stack</code> declares the columns of structure-of-arrays storage, grouped by
+stored type. A <code>pack</code> of that stack is the columns themselves, supplied by
+the caller with a record count:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">quality</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">scale_values</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">pack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">chunk</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">let</span> <span class="tok-variable">quality</span> <span class="tok-operator">=</span> <span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">quality</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
+    <span class="tok-keyword">yield</span> <span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">scale</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-variable">quality</span>
+</code></pre>
+<p>The stack holds no data and no size. Grouping by type puts the dense columns
+together: here one <code>f32</code> column, then one byte column. The stored type is a
+scalar, as in <code>u8</code>. The plural rack types, as in <code>f32s</code>, appear where code
+computes on registers.</p>
+<h2 id="traversals">Traversals</h2>
+<p><code>for chunk in input using f32s up to &lt;count&gt;:</code> visits the first <code>count</code>
+records of <code>input</code>, one rack of records at a time: four at once for <code>f32s</code> on
+<code>wasm-simd128</code>. <code>using</code> names the compute domain. <code>chunk.value</code> is the rack of
+the current records' <code>value</code> column, loaded once for the chunk.</p>
+<p>A traversal of a run declared <code>-&gt; f32</code> ends each chunk with <code>yield</code>, and the
+yielded rack's lanes go to the run's output column of <code>f32</code>. A traversal in a
+run without a result type stores into columns of a <code>mut pack</code> instead, as
+<code>out.sum &lt;- row.a + row.b</code>, or accumulates into rack locations.</p>
+<p>A column whose stored element is as wide as the domain's lanes is a rack
+directly: in an <code>f32s</code> traversal, an <code>f32</code> column is <code>f32s</code> and a <code>u32</code> column
+is <code>u32s</code>. A narrower column has no rack value until <code>widen</code> converts it, and
+the compiler rejects any other use of it, so a byte column can't turn into a
+hidden scalar loop. <code>widen</code> preserves the value, extending by the stored
+type's sign:</p>
+<div class="table-scroll"><table><thead><tr><th>Stored column</th><th>32-bit domains (<code>f32s</code>, <code>i32s</code>, <code>u32s</code>)</th><th>64-bit domains (<code>i64s</code>, <code>u64s</code>)</th></tr></thead><tbody>
+<tr><td><code>u8</code>, <code>u16</code></td><td><code>u32s</code></td><td>not implemented</td></tr>
+<tr><td><code>i8</code>, <code>i16</code></td><td><code>i32s</code></td><td>not implemented</td></tr>
+<tr><td><code>u32</code></td><td>the column itself</td><td><code>u64s</code></td></tr>
+<tr><td><code>i32</code></td><td>the column itself</td><td><code>i64s</code></td></tr>
+</tbody></table>
+</div>
+<p>A column wider than the domain's lanes is rejected. A traversal using <code>u8s</code>
+reads sixteen byte records at once, and a <code>u8</code> column is its rack directly.</p>
+<h2 id="count-and-tail">Count and tail</h2>
+<p>The count is a uniform <code>i64</code>. A count of zero or less reads nothing. A count
+that isn't a multiple of the lane count ends with a tail chunk whose mask is
+<code>lane &lt; count mod lanes</code>. Its loads and stores are lane-sized, so they never
+touch an element past the count. In the tail, a column's inactive lanes hold
+zero, so a shuffle that moves one into an active lane reads zero. Rack
+expressions run under the tail's mask, and a mutable location updates only
+its active lanes.</p>
+<h2 id="general-runs">General runs</h2>
+<p>A run's parameters are packs (<code>pack S</code>, or <code>mut pack S</code> to write its columns),
+views (<code>[]T</code>, or <code>mut []T</code> to write), uniform scalars (<code>&lt;name: T&gt;</code>) and racks
+(<code>x: f32s</code>), which only a C caller can pass. Its body uses these forms:</p>
+<div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>let x = e</code>, <code>| x &lt;| e</code></td><td>a rack or mask, typed as in a crunch</td></tr>
+<tr><td><code>let &lt;x: T&gt; = e</code></td><td>a uniform: arithmetic of uniforms, a reduction, <code>extract</code> or <code>bitmask</code></td></tr>
+<tr><td><code>x := e</code>, <code>x &lt;- e</code></td><td>a mutable rack location, carried across iterations</td></tr>
+<tr><td><code>acc: [4]i32s := &lt;0&gt;</code>, <code>acc[&lt;k&gt;] &lt;- e</code></td><td>an array of rack locations, indexed by constants</td></tr>
+<tr><td><code>view[&lt;i&gt;]</code></td><td>the rack of consecutive elements starting at element <code>i</code></td></tr>
+<tr><td><code>&lt;view[i]&gt;</code></td><td>one element, as a uniform</td></tr>
+<tr><td><code>view[indices]</code></td><td>a gather by an <code>i32s</code> rack of indices, as <a href="/docs/memory-operations/#gather">memory operations</a> define</td></tr>
+<tr><td><code>view[&lt;i&gt;] &lt;- e</code></td><td>a rack store at a uniform index</td></tr>
+<tr><td><code>for &lt;i: T&gt; from &lt;a&gt; up to &lt;b&gt; by &lt;s&gt;:</code></td><td>a counted loop with a uniform index</td></tr>
+<tr><td><code>repeat &lt;i: T&gt; from &lt;a&gt; up to &lt;b&gt;:</code></td><td>a loop with constant bounds</td></tr>
+<tr><td><code>if &lt;c&gt;:</code> … <code>else:</code></td><td>a branch on a uniform condition</td></tr>
+<tr><td><code>for chunk in p using D up to &lt;n&gt;:</code></td><td>a traversal</td></tr>
+</tbody></table>
+</div>
+<p>Every view access is checked, and a rack access traps unless all its
+elements are in bounds. <code>view[unchecked &lt;i&gt;]</code> drops the check. A store's index
+is uniform, so a run has no scatter.</p>
+<p>Rack expressions in a run mean what they mean in a crunch. A crunch or rake
+called from a run is inlined, and its tines combine with any mask around the
+call. <code>repeat</code> is unrolled while its trips times its body's statements stay
+within 4096 and otherwise stays a loop, which bounds code size and compile
+time. A rack location or rack array stays in registers across a loop.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">running_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">n</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">total</span> <span class="tok-operator">:=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">for</span> <span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-keyword">from</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">n</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">by</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">4</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-variable">total</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">total</span> <span class="tok-operator">+</span> <span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span>
+    <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">total</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">1.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">2.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">5.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">6.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">7.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">8.0</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">running_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">5</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p>A traversal may contain another traversal of the same lane count, such as a
+pass over a second pack for each chunk of the first. The inner traversal reads
+only its own chunk's columns, so values from the outer chunk are bound with
+<code>let</code> before it. It can't yield or store. It accumulates into locations, and
+the outer traversal stores them. In the outer tail both masks apply, and
+because both cover a prefix of the lanes, the inner tail's mask is the
+shorter one.</p>
+<p>A run can't loop with <code>while</code>, <code>break</code> or <code>continue</code>, call slow code, call C,
+or read module state.</p>
+<h2 id="addressing">Addressing</h2>
+<p>In each counted loop, Rake forms addresses itself. Accesses whose index is
+affine in the loop index share one strength-reduced pointer for each view,
+stride and invariant base, and the constant term of the index becomes the
+instruction's offset. A uniform whose only uses are such accesses isn't
+computed again each iteration. Bounds are checked once, before the loop,
+for its first and last iterations: an affine index lies between its values
+there, so those two checks cover every iteration.</p>
+<p>Clang folds a constant offset into a WebAssembly load only when it can see
+that the address doesn't wrap, and loop strength reduction hides that. The
+default <code>--wasm-addressing barrier</code> gives each pointer an empty <code>asm</code>
+statement with one <code>i32</code> operand at the top of every iteration. That keeps
+the pointer opaque, so the offsets fold. <code>--wasm-addressing plain</code> emits the
+intrinsics alone. The barriers name only scalar pointers, because a <code>v128</code>
+operand to <code>asm</code> crashes some wasm32 builds of clang.</p>
+<h2 id="wasm32-boundary">wasm32 boundary</h2>
+<p>On <code>wasm-simd128</code> a run is an external C function that is never inlined,
+named as in the source and returning <code>void</code>. Its C parameters follow the
+source order:</p>
+<div class="table-scroll"><table><thead><tr><th>Rake parameter</th><th>C parameters</th></tr></thead><tbody>
+<tr><td><code>p: pack S</code></td><td><code>const struct rake_pack_S_v1 *p</code></td></tr>
+<tr><td><code>p: mut pack S</code></td><td><code>const struct rake_mut_pack_S_v1 *p</code></td></tr>
+<tr><td><code>x: []T</code></td><td><code>const T *p_x, int32_t p_x_count</code></td></tr>
+<tr><td><code>x: mut []T</code></td><td><code>T *p_x, int32_t p_x_count</code></td></tr>
+<tr><td><code>&lt;n: T&gt;</code></td><td>the C type of <code>T</code></td></tr>
+<tr><td><code>x: f32s</code>, or another rack</td><td><code>v128_t x</code></td></tr>
+<tr><td>the output of a run declared <code>-&gt; T</code></td><td><code>T *p_result</code>, last</td></tr>
+</tbody></table>
+</div>
+<p>A pack descriptor has one pointer for each column in declaration order,
+<code>const T *</code> in <code>rake_pack_S_v1</code> and <code>T *</code> in <code>rake_mut_pack_S_v1</code>. The runs in
+<code>test/abi/runs.rk</code> have these declarations:</p>
+<pre class="code code-c"><code><span class="tok-keyword">struct</span> <span class="tok-type">rake_pack_Samples_v1</span> { <span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-property">value</span><span class="tok-delimiter">;</span> <span class="tok-keyword">const</span> <span class="tok-type">uint8_t</span> <span class="tok-operator">*</span><span class="tok-property">quality</span><span class="tok-delimiter">;</span> }<span class="tok-delimiter">;</span>
+<span class="tok-type">void</span> <span class="tok-function">scale_values</span>(<span class="tok-keyword">const</span> <span class="tok-keyword">struct</span> <span class="tok-type">rake_pack_Samples_v1</span> <span class="tok-operator">*</span><span class="tok-variable">input</span>, <span class="tok-type">int64_t</span> <span class="tok-variable">count</span>, <span class="tok-type">float</span> <span class="tok-variable">scale</span>, <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">result</span>)<span class="tok-delimiter">;</span>
+<span class="tok-type">void</span> <span class="tok-function">offset</span>(<span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">x</span>, <span class="tok-type">int32_t</span> <span class="tok-variable">x_count</span>, <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">out</span>, <span class="tok-type">int32_t</span> <span class="tok-variable">out_count</span>, <span class="tok-type">v128_t</span> <span class="tok-variable">shift</span>, <span class="tok-type">int32_t</span> <span class="tok-variable">n</span>)<span class="tok-delimiter">;</span>
+</code></pre>
+<p>The caller owns all the storage, and a run never allocates, keeps or frees
+it. When a traversal's count is zero or less, the descriptor, its columns
+and the output may be null. A positive count is at most 2^32 - 1, because a
+wasm32 traversal counts in 32 bits. Every column the traversal reads, the
+output, and every column of a pack it stores into must hold at least <code>count</code>
+elements. Slow code calling a run checks these and traps, and a C caller must
+meet them. A run reads each column pointer from its descriptor once.</p>
+<p>Read-only inputs may alias each other. An output either overlaps no input or
+starts at exactly the same address as one input column, for an in-place
+update. Each chunk loads all the columns it reads before storing its result,
+so an in-place update sees the chunk's inputs as they were. The C declaration
+has no <code>restrict</code>, because that exact aliasing is allowed.</p>
+<p>From slow code, a run is a statement. A run declared <code>-&gt; T</code> takes its output
+view as one more argument after its parameters, as <code>weigh(..., weighed)</code> does
+in <a href="/docs/slow-tier/">the slow tier</a>.</p>
+<p><code>test/abi_test.sh</code> calls the runs from C for every count from 0 to 20, with
+misaligned arrays, sentinels after the output, null pointers for empty
+counts, in-place output, storage ending at the last page of linear memory,
+mutable packs and rack parameters, in both addressing modes.</p>
+<h2 id="planned-x86-64-boundary">Planned x86-64 boundary</h2>
+<p>This section is a design. No backend implements it, and the x86 and AArch64
+backends reject runs.</p>
+<p>On Linux x86-64 with AVX2, a run would follow System V. Pack descriptor
+pointers, <code>i32</code> and <code>i64</code> arguments would take <code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>rcx</code>,
+<code>r8</code> and <code>r9</code> in source order, uniform <code>f32</code> arguments <code>xmm0</code> to <code>xmm7</code>, and
+the output pointer the next integer register. A run needing more registers
+than these would be rejected, since nothing passes on the stack. It would
+return <code>void</code> under its source name, keep no stack frame, call nothing, and
+execute <code>vzeroupper</code> before returning:</p>
+<pre class="code code-c"><code><span class="tok-type">void</span> <span class="tok-function">scale_values</span>(
+    <span class="tok-keyword">const</span> <span class="tok-keyword">struct</span> <span class="tok-type">rake_pack_Samples_v1</span> <span class="tok-operator">*</span><span class="tok-variable">input</span>, <span class="tok-comment">/* rdi */</span>
+    <span class="tok-type">int64_t</span> <span class="tok-variable">count</span>,                            <span class="tok-comment">/* rsi */</span>
+    <span class="tok-type">float</span> <span class="tok-variable">scale</span>,                              <span class="tok-comment">/* xmm0 */</span>
+    <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">result</span>                             <span class="tok-comment">/* rdx */</span>
+)<span class="tok-delimiter">;</span>
+</code></pre>
+<p>Full chunks would use unaligned vector loads and stores, so callers need only
+natural alignment. The tail would use masked loads and stores, and the
+operands of inactive lanes would be replaced by benign values before any
+operation that can raise a floating-point exception, as in a <code>through</code> block.
+Before the backend accepts runs, its tests would compare it with the
+interpreter over empty, full and tail counts, check descriptor layouts,
+widening, misaligned arrays, output sentinels, in-place output, arrays ending
+at a guard page and inactive lanes raising no exceptions, and verify that the
+object has no calls, spills, stack frame or scalar cleanup loop.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#stacks-and-packs">Stacks and packs</a></li>
+<li><a href="#traversals">Traversals</a></li>
+<li><a href="#count-and-tail">Count and tail</a></li>
+<li><a href="#general-runs">General runs</a></li>
+<li><a href="#addressing">Addressing</a></li>
+<li><a href="#wasm32-boundary">wasm32 boundary</a></li>
+<li><a href="#planned-x86-64-boundary">Planned x86-64 boundary</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPU profiles (design) | Rake</title>
+  <meta name="description" content="A design for Rake on GPUs: a rack as a Vulkan subgroup, SPIR-V as the portable boundary, what the driver decides, and certifying one device and driver.">
+  <link rel="canonical" href="https://rake-lang.org/docs/gpu/">
+  <meta property="og:title" content="GPU profiles (design) | Rake">
+  <meta property="og:description" content="A design for Rake on GPUs: a rack as a Vulkan subgroup, SPIR-V as the portable boundary, what the driver decides, and certifying one device and driver.">
+  <meta property="og:url" content="https://rake-lang.org/docs/gpu/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"GPU profiles (design) | Rake","name":"GPU profiles (design) | Rake","description":"A design for Rake on GPUs: a rack as a Vulkan subgroup, SPIR-V as the portable boundary, what the driver decides, and certifying one device and driver.","url":"https://rake-lang.org/docs/gpu/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/" aria-current="page">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="gpu-profiles">GPU profiles</h1>
+<p>This page is a design. Rake has no SPIR-V backend, no Vulkan runtime profile
+and no device certification. Building them would need executable semantics,
+rejection tests, SPIR-V inspection and validation on supported devices.</p>
+<p>The design maps Rake's lanes to Vulkan shader invocations, the individual
+executions of a GPU program. Invocations run in subgroups, sets of
+invocations that execute together and exchange values directly. Where a CPU
+rack is one SIMD register, a GPU rack would span one subgroup, one lane to
+each invocation. The <a href="/docs/glossary/#gpu-terms">glossary</a> defines the GPU terms.</p>
+<h2 id="spir-v-is-the-portable-boundary">SPIR-V is the portable boundary</h2>
+<p>On a CPU, Rake controls instruction selection, register assignment,
+assembly and the object file. For Vulkan it would emit SPIR-V instead, a
+portable binary program that the vendor's driver translates into device
+instructions. Rake could verify the SPIR-V module and the requirements it
+declares, and the driver would own the final instructions and registers.</p>
+<pre class="code code-text"><code>Rake source
+  |
+  +-- CPU profile -- Rake machine form -- register allocation -- assembly -- object
+  |                  Rake controls and verifies all of it
+  |
+  +-- GPU profile -- validated SPIR-V -- Vulkan driver -- device code
+                     Rake proves this    the driver controls the rest
+</code></pre>
+<h2 id="a-gpu-rack-is-a-subgroup">A GPU rack is a subgroup</h2>
+<p>A SPIR-V vector is a small value of two to four components inside one
+invocation. A Vulkan subgroup is a set of invocations that can exchange data
+and run collective operations efficiently, which hardware executes together
+as a wave or warp, although Vulkan defines the subgroup's behaviour rather
+than an instruction format.</p>
+<p>In the design, each rack lane is one invocation of a subgroup. Rack
+arithmetic becomes scalar arithmetic in each invocation, reductions and
+shuffles become SPIR-V subgroup operations, and tines become predicates in
+each invocation. A 32-lane rack spans 32 invocations. It isn't an
+<code>OpTypeVector</code> of 32 components in one invocation.</p>
+<div class="table-scroll"><table><thead><tr><th></th><th>CPU rack</th><th>GPU rack</th></tr></thead><tbody>
+<tr><td>What it is</td><td>one SIMD register</td><td>one subgroup, spread across invocations</td></tr>
+<tr><td>A lane</td><td>one component of the register</td><td>one scalar owned by an invocation</td></tr>
+<tr><td>The width</td><td>the element type and the CPU profile</td><td>the subgroup size the Vulkan pipeline profile requires</td></tr>
+<tr><td>Evidence</td><td>the register-assigned program and the encoded instructions</td><td>validated SPIR-V, its declared capabilities and the pipeline's requirements</td></tr>
+<tr><td>Register allocation</td><td>Rake's</td><td>the driver's</td></tr>
+</tbody></table>
+</div>
+<p>The 400 particles of <a href="/docs/comparisons/#ways-to-write-simd-code">the comparison harness</a>
+would take twelve full racks and a last rack of 16 active invocations on a
+<code>vulkan-subgroup32</code> profile, and six full racks and the same last rack on
+<code>vulkan-subgroup64</code>. Vulkan also rounds a dispatch up to the workgroup size,
+so padding invocations run, and Rake's bounds predicate would keep them from
+touching memory or computing partial operations.</p>
+<div class="table-scroll"><table><thead><tr><th>Profile</th><th>Rack width</th><th>400 particles</th></tr></thead><tbody>
+<tr><td><code>x86-avx2</code></td><td>8 values</td><td>50 full racks</td></tr>
+<tr><td><code>vulkan-subgroup32</code></td><td>32 invocations</td><td>12 full racks and 16 active invocations</td></tr>
+<tr><td><code>vulkan-subgroup64</code></td><td>64 invocations</td><td>6 full racks and 16 active invocations</td></tr>
+</tbody></table>
+</div><h2 id="checks-on-the-spir-v">Checks on the SPIR-V</h2>
+<p>A Vulkan profile would fix a SPIR-V version, the Vulkan features it needs, the
+subgroup width, floating-point modes, the memory model and the operations it
+allows. Creating the pipeline would check the device and reject a profile
+whose subgroup size or capabilities it lacks. The profile would require:</p>
+<ul>
+<li>a fixed subgroup width, requested by the runtime, with incompatible devices
+and shader stages refused,</li>
+<li>no loop over logical lanes: rack arithmetic stays spread across
+invocations,</li>
+<li>subgroup collectives, such as reductions, shuffles, ballots and
+broadcasts, as SPIR-V subgroup operations instead of algorithms through
+workgroup memory,</li>
+<li>typed uniformity, so a value shared by the subgroup and a value for each
+invocation can't be confused,</li>
+<li>safe inactive invocations, with tail predicates and benign operands,</li>
+<li>inspectable memory access: adjacent lanes address adjacent elements, and the
+SPIR-V shows the address calculation,</li>
+<li>a source-located error for an unavailable operation or execution mode, and</li>
+<li>SPIR-V validation and Rake's own structural checks before the shader
+reaches Vulkan.</li>
+</ul>
+<h2 id="what-the-driver-decides">What the driver decides</h2>
+<p>Vulkan drivers compile SPIR-V into device executables when a pipeline is
+created, and may change instruction selection, scheduling and register
+allocation, or spill. A portable SPIR-V profile therefore can't promise any
+of these from the module alone:</p>
+<ul>
+<li>no spills, because SPIR-V identifiers don't fix GPU registers,</li>
+<li>one instruction for each operation, because the driver may expand or combine
+them,</li>
+<li>a register count or occupancy, which depend on the driver and the whole
+pipeline,</li>
+<li>coalesced memory transactions: Rake can prove that addresses are adjacent,
+and the hardware decides the transactions and caching, and</li>
+<li>identical code across driver versions.</li>
+</ul>
+<h2 id="certifying-one-device">Certifying one device</h2>
+<p>Verification for one device would name the device and the driver. A tool
+would create the pipeline, capture its executable statistics and any internal
+representation the driver exposes, and run a vendor-specific checker for
+spills, register use, helper code and forbidden instructions. The certificate
+would bind the SPIR-V hash, pipeline state, device, driver version, subgroup
+size and checker version.</p>
+<p>Vulkan exposes executable statistics and internal representations through
+an optional <a href="https://docs.vulkan.org/refpages/latest/refpages/source/VK_KHR_pipeline_executable_properties.html">developer extension</a>.
+What it shows depends on the implementation, and may include the final shader
+assembly, so a device without it couldn't be certified. A certificate would
+hold for that device and driver, and not for every device that accepts the
+module.</p>
+<p>The GPU profiles would share the CPU profiles' lane semantics, column
+declarations and predication. The <a href="https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html">SPIR-V
+specification</a>
+and Vulkan's <a href="https://docs.vulkan.org/guide/latest/subgroups.html">subgroup guide</a>
+describe the target.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#spir-v-is-the-portable-boundary">SPIR-V is the portable boundary</a></li>
+<li><a href="#a-gpu-rack-is-a-subgroup">A GPU rack is a subgroup</a></li>
+<li><a href="#checks-on-the-spir-v">Checks on the SPIR-V</a></li>
+<li><a href="#what-the-driver-decides">What the driver decides</a></li>
+<li><a href="#certifying-one-device">Certifying one device</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

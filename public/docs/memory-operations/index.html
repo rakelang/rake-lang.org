@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Memory operations | Rake</title>
+  <meta name="description" content="How Rake runs read and write memory: checked and unchecked accesses, masks, the WebAssembly gather, and designs for scatter, compression and expansion.">
+  <link rel="canonical" href="https://rake-lang.org/docs/memory-operations/">
+  <meta property="og:title" content="Memory operations | Rake">
+  <meta property="og:description" content="How Rake runs read and write memory: checked and unchecked accesses, masks, the WebAssembly gather, and designs for scatter, compression and expansion.">
+  <meta property="og:url" content="https://rake-lang.org/docs/memory-operations/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Memory operations | Rake","name":"Memory operations | Rake","description":"How Rake runs read and write memory: checked and unchecked accesses, masks, the WebAssembly gather, and designs for scatter, compression and expansion.","url":"https://rake-lang.org/docs/memory-operations/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/" aria-current="page">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="memory-operations">Memory operations</h1>
+<p>Runs read and write memory through views and packs. This page defines the
+accesses, the gather, which is implemented for <code>wasm-simd128</code>, and the
+scatter, compression and expansion, which are designs that no backend
+implements yet.</p>
+<h2 id="accesses">Accesses</h2>
+<p>A view, <code>[]T</code>, is a count of elements of type <code>T</code>. A run reads and writes it
+in three ways:</p>
+<div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>view[&lt;i&gt;]</code></td><td>the rack of consecutive elements starting at element <code>i</code></td></tr>
+<tr><td><code>&lt;view[i]&gt;</code></td><td>element <code>i</code>, as a uniform</td></tr>
+<tr><td><code>view[indices]</code></td><td>a gather: element <code>indices[k]</code> in each lane <code>k</code></td></tr>
+<tr><td><code>view[&lt;i&gt;] &lt;- rack</code></td><td>a store of consecutive elements starting at element <code>i</code></td></tr>
+</tbody></table>
+</div>
+<p>Indices count elements, never bytes, and there is no pointer arithmetic. An
+access is checked: it traps, before touching memory, unless every element it
+reads or writes is in bounds. <code>view[unchecked &lt;i&gt;]</code> and
+<code>view[unchecked indices]</code> drop the check, and the program then promises that
+the access is in bounds. An unchecked access out of bounds is outside Rake's
+semantics. Slow code uses the same <code>[unchecked i]</code> spelling for its elements.</p>
+<p>Inside a mask, only the active lanes take part. The mask of a memory access is
+the conjunction of the masks that apply to it, from a <code>through</code> block and from
+a traversal's tail. An inactive lane is never checked, and it computes no
+address and makes no access. A full load followed by a blend doesn't meet this
+rule, because it touches the inactive lanes' memory.</p>
+<h2 id="gather">Gather</h2>
+<p>A gather indexes a view with an <code>i32s</code> or <code>u32s</code> rack of element indices. The
+view's elements are 32 bits wide: <code>f32</code>, <code>i32</code> or <code>u32</code>.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">lookup</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">table</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">places</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">table</span><span class="tok-punctuation-bracket">[</span><span class="tok-variable">places</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2.0</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">table</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">6</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">10.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">11.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">12.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">13.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">14.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">15.0</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">places</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">5</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">lookup</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">table</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">places</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">out</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p>The checked gather traps unless every active index <code>i</code> satisfies
+<code>0 &lt;= i &lt; count</code>, and it checks all the lanes before the first load:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">lookup</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">table</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">places</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">table</span><span class="tok-punctuation-bracket">[</span><span class="tok-variable">places</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">]</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">table</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">6</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">10.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">11.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">12.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">13.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">14.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">15.0</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">places</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">5</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">6</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">lookup</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">table</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">places</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">out</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-number">0</span>
+</code></pre>
+<p>WebAssembly has no gather instruction. On <code>wasm-simd128</code> the check is one
+<code>i32x4.all_true</code> of two lane comparisons joined by <code>v128.and</code>, and the gather
+is four <code>i32x4.extract_lane</code>, each forming an address, and four
+<code>v128.load32_lane</code> into a zeroed rack. The sequence is the same for every
+gather, with no loop and no branch.</p>
+<p>In a traversal's tail only the active lanes are checked and loaded: a switch
+on the uniform remainder issues one, two or three lane loads, and the
+inactive lanes are zero. A gather in a traversal needs a 32-bit domain, so
+that its lanes are the traversal's. A gather can't appear in a conditional's
+branches, as <a href="/docs/control-flow/#conditional-expressions">control flow</a>
+explains, and it isn't allowed in a fused binding, because it reads memory.</p>
+<h2 id="scatter">Scatter</h2>
+<p>A store's index is uniform, so a run has no scatter, and <code>wasm-simd128</code>
+rejects a store indexed by a rack:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">places</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-variable">places</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span>
+</code></pre>
+<p>Storing the lanes one at a time would be the hidden scalar loop that Rake
+rules out. The rest of this section is a design for profiles with a scatter
+instruction.</p>
+<p>A scatter would write one element for each active lane through a writable
+view, and produce no value. The checked scatter would check, before its first
+store, that every active index is in bounds and that no two active lanes have
+the same index, and trap otherwise, leaving memory unchanged. The unchecked
+scatter would require both. Two active lanes with one destination have no
+first-wins or last-wins meaning: excluding them lets a native scatter
+instruction run without an order the machine doesn't promise. A scatter would
+be excluded from fused regions, and allowed under a mask only where the
+backend can suppress every inactive store.</p>
+<h2 id="compression-and-expansion">Compression and expansion</h2>
+<p>This section is a design. Rake has no syntax for these operations yet.</p>
+<p>Compression would move a rack's selected lanes to its low lanes, in order.
+For a rack <code>values</code> and a mask <code>selected</code> with <code>K</code> true lanes, where
+<code>source(j)</code> is the lane of the <code>j</code>th true lane counting from lane 0:</p>
+<pre class="code code-text"><code>result[j] = values[source(j)]    for 0 &lt;= j &lt; K
+result[j] = +0.0                 for K &lt;= j &lt; lanes
+</code></pre>
+<p>Expansion would do the reverse with a passthrough rack. With <code>rank(i)</code> the
+number of true lanes below lane <code>i</code>:</p>
+<pre class="code code-text"><code>result[i] = values[rank(i)]    where selected[i]
+result[i] = passthrough[i]     elsewhere
+</code></pre>
+<p>Both would copy bits exactly, NaN payloads and negative zero included, and
+neither would touch memory. An all-false mask would compress to all positive
+zeros, and an all-true mask would return the input.</p>
+<h2 id="planned-avx2-gather">Planned AVX2 gather</h2>
+<p>This section is a design. The x86 backend has no runs, so it has no gather.</p>
+<p>An AVX2 gather of 32-bit elements would use <code>vgatherdps</code> with scale four and
+the access's mask as its mask operand. The instruction clears its mask
+register, so the backend would copy a mask that is still live. A checked
+gather would add the bounds check before it. AVX2 has no scatter instruction,
+so <code>x86-avx2</code> would reject scatter. Compression and expansion could use a
+mask's bits, a table of permutations and <code>vpermps</code>.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#accesses">Accesses</a></li>
+<li><a href="#gather">Gather</a></li>
+<li><a href="#scatter">Scatter</a></li>
+<li><a href="#compression-and-expansion">Compression and expansion</a></li>
+<li><a href="#planned-avx2-gather">Planned AVX2 gather</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

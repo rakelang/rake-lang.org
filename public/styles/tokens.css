@@ -1,0 +1,49 @@
+/* Rake's design tokens: the colours of the wallpaper's sand and rust, its
+   type and its spacing. Every component in components.css draws from these. */
+
+:root {
+  --colour-ground: #1e1410;
+  --colour-ground-raised: #2a1c16;
+  --colour-ground-code: #322218;
+  --colour-rule: rgba(212, 165, 116, 0.16);
+  --colour-text: #f0e6d8;
+  --colour-text-dim: #b8a090;
+  --colour-sand: #e0c090;
+  --colour-sand-light: #f0dab8;
+  --colour-sand-dim: #b89060;
+  --colour-rust: #d0704e;
+  --colour-link: #e8b878;
+
+  /* Code uses the gruvbox dark palette, and each of Rake's marks has its own
+     colour: tines orange, uniforms blue, and data flow aqua. */
+  --colour-code-ground: #1d2021;
+  --colour-code-text: #ebdbb2;
+  --colour-code-keyword: #fb4934;
+  --colour-code-type: #fabd2f;
+  --colour-code-function: #b8bb26;
+  --colour-code-tine: #fe8019;
+  --colour-code-uniform: #83a598;
+  --colour-code-flow: #8ec07c;
+  --colour-code-number: #d3869b;
+  --colour-code-comment: #928374;
+  --colour-code-punctuation: #a89984;
+
+  --font-text: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --size-text: 1.0625rem;
+  --size-small: 0.9rem;
+  --size-code: 0.875rem;
+  --size-h1: 2.375rem;
+  --size-h2: 1.5rem;
+  --size-h3: 1.2rem;
+  --leading: 1.7;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2.5rem;
+  --space-6: 4rem;
+  --radius: 8px;
+  --measure: 46rem;
+}

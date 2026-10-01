@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}}</title>
+  <meta name="description" content="{{description}}">
+  {{robots}}<link rel="canonical" href="{{canonical}}">
+  <meta property="og:title" content="{{title}}">
+  <meta property="og:description" content="{{description}}">
+  <meta property="og:url" content="{{canonical}}">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="{{asset:images/icon-32.png}}" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="{{asset:images/icon-180.png}}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="{{asset:styles/tokens.css}}">
+  <link rel="stylesheet" href="{{asset:styles/components.css}}">
+  {{schema}}
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="{{layout}}">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="{{asset:images/icon-32.png}}" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="{{github}}">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    {{sidebar}}
+    <main class="content">
+{{body}}
+    </main>
+    {{contents}}
+  </div>
+  <footer class="site-footer">
+    <p>Rake {{version}}. MIT licence. Source on <a href="{{github}}">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

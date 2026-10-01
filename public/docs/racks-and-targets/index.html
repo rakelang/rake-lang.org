@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Racks and targets | Rake</title>
+  <meta name="description" content="What each Rake profile compiles: float and integer racks, bit operations, shuffles, floating-point rules, relaxed SIMD, calling conventions and checks.">
+  <link rel="canonical" href="https://rake-lang.org/docs/racks-and-targets/">
+  <meta property="og:title" content="Racks and targets | Rake">
+  <meta property="og:description" content="What each Rake profile compiles: float and integer racks, bit operations, shuffles, floating-point rules, relaxed SIMD, calling conventions and checks.">
+  <meta property="og:url" content="https://rake-lang.org/docs/racks-and-targets/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Racks and targets | Rake","name":"Racks and targets | Rake","description":"What each Rake profile compiles: float and integer racks, bit operations, shuffles, floating-point rules, relaxed SIMD, calling conventions and checks.","url":"https://rake-lang.org/docs/racks-and-targets/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/" aria-current="page">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="racks-and-targets">Racks and targets</h1>
+<p>A rack is one vector register. Its type names its element, as <code>f32s</code> names a
+rack of <code>f32</code> lanes, and the target profile gives its width. This page
+defines the profiles, the operations each one compiles, the floating-point
+rules and the calling conventions of crunches and rakes.</p>
+<h2 id="profiles">Profiles</h2>
+<div class="table-scroll"><table><thead><tr><th>Profile</th><th>Register</th><th class="align-right"><code>f32</code> lanes</th><th>Status</th></tr></thead><tbody>
+<tr><td><code>x86-avx2</code></td><td>one 256-bit YMM register, AVX2 and FMA3</td><td class="align-right">8</td><td><code>f32s</code> crunches and rakes, as GNU assembly</td></tr>
+<tr><td><code>aarch64-neon</code></td><td>one 128-bit vector register, AAPCS64</td><td class="align-right">4</td><td><code>f32s</code> crunches and rakes, as GNU assembly</td></tr>
+<tr><td><code>wasm-simd128</code></td><td>one <code>v128</code></td><td class="align-right">4</td><td>float and integer crunches and rakes, runs and whole programs, as C</td></tr>
+<tr><td><code>wasm-simd128-relaxed</code></td><td>one <code>v128</code></td><td class="align-right">4</td><td><code>wasm-simd128</code> and the relaxed SIMD operations</td></tr>
+<tr><td><code>x86-sse2</code></td><td>one 128-bit XMM register</td><td class="align-right">4</td><td>planned</td></tr>
+<tr><td><code>x86-avx512</code></td><td>one 512-bit ZMM register</td><td class="align-right">16</td><td>planned</td></tr>
+<tr><td><code>scalar</code></td><td>none</td><td class="align-right">1</td><td>planned, without the one-register guarantee</td></tr>
+</tbody></table>
+</div>
+<p><code>--target native</code>, the default, chooses <code>x86-avx2</code> on a host with AVX2 and
+FMA and <code>aarch64-neon</code> on a host with Advanced SIMD, and fails elsewhere. A
+build for another machine names its profile. The compiler rejects code for a
+planned profile.</p>
+<p><code>--width n</code> asserts the <code>f32</code> lane count. It must equal the profile's, and a
+mismatch is an error before any code is generated. The compiler never meets
+it by splitting or narrowing a rack.</p>
+<p><code>lanes</code>, the lane count, and <code>@</code>, the lane index, are reserved and
+unavailable on every profile.</p>
+<h2 id="float-racks">Float racks</h2>
+<p>These operations on <code>f32s</code> racks compile on each profile:</p>
+<div class="table-scroll"><table><thead><tr><th>Operation</th><th class="align-center"><code>x86-avx2</code></th><th class="align-center"><code>aarch64-neon</code></th><th class="align-center"><code>wasm-simd128</code></th></tr></thead><tbody>
+<tr><td><code>+</code> <code>-</code> <code>*</code> <code>/</code>, negation, <code>sqrt</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td>comparisons, <code>and</code> <code>or</code> <code>not</code> on masks, <code>select</code>, <code>if</code> on a mask</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>fma(a, b, c)</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">no</td></tr>
+<tr><td><code>min</code> <code>max</code> <code>abs</code> <code>floor</code> <code>ceil</code> <code>trunc</code> <code>nearest</code></td><td class="align-center">no</td><td class="align-center">no</td><td class="align-center">yes</td></tr>
+<tr><td><code>exp</code> <code>log</code> <code>log2</code> <code>tanh</code></td><td class="align-center">no</td><td class="align-center">no</td><td class="align-center">yes</td></tr>
+<tr><td><code>if</code> on a uniform condition</td><td class="align-center">no</td><td class="align-center">no</td><td class="align-center">yes</td></tr>
+<tr><td><code>sum</code> <code>product</code> <code>minimum</code> <code>maximum</code>, and the scans</td><td class="align-center">yes</td><td class="align-center">no</td><td class="align-center">yes</td></tr>
+<tr><td><code>all</code> <code>any</code> <code>bitmask</code>, <code>extract</code> <code>insert</code> <code>shuffle</code></td><td class="align-center">no</td><td class="align-center">no</td><td class="align-center">yes</td></tr>
+</tbody></table>
+</div>
+<p>A crunch or rake may return a rack or a mask on every profile, a scalar from
+a reduction on <code>x86-avx2</code> and <code>wasm-simd128</code>, and a <code>bool</code> from <code>all</code> or
+<code>any</code> on <code>wasm-simd128</code>. <code>%</code> has no float form, and <code>true</code> and <code>false</code> have
+no rack form: a mask comes from a comparison. <code>sin</code>, <code>cos</code>, <code>tan</code>, <code>pow</code> and
+<code>atan2</code> type-check but have no lowering, so the compiler rejects them on every
+profile.</p>
+<p><code>select(mask, a, b)</code> takes <code>a</code> in the mask's lanes and <code>b</code> elsewhere, and so
+does <code>if mask then a else b</code>. <code>if &lt;c&gt; then a else b</code> with a uniform condition
+chooses one rack for every lane. On <code>wasm-simd128</code>, <code>min(a, b)</code> and
+<code>max(a, b)</code> are IEEE 754 minimum and maximum: NaN if either lane is NaN, and
+−0 below +0. <code>floor</code>, <code>ceil</code>, <code>trunc</code> and <code>nearest</code> round to an integral
+value, <code>nearest</code> with ties to even. <code>fma(a, b, c)</code> is <code>a * b + c</code> with one
+rounding. It says the program depends on that rounding, which <code>wasm-simd128</code>
+can't provide, so it rejects <code>fma</code> rather than computing it with two.</p>
+<h2 id="integer-racks">Integer racks</h2>
+<p>Integer racks are implemented for <code>wasm-simd128</code> only. On its 128-bit
+register a <code>u8s</code> rack has 16 lanes, <code>i16s</code> 8, <code>i32s</code> and <code>u32s</code> 4, and <code>i64s</code>
+and <code>u64s</code> 2. Integer arithmetic on racks wraps.</p>
+<div class="table-scroll"><table><thead><tr><th>Operation</th><th class="align-center"><code>u8s</code></th><th class="align-center"><code>i16s</code></th><th class="align-center"><code>i32s</code></th><th class="align-center"><code>u32s</code></th><th class="align-center"><code>i64s</code></th><th class="align-center"><code>u64s</code></th></tr></thead><tbody>
+<tr><td><code>+</code> <code>-</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>*</code></td><td class="align-center">no</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td>negation</td><td class="align-center">no</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">no</td><td class="align-center">yes</td><td class="align-center">no</td></tr>
+<tr><td><code>abs</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">no</td><td class="align-center">yes</td><td class="align-center">no</td></tr>
+<tr><td><code>min</code> <code>max</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">no</td><td class="align-center">no</td><td class="align-center">no</td></tr>
+<tr><td>comparisons, and so <code>select</code> and <code>bitmask</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">no</td><td class="align-center">yes</td><td class="align-center">no</td></tr>
+<tr><td>bitwise operations and bit shifts</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>shuffle</code> <code>extract</code> <code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+</tbody></table>
+</div>
+<p><code>u8s</code> lanes compare unsigned, and the other integer racks compare signed.
+<code>abs</code> of a <code>u8s</code> rack treats its lanes as signed bytes. No integer rack
+divides, and the reductions and scans take float racks only. An integer
+literal beside an integer rack is broadcast in the rack's element type, as in
+<code>a + 1</code> or <code>min(a, &lt;0&gt;)</code>.</p>
+<p>Conversions between integer and float racks:</p>
+<ul>
+<li><code>dot(a, b)</code> takes two <code>i16s</code> racks and returns an <code>i32s</code> rack whose lane
+<code>i</code> is <code>a[2i] * b[2i] + a[2i+1] * b[2i+1]</code>, wrapping.</li>
+<li><code>narrow(a, b)</code> takes two <code>i32s</code> racks and returns one <code>i16s</code> rack, <code>a</code>'s
+lanes then <code>b</code>'s, each saturated to the 16-bit range.</li>
+<li><code>widen_low(x)</code> and <code>widen_high(x)</code> take the low or high eight lanes of a
+<code>u8s</code> rack, zero-extended to an <code>i16s</code> rack.</li>
+<li><code>to_f32(x)</code> converts an <code>i32s</code> rack to <code>f32s</code>, rounding to nearest.</li>
+<li><code>to_i32(x)</code> converts an <code>f32s</code> rack to <code>i32s</code>, rounding to nearest with ties
+to even and saturating to the 32-bit range. NaN becomes zero.</li>
+<li><code>bitcast(i32s, x)</code> keeps the bits of a rack and changes its element type.</li>
+</ul>
+<p>Each is one instruction except <code>to_i32</code>, which is <code>f32x4.nearest</code> then
+<code>i32x4.trunc_sat_f32x4_s</code>.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">accumulate</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">sums</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">pair</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i16s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">weights</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i16s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-variable">sums</span> <span class="tok-operator">+</span> <span class="tok-function">dot</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">pair</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">weights</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">crunch</span> <span class="tok-function">requantise</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">low</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">high</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">low_scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">high_scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i16s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-operator-flow">|</span> <span class="tok-variable">a</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-function">to_i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">low</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">*</span> <span class="tok-variable">low_scale</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-operator-flow">|</span> <span class="tok-variable">b</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-function">to_i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">high</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">*</span> <span class="tok-variable">high_scale</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-function">max</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">narrow</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">a</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">b</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<h2 id="bitwise-operations-and-bit-shifts">Bitwise operations and bit shifts</h2>
+<p><code>bit_and(a, b)</code>, <code>bit_or(a, b)</code> and <code>bit_xor(a, b)</code> combine two integer racks
+of one type bit by bit, and <code>bit_andnot(a, b)</code> keeps the bits of <code>a</code> that <code>b</code>
+doesn't set. <code>shift_bits_left(x, n)</code> moves each lane's bits towards its high
+end, filling with zeros. <code>shift_bits_right(x, n)</code> moves them towards the low
+end, filling with zeros, and <code>shift_bits_right_signed(x, n)</code> fills with the
+sign bit. The count is an integer literal below the lane's width in bits, or
+a uniform <code>u32</code> taken modulo that width.</p>
+<p>These shift bits within a lane. The reserved names <code>shift_left</code>,
+<code>shift_right</code>, <code>rotate_left</code> and <code>rotate_right</code> are for moving whole lanes,
+and are unavailable.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">step_east</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">here</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u64s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">open</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u64s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">board</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u64s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">carry</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u64s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">moving</span> <span class="tok-operator">=</span> <span class="tok-function">bit_and</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">here</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">open</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">moved</span> <span class="tok-operator">=</span> <span class="tok-function">bit_or</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">shift_bits_left</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">moving</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">shift_bits_right</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">moving</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">carry</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-function">bit_or</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">here</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">bit_and</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">moved</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">board</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<h2 id="shuffles-and-bitmasks">Shuffles and bitmasks</h2>
+<p><code>shuffle(a, [i0, i1, ...])</code> builds a rack from lanes of <code>a</code> chosen by static
+indices, one for each lane. <code>shuffle(a, b, [i0, i1, ...])</code> chooses from both,
+with <code>b</code>'s lanes numbered after <code>a</code>'s as if the two racks were laid end to
+end.</p>
+<p><code>bitmask(mask)</code> returns a <code>u32</code> with one bit for each lane, lane zero in bit
+zero. Like a reduction, its result is a scalar.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">occupied_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">tiles</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u8s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-function">bitmask</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">tiles</span> <span class="tok-operator">!=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">crunch</span> <span class="tok-function">reversed</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-function">shuffle</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">2</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<h2 id="floating-point-values">Floating-point values</h2>
+<p>Float arithmetic is IEEE 754 binary32, rounded to nearest with ties to even.
+Every comparison with a NaN operand is false, <code>!=</code> included, so <code>a != b</code>
+means that <code>a</code> and <code>b</code> are ordered and different.</p>
+<p><code>wasm-simd128</code> contracts nothing, so the target and <code>rakec --interpret</code>
+agree on every result bit that isn't a NaN. <code>x86-avx2</code> and <code>aarch64-neon</code>
+contract a multiply and an add into one fused multiply-add when both are in
+one fused region, as <a href="/docs/fused-bindings/">fused bindings</a> describe, and
+the result then has the fused rounding. A NaN result's sign and payload
+aren't specified, except where an operation defines them, as the strict
+minimum and maximum of <a href="/docs/reductions-and-scans/">reductions and scans</a> do.</p>
+<p><code>exp</code>, <code>log</code>, <code>log2</code> and <code>tanh</code> are fixed sequences of binary32 operations,
+Cephes' single-precision polynomials. The interpreter, the slow tier's C and
+the rack code all compute them this way, so they agree bit for bit.</p>
+<h2 id="relaxed-simd">Relaxed SIMD</h2>
+<p><code>--target wasm-simd128-relaxed</code> adds four operations:
+<code>relaxed_madd(a, b, c)</code> and <code>relaxed_nmadd(a, b, c)</code> compute <code>a * b + c</code> and
+<code>-(a * b) + c</code>, rounded once or twice as the machine chooses, and
+<code>relaxed_min(a, b)</code> and <code>relaxed_max(a, b)</code> return the machine's choice when a
+lane is NaN or both are zeros of opposite sign. <code>wasm-simd128</code> rejects them at
+the call, its verifier rejects a relaxed instruction in any object, and none
+is available inside a <code>through</code> block. The emitted C compiles its functions
+with <code>target("relaxed-simd")</code>.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">blend</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">a</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">b</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">weight</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-function">relaxed_madd</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">a</span> <span class="tok-operator">-</span> <span class="tok-variable">b</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">weight</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">b</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<h2 id="calling-conventions">Calling conventions</h2>
+<p>A crunch or rake is a function that C can call. Its parameters arrive in
+registers and its result returns in one. No profile passes an argument on
+the stack, so a function that would need to is rejected.</p>
+<p>On <code>x86-avx2</code>, the function is a hidden global symbol following the System V
+convention. Parameters take the eight SSE-class argument registers in source
+order: an <code>f32s</code> rack or a mask in <code>ymm0</code> to <code>ymm7</code>, a uniform <code>f32</code> in the
+low lane of <code>xmm0</code> to <code>xmm7</code>. A rack or mask result returns in <code>ymm0</code>, and an
+<code>f32</code> result in <code>xmm0</code>. In this crunch, <code>a</code> arrives in <code>ymm0</code>, <code>scale</code> in
+<code>xmm1</code> and <code>b</code> in <code>ymm2</code>:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">scaled_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">a</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">b</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-variable">a</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">scale</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-variable">b</span>
+</code></pre>
+<p>On <code>aarch64-neon</code>, parameters take <code>v0</code> to <code>v7</code> in source order, a uniform
+<code>f32</code> in the low lane of its register, and the result returns in <code>v0</code>. The
+register allocator uses <code>v0</code> to <code>v7</code> and <code>v16</code> to <code>v31</code>, because AAPCS64
+makes the low halves of <code>v8</code> to <code>v15</code> callee-saved, and saving them would need
+the stack.</p>
+<p>On <code>wasm-simd128</code>, the function is C, <code>static inline</code> unless
+<code>RAKE_WASM_LINKAGE</code> is defined. A rack or mask is a <code>v128_t</code>, a uniform <code>f32</code>
+a <code>float</code>, a 64-bit uniform a <code>uint64_t</code>, and any other uniform, <code>bool</code> or
+<code>bitmask</code> result a <code>uint32_t</code>.</p>
+<p>Each uniform keeps its brackets at its declaration, <code>&lt;scale: f32&gt;</code>, and at its
+use, <code>&lt;scale&gt;</code>. The use is where the broadcast happens: <code>vbroadcastss</code> on
+AVX2, <code>dup</code> on NEON and a splat on wasm.</p>
+<p>A run's boundary is in <a href="/docs/packs-and-runs/#wasm32-boundary">packs and runs</a>,
+and a whole program's in <a href="/docs/slow-tier/">the slow tier</a>. The x86 and AArch64
+backends compile neither runs nor slow code.</p>
+<h2 id="verification">Verification</h2>
+<p><code>--verify-native</code> assembles the emitted code, or compiles the emitted C,
+then disassembles the object and checks every function:</p>
+<ul>
+<li><code>x86-avx2</code>: only instructions from the profile's list, no calls, no stack
+register, no memory operand except a constant load relative to <code>rip</code>, every
+rack in a whole YMM register, cross-lane instructions only in reductions and
+scans, and exactly the fused multiply-adds the compiler selected.</li>
+<li><code>aarch64-neon</code>: only listed instructions, no calls, no stack, no <code>v8</code> to
+<code>v15</code>, no general or scalar float registers, loads only of literal
+constants, every rack in a whole 128-bit register, no lane extraction except
+the <code>dup</code> of a uniform, and exactly the selected fused multiply-adds.</li>
+<li><code>wasm-simd128</code>: a crunch or rake contains only locals, constants, and SIMD
+and scalar register instructions, with no calls, memory or branches.</li>
+</ul>
+<p>The C compiler and disassembler are <code>$RAKE_WASM_CC</code> (default <code>clang</code>) and
+<code>$RAKE_WASM_OBJDUMP</code> (default <code>llvm-objdump</code>). Clang may exchange one vector
+instruction for an equivalent one, such as a splatted zero for a constant, or
+compute arithmetic on splats of uniforms as scalars and splat the result. The
+verifier accepts both, because both stay in registers.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#profiles">Profiles</a></li>
+<li><a href="#float-racks">Float racks</a></li>
+<li><a href="#integer-racks">Integer racks</a></li>
+<li><a href="#bitwise-operations-and-bit-shifts">Bitwise operations and bit shifts</a></li>
+<li><a href="#shuffles-and-bitmasks">Shuffles and bitmasks</a></li>
+<li><a href="#floating-point-values">Floating-point values</a></li>
+<li><a href="#relaxed-simd">Relaxed SIMD</a></li>
+<li><a href="#calling-conventions">Calling conventions</a></li>
+<li><a href="#verification">Verification</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

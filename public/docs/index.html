@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rake documentation</title>
+  <meta name="description" content="The Rake documentation: the language reference, a twelve-lesson tutorial design, the rakec compiler and its backend, the goals, roadmap and changelog.">
+  <link rel="canonical" href="https://rake-lang.org/docs/">
+  <meta property="og:title" content="Rake documentation">
+  <meta property="og:description" content="The Rake documentation: the language reference, a twelve-lesson tutorial design, the rakec compiler and its backend, the goals, roadmap and changelog.">
+  <meta property="og:url" content="https://rake-lang.org/docs/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","headline":"Rake documentation","name":"Rake documentation","description":"The Rake documentation: the language reference, a twelve-lesson tutorial design, the rakec compiler and its backend, the goals, roadmap and changelog.","url":"https://rake-lang.org/docs/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/" aria-current="page">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="documentation">Documentation</h1>
+<p>These pages describe Rake as the 0.4 compiler implements it. The language
+pages define each form, starting from <a href="/docs/syntax/">the syntax reference</a>,
+and every Rake program in them is compiled by the compiler's tests, most of
+them run with their stated result. A design that no compiler implements yet
+says so at the top of its section.</p>
+<h2 id="language">Language</h2>
+<dl class="docs-list">
+<dt><a href="/docs/syntax/">Syntax reference</a></dt>
+<dd>Rake's syntax: layout, names, literals, definitions, types, statements and expressions, with the marks for uniforms, tines and fused stages explained.</dd>
+<dt><a href="/docs/racks-and-targets/">Racks and targets</a></dt>
+<dd>What each Rake profile compiles: float and integer racks, bit operations, shuffles, floating-point rules, relaxed SIMD, calling conventions and checks.</dd>
+<dt><a href="/docs/tines-and-through/">Tines, through and sweeps</a></dt>
+<dd>How a Rake rake chooses values lane by lane without branches: tines name masks, through blocks compute under them, and a sweep picks each lane's result.</dd>
+<dt><a href="/docs/fused-bindings/">Fused bindings</a></dt>
+<dd>Rake's fused bindings: stages of one pure computation that the compiler may rewrite as a whole, how fused multiply-adds form, and what fma guarantees.</dd>
+<dt><a href="/docs/control-flow/">Control flow</a></dt>
+<dd>Conditional expressions by mask or uniform, fixed-count repeat loops, counted loops and branches in runs, and the control flow of Rake's slow code.</dd>
+<dt><a href="/docs/reductions-and-scans/">Reductions and scans</a></dt>
+<dd>Rake's reductions and inclusive scans: their strict lane order, binary32 rounding, strict minimum and maximum, and the profiles that compile them.</dd>
+<dt><a href="/docs/packs-and-runs/">Packs and runs</a></dt>
+<dd>Rake's runs: stacks and packs of columns, traversals a rack at a time, safe tails, general loops over views, address forming, and the wasm32 C boundary.</dd>
+<dt><a href="/docs/memory-operations/">Memory operations</a></dt>
+<dd>How Rake runs read and write memory: checked and unchecked accesses, masks, the WebAssembly gather, and designs for scatter, compression and expansion.</dd>
+<dt><a href="/docs/slow-tier/">The slow tier</a></dt>
+<dd>Rake's slow tier: the scalar code of a whole program, its records, state, embedded data and calls to C, and the rules that keep vector code's promises.</dd>
+</dl>
+<h2 id="learning">Learning</h2>
+<dl class="docs-list">
+<dt><a href="/docs/playground/">Playground and tutorial</a></dt>
+<dd>A design for a Rake playground: twelve lessons and the moment each idea lands, Rake's syntax explained for C and Python programmers, and ligature fonts.</dd>
+<dt><a href="/docs/glossary/">Glossary</a></dt>
+<dd>The terms the Rake documentation uses, from racks, lanes, tines and sweeps to SIMD, SSA, register allocation, calling conventions and GPU subgroups.</dd>
+</dl>
+<h2 id="compiler">Compiler</h2>
+<dl class="docs-list">
+<dt><a href="/docs/rakec/">The rakec command</a></dt>
+<dd>The rakec command line: its modes for checking, interpreting, emitting and verifying Rake programs, its options, its environment and its diagnostics.</dd>
+<dt><a href="/docs/backend/">The compiler backend</a></dt>
+<dd>How rakec turns Rake into machine code: native IR, instruction selection, no-spill register allocation, C for WebAssembly, and object verification.</dd>
+<dt><a href="/docs/testing/">Testing the compiler</a></dt>
+<dd>How the Rake compiler is tested: the fixture manifest, the interpreter and WebAssembly differential, the C boundary tests and the checked documentation.</dd>
+</dl>
+<h2 id="project">Project</h2>
+<dl class="docs-list">
+<dt><a href="/docs/goals/">Language goals</a></dt>
+<dd>The promises Rake makes: racks stay registers, scalars are marked, lanes choose by masks, fused regions stay pure, and the compiler proves what it claims.</dd>
+<dt><a href="/docs/roadmap/">Compiler roadmap</a></dt>
+<dd>What the Rake compiler doesn't do yet: runs on x86 and AArch64, the operations each profile lacks, fused rewrites, more profiles, and the release gates.</dd>
+<dt><a href="/docs/changelog/">Changelog</a></dt>
+<dd>What changed in each Rake release, starting with 0.4.0-beta: integer racks, runs and whole programs on WebAssembly, and checked documentation examples.</dd>
+<dt><a href="/docs/comparisons/">Rake and other languages</a></dt>
+<dd>How Rake compares with ISPC, with C and Rust SIMD, and with Halide, Futhark, CUDA, Taichi and Mojo, and where its guarantees about registers differ.</dd>
+<dt><a href="/docs/gpu/">GPU profiles (design)</a></dt>
+<dd>A design for Rake on GPUs: a rack as a Vulkan subgroup, SPIR-V as the portable boundary, what the driver decides, and certifying one device and driver.</dd>
+</dl>
+
+    </main>
+    
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

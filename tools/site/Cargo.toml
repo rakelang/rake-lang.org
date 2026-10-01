@@ -1,0 +1,19 @@
+[package]
+name = "rake-site"
+version = "0.4.0"
+edition = "2021"
+publish = false
+description = "Builds and checks rake-lang.org from the Rake documentation"
+
+[dependencies]
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+tree-sitter = "0.25"
+tree-sitter-highlight = "0.25"
+tree-sitter-c = "0.24"
+tree-sitter-bash = "0.25"
+
+[build-dependencies]
+cc = "1"
+
+[profile.release]
+opt-level = 2

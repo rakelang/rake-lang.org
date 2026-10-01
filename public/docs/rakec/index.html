@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The rakec command | Rake</title>
+  <meta name="description" content="The rakec command line: its modes for checking, interpreting, emitting and verifying Rake programs, its options, its environment and its diagnostics.">
+  <link rel="canonical" href="https://rake-lang.org/docs/rakec/">
+  <meta property="og:title" content="The rakec command | Rake">
+  <meta property="og:description" content="The rakec command line: its modes for checking, interpreting, emitting and verifying Rake programs, its options, its environment and its diagnostics.">
+  <meta property="og:url" content="https://rake-lang.org/docs/rakec/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The rakec command | Rake","name":"The rakec command | Rake","description":"The rakec command line: its modes for checking, interpreting, emitting and verifying Rake programs, its options, its environment and its diagnostics.","url":"https://rake-lang.org/docs/rakec/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/" aria-current="page">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="the-rakec-command">The rakec command</h1>
+<p><code>rakec</code> compiles one <code>.rk</code> file. Build it with <code>nix develop --command dune build</code>, which puts it at <code>_build/default/src/bin/main.exe</code>, or run it with
+<code>dune exec rakec --</code>.</p>
+<pre class="code code-sh"><code><span class="tok-function">rakec</span> program.rk                                   <span class="tok-comment"># parse and type-check</span>
+<span class="tok-function">rakec</span> <span class="tok-constant">--interpret</span> program.rk                       <span class="tok-comment"># run main and print its result</span>
+<span class="tok-function">rakec</span> <span class="tok-constant">--emit-asm</span> <span class="tok-constant">--target</span> x86-avx2 program.rk      <span class="tok-comment"># write program.s</span>
+<span class="tok-function">rakec</span> <span class="tok-constant">--verify-native</span> <span class="tok-constant">--target</span> wasm-simd128 program.rk  <span class="tok-comment"># write a verified program.o</span>
+</code></pre>
+<h2 id="modes">Modes</h2>
+<div class="table-scroll"><table><thead><tr><th>Mode</th><th>Output</th></tr></thead><tbody>
+<tr><td>none</td><td>parses and type-checks the file, and prints a confirmation</td></tr>
+<tr><td><code>--interpret</code></td><td>runs <code>slow main() -&gt; i32</code> in Rake's executable semantics and prints its result, or the trap</td></tr>
+<tr><td><code>--emit-native-ir</code></td><td>the typed native IR after optimisation, and a whole program's tier IR</td></tr>
+<tr><td><code>--emit-asm</code></td><td>GNU assembly on x86 and AArch64, C on the wasm profiles</td></tr>
+<tr><td><code>--emit-obj</code></td><td>an object file, assembled or compiled from that output</td></tr>
+<tr><td><code>--verify-native</code></td><td>the object, after disassembling and checking it</td></tr>
+<tr><td><code>--emit-tokens</code>, <code>--emit-ast</code></td><td>the tokens or the syntax tree, for debugging the front end</td></tr>
+<tr><td><code>--print-targets</code></td><td>the target profiles and their status</td></tr>
+<tr><td><code>--print-capabilities</code></td><td>every language feature and its status</td></tr>
+<tr><td><code>--version</code>, <code>--help</code></td><td>the version, or a summary of this page</td></tr>
+</tbody></table>
+</div>
+<p><code>--emit-asm</code>, <code>--emit-obj</code> and <code>--verify-native</code> write to the input's name
+with <code>.s</code>, <code>.c</code> or <code>.o</code> unless <code>-o path</code> gives another. <code>-o</code> isn't allowed
+with the check, token and syntax-tree modes. A whole program, one with slow
+code, runs, records, state, embedded files, constants or externs, compiles for
+the wasm profiles only.</p>
+<h2 id="options">Options</h2>
+<div class="table-scroll"><table><thead><tr><th>Option</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>--target p</code></td><td>the profile: <code>native</code> (the default), <code>x86-avx2</code>, <code>aarch64-neon</code>, <code>wasm-simd128</code>, <code>wasm-simd128-relaxed</code>, or the planned <code>x86-sse2</code>, <code>x86-avx512</code> and <code>scalar</code></td></tr>
+<tr><td><code>--width n</code></td><td>asserts that the profile's <code>f32</code> rack has <code>n</code> lanes</td></tr>
+<tr><td><code>--wasm-addressing a</code></td><td><code>barrier</code>, the default, keeps a run's pointers opaque to clang's loop strength reduction so constant offsets fold into loads and stores, and <code>plain</code> emits intrinsics alone</td></tr>
+<tr><td><code>-o path</code>, <code>--output path</code></td><td>the output file</td></tr>
+</tbody></table>
+</div>
+<p><a href="/docs/racks-and-targets/#profiles">Racks and targets</a> explains how
+<code>native</code> chooses a profile and what <code>--width</code> checks, and <a href="/docs/packs-and-runs/#addressing">packs and
+runs</a> explains the addressing modes.</p>
+<h2 id="tools-and-environment">Tools and environment</h2>
+<p>On <code>x86-avx2</code> the assembler is <code>as --64</code>, and on <code>aarch64-neon</code> it is
+<code>aarch64-unknown-linux-gnu-as</code>. Verification disassembles with the matching
+<code>objdump</code>. The wasm profiles use these variables:</p>
+<div class="table-scroll"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>RAKE_WASM_CC</code></td><td><code>clang</code></td><td>the C compiler for wasm32 objects</td></tr>
+<tr><td><code>RAKE_WASM_OBJDUMP</code></td><td><code>llvm-objdump</code></td><td>the disassembler for verification</td></tr>
+<tr><td><code>RAKE_WASM_CFLAGS</code></td><td>empty</td><td>extra flags when compiling a whole program</td></tr>
+</tbody></table>
+</div>
+<p>The emitted C reads two macros. <code>RAKE_WASM_LINKAGE</code> replaces <code>static inline</code>
+on each crunch and rake, and <code>RAKE_FRAME_BYTES</code> sets the size of a whole
+program's frame stack, 4 MiB by default, as <a href="/docs/slow-tier/#the-c-unit">the slow
+tier</a> describes.</p>
+<h2 id="diagnostics">Diagnostics</h2>
+<p>Errors give the file, line and column and the stage that failed:</p>
+<pre class="code code-text"><code>program.rk:3:9: Type error: repeat is the unrolled vector loop; slow code counts with for
+native instruction selection failed: f: AVX2 selection failed at native instruction 0: ...
+</code></pre>
+<p>Front-end errors are lexical, syntax, layout or type errors. Back-end errors
+identify the stage, such as native lowering, instruction selection, register
+allocation or object verification, and the operation or obligation that
+failed. A trap from <code>--interpret</code> gives the location and the reason, such as
+<code>trap: i32 overflow</code>.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#modes">Modes</a></li>
+<li><a href="#options">Options</a></li>
+<li><a href="#tools-and-environment">Tools and environment</a></li>
+<li><a href="#diagnostics">Diagnostics</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://rake-lang.org/</loc></url>
+  <url><loc>https://rake-lang.org/docs/</loc></url>
+  <url><loc>https://rake-lang.org/docs/syntax/</loc></url>
+  <url><loc>https://rake-lang.org/docs/racks-and-targets/</loc></url>
+  <url><loc>https://rake-lang.org/docs/tines-and-through/</loc></url>
+  <url><loc>https://rake-lang.org/docs/fused-bindings/</loc></url>
+  <url><loc>https://rake-lang.org/docs/control-flow/</loc></url>
+  <url><loc>https://rake-lang.org/docs/reductions-and-scans/</loc></url>
+  <url><loc>https://rake-lang.org/docs/packs-and-runs/</loc></url>
+  <url><loc>https://rake-lang.org/docs/memory-operations/</loc></url>
+  <url><loc>https://rake-lang.org/docs/slow-tier/</loc></url>
+  <url><loc>https://rake-lang.org/docs/playground/</loc></url>
+  <url><loc>https://rake-lang.org/docs/glossary/</loc></url>
+  <url><loc>https://rake-lang.org/docs/rakec/</loc></url>
+  <url><loc>https://rake-lang.org/docs/backend/</loc></url>
+  <url><loc>https://rake-lang.org/docs/testing/</loc></url>
+  <url><loc>https://rake-lang.org/docs/goals/</loc></url>
+  <url><loc>https://rake-lang.org/docs/roadmap/</loc></url>
+  <url><loc>https://rake-lang.org/docs/changelog/</loc></url>
+  <url><loc>https://rake-lang.org/docs/comparisons/</loc></url>
+  <url><loc>https://rake-lang.org/docs/gpu/</loc></url>
+</urlset>

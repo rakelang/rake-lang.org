@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Changelog | Rake</title>
+  <meta name="description" content="What changed in each Rake release, starting with 0.4.0-beta: integer racks, runs and whole programs on WebAssembly, and checked documentation examples.">
+  <link rel="canonical" href="https://rake-lang.org/docs/changelog/">
+  <meta property="og:title" content="Changelog | Rake">
+  <meta property="og:description" content="What changed in each Rake release, starting with 0.4.0-beta: integer racks, runs and whole programs on WebAssembly, and checked documentation examples.">
+  <meta property="og:url" content="https://rake-lang.org/docs/changelog/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Changelog | Rake","name":"Changelog | Rake","description":"What changed in each Rake release, starting with 0.4.0-beta: integer racks, runs and whole programs on WebAssembly, and checked documentation examples.","url":"https://rake-lang.org/docs/changelog/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/" aria-current="page">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="changelog">Changelog</h1>
+<p>A Rake version names one compiler, Tree-sitter grammar, documentation set and
+website. Beta releases may still change the source language and the binary
+boundaries between versions. A design in the documentation gets a version
+only when the compiler implements it and the tests cover it.</p>
+<h2 id="040-beta">0.4.0-beta</h2>
+<p>Changes since 0.3.0.</p>
+<h3 id="language-and-compiler">Language and compiler</h3>
+<ul>
+<li>Named target profiles fix rack widths. <code>x86-avx2</code> and <code>aarch64-neon</code>
+compile <code>f32s</code> crunches and rakes to assembly, and <code>wasm-simd128</code> compiles
+crunches, rakes, runs and whole programs to C with one <code>wasm_simd128.h</code>
+intrinsic for each selected instruction.</li>
+<li><code>rakec --print-capabilities</code> reports each language feature's status, and
+each profile rejects what it can't compile with the source location and the
+missing operation.</li>
+<li>Rakes have defined inactive lanes on every profile: benign operands on x86
+and AArch64, and none needed on WebAssembly, which has no floating-point
+exception state. A sweep needs one final <code>_</code> arm, and its arms' order is
+its priority.</li>
+<li>Fused bindings are pure contiguous data flow. Their names are substituted
+before fused multiply-adds are formed on AVX2 and NEON, and <code>fma</code> keeps its
+single rounding. A fused stage may now introduce a constant or choose by a
+mask, and fused bindings inside a through block form regions of their own.</li>
+<li>Pure instructions that nothing uses are removed before instruction
+selection, so a crunch's <code>repeat</code> compiles on AVX2 and NEON.</li>
+<li><code>wasm-simd128</code> adds:
+<ul>
+<li>integer racks, <code>u8s</code>, <code>i16s</code>, <code>i32s</code>, <code>u32s</code>, <code>i64s</code> and <code>u64s</code>, with
+wrapping arithmetic, comparisons, <code>min</code> and <code>max</code>, bitwise operations and
+bit shifts,</li>
+<li><code>dot</code>, <code>narrow</code>, <code>widen_low</code>, <code>widen_high</code>, <code>to_f32</code> and <code>to_i32</code>,</li>
+<li>float <code>min</code>, <code>max</code>, <code>abs</code> and rounding,</li>
+<li>one- and two-rack shuffles, <code>bitmask</code>, <code>extract</code>, <code>insert</code>, <code>all</code> and
+<code>any</code>, and</li>
+<li>strict reductions and scans, which AVX2 also compiles.</li>
+</ul>
+</li>
+<li><code>exp</code>, <code>log</code>, <code>log2</code> and <code>tanh</code> are fixed sequences of binary32 operations,
+shared by the interpreter, slow code and racks.</li>
+<li>Conditional expressions choose by a mask on every profile, and by a
+uniform on <code>wasm-simd128</code>.</li>
+<li>A uniform must be marked where it meets a rack: <code>values * &lt;factor&gt;</code>, not
+<code>values * factor</code>. The type checker reports the unmarked name.</li>
+<li><code>wrap</code> and <code>bitcast</code> are conversions only before a parenthesis, so they
+remain usable as names. A crunch, rake or run can't be named after a C
+keyword, since each becomes a C function of its own name.</li>
+<li>A rake's through block and its sweep compile to one select, since a select
+whose arm selects on the same mask takes that arm directly.</li>
+<li><code>rakec --print-capabilities</code> marks <code>let</code> expressions, <code>is</code> comparisons and
+expression predicates unavailable, since no source syntax reaches them.</li>
+<li><code>!=</code> on floats is ordered everywhere: it is false when either operand is
+NaN, for scalars as for racks.</li>
+<li>Number literals are unsigned, and a minus before one makes it negative, so
+<code>n-1</code> subtracts.</li>
+<li>Runs on <code>wasm-simd128</code> traverse packs, with tails that load and store lane
+by lane and never touch an element past the count. They have nested
+traversals, counted loops, <code>repeat</code> and uniform <code>if</code>, rack locations and
+arrays of them, checked and unchecked loads, stores and gathers, and
+crunches and rakes inlined with their masks. Rake forms each loop's
+addresses and checks bounds once before the loop. Runs have a published
+wasm32 C boundary.</li>
+<li>A run's uniform arithmetic may use reductions, extractions, bitmasks and
+crunch calls, each computed as a uniform of its own.</li>
+<li>Slow code on <code>wasm-simd128</code>: records, arrays, views, pointers, module
+state, embedded files, constants, control flow and calls to C, compiled
+with the runs into one C file with <code>int main(void)</code>. Aggregates over 256
+bytes live in a frame stack in linear memory instead of the 64 KiB C stack,
+which they overflowed without a trap.</li>
+<li><code>rakec --interpret</code> runs a program's <code>main</code> in Rake's executable
+semantics. It reports a program without <code>main</code> instead of failing, and
+broadcasts a uniform stored where a rack goes, as the compiled code does.</li>
+<li><code>wasm-simd128-relaxed</code> is an opt-in profile with <code>relaxed_madd</code>,
+<code>relaxed_nmadd</code>, <code>relaxed_min</code> and <code>relaxed_max</code>.</li>
+</ul>
+<h3 id="verification">Verification</h3>
+<ul>
+<li><code>--verify-native</code> disassembles every object. On x86 and AArch64 it rejects
+calls, stack use, split or scalarised racks, instructions outside the
+profile's list and a wrong count of fused multiply-adds, and it accepts the
+two-byte nop that pads an AVX2 function. On <code>wasm-simd128</code> a crunch may hold
+only register instructions, including the scalar arithmetic clang makes of
+splat arithmetic, and a run only the vector instructions its source selects
+or their documented equivalents.</li>
+<li><code>test/program_test.sh</code> compares every program fixture in the interpreter
+and as WebAssembly under wasmtime, and <code>test/abi_test.sh</code> calls runs from C.
+<code>test/neon_backend_test.sh</code> compares NEON results under QEMU.</li>
+<li>The compiler's parser and the Tree-sitter grammar are compared over the
+test corpus. The grammar parses indentation with an external scanner, as
+the compiler does.</li>
+<li>Every Rake example in the README, the documentation and the website is
+compiled by <code>tools/check_documentation_examples.sh</code>, and most are run.</li>
+</ul>
+<h3 id="removed">Removed</h3>
+<ul>
+<li>The experimental MLIR and LLVM lowering and its command-line modes.</li>
+<li>The toolchain-generated memref C wrapper for runs.</li>
+</ul>
+
+    </main>
+    
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

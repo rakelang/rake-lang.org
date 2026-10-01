@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rake: a programming language for SIMD kernels</title>
+  <meta name="description" content="Rake is a language for SIMD kernels whose values are vector registers. The compiler keeps every rack in one register, or it refuses the program.">
+  <link rel="canonical" href="https://rake-lang.org/">
+  <meta property="og:title" content="Rake: a programming language for SIMD kernels">
+  <meta property="og:description" content="Rake is a language for SIMD kernels whose values are vector registers. The compiler keeps every rack in one register, or it refuses the program.">
+  <meta property="og:url" content="https://rake-lang.org/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a language for SIMD kernels whose values are vector registers. The compiler keeps every rack in one register, or it refuses the program.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","version":"0.4.0-beta","license":"https://opensource.org/licenses/MIT","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-home">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    
+    <main class="content">
+<div class="home-intro">
+<img class="home-intro-image" src="/images/wallpaper.webp" alt="The Rake mark, a rake's head drawn as a grid of tines, above furrows of raked sand" width="1024" height="1536">
+<div>
+<h1>Rake</h1>
+<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Its values are racks, each one vector register of the machine, and the compiler keeps every rack in its register or refuses the program.</p>
+<ul class="link-row">
+<li><a class="link-button" href="/docs/">Documentation</a></li>
+<li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
+<li><a class="link-button" href="https://github.com/rakelang/rake">Compiler on GitHub</a></li>
+</ul>
+</div>
+</div>
+<h2 id="a-first-look">A first look</h2>
+<p>Here is a whole program. A rake called <code>safe_root</code> takes the square root of
+the lanes that hold a non-negative number and gives zero elsewhere. A run
+called <code>roots</code> walks an array four floats at a time, and <code>main</code>, ordinary
+scalar code, fills the array and adds three of the results:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">when</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+
+  <span class="tok-keyword">return</span> <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>      <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">n</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-keyword">from</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">n</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">by</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">4</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">16.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">-</span><span class="tok-number">4.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">9.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">25.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">-</span><span class="tok-number">1.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4.0</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">5</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p><code>rakec --interpret</code> prints 12, which is 4 + 3 + 5. Compiled for
+WebAssembly, <code>safe_root</code> becomes a comparison, a square root and a select on
+whole vector registers, with no branch for any lane.</p>
+<h2 id="characteristics">Characteristics</h2>
+<h3 id="racks-are-registers">Racks are registers</h3>
+<p><code>f32s</code> is a rack of <code>f32</code> values, one vector register wide. On AVX2 it holds
+eight floats, and on NEON and WebAssembly four. The source never states the
+width, so one program compiles for each machine, and the compiler fails
+rather than split a rack across registers, keep it in memory or compute it a
+lane at a time.</p>
+<h3 id="scalars-are-marked">Scalars are marked</h3>
+<p>A value shared by every lane is a uniform, and angle brackets mark it where
+it is declared and where it is used: <code>&lt;dt: f32&gt;</code> and <code>&lt;dt&gt;</code>. Every point where
+a scalar becomes a rack is visible on the page, which makes the cost of
+broadcasting easy to see.</p>
+<h3 id="masks-choose-lanes">Masks choose lanes</h3>
+<p>There are no branches inside a rack. A tine such as <code>#valid</code> names a mask of
+lanes, a <code>through</code> block computes under it, and a sweep picks each lane's
+result by priority, ending in <code>_</code> so that every lane gets one. Lanes outside a
+mask can't fail or raise a floating-point exception.</p>
+<h3 id="stages-fuse">Stages fuse</h3>
+<p><code>| name &lt;| expression</code> is a stage of one fused computation, read from right
+to left. The names are for the reader. The compiler sees one graph and may
+compile it as the cheapest instructions it finds, such as a fused multiply-add:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-operator-flow">|</span> <span class="tok-variable">step</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">dt</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">step</span>
+  <span class="tok-keyword">return</span> <span class="tok-variable">moved</span>
+</code></pre>
+<p>On AVX2 that is one <code>vbroadcastss</code> and one <code>vfmadd231ps</code>.</p>
+<h3 id="data-lives-in-columns">Data lives in columns</h3>
+<p>A <code>stack</code> declares the columns of a structure of arrays, grouped by stored
+type, and a traversal visits a <code>pack</code> of them a rack at a time. A column of
+bytes stays one byte per record in memory and is widened only when the code
+computes with it:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Particles</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">position</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">velocity</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">age</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">particles</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">pack</span> <span class="tok-type">Particles</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">particle</span> <span class="tok-keyword">in</span> <span class="tok-variable">particles</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">let</span> <span class="tok-variable">age</span> <span class="tok-operator">=</span> <span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">particle</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">age</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
+    <span class="tok-keyword">yield</span> <span class="tok-variable">particle</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">position</span> <span class="tok-operator">+</span> <span class="tok-variable">particle</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">velocity</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">dt</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">/</span> <span class="tok-punctuation-bracket">(</span><span class="tok-variable">age</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p>The last partial rack of a traversal loads and stores only the records that
+exist.</p>
+<h3 id="scalar-code-stays-scalar">Scalar code stays scalar</h3>
+<p>Programs need setup, records, state and calls to C as well as kernels. That
+code is marked <code>slow</code>, and it can't hold a rack. It reaches vector code only
+through calls whose uniform arguments are marked, so the guarantees above
+hold for the whole program.</p>
+<h3 id="every-claim-is-checked">Every claim is checked</h3>
+<p><code>rakec --verify-native</code> disassembles what it built and checks it against the
+profile's rules: no calls, no stack, every rack in one register, and nothing
+outside the profile's list of instructions. A rack sine has no vector implementation
+yet, so the compiler rejects <code>sin(values)</code> instead of calling a scalar
+library function once per lane.</p>
+<h2 id="notation">Notation</h2>
+<p>Most of Rake reads like any expression language. These marks are its own:</p>
+<div class="table-scroll"><table><thead><tr><th>Mark</th><th>Example</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>&lt;...&gt;</code></td><td><code>&lt;dt&gt;</code>, <code>&lt;0.5&gt;</code></td><td>a uniform: one value shared by every lane</td></tr>
+<tr><td><code>#name</code></td><td><code>#valid</code></td><td>a tine: a named mask of lanes</td></tr>
+<tr><td><code>| name &lt;| e</code></td><td><code>| moved &lt;| positions + step</code></td><td>a fused stage: <code>e</code> flows into <code>name</code></td></tr>
+<tr><td><code>| #tine =&gt; e</code></td><td><code>| #valid =&gt; rooted</code></td><td>a sweep arm: the lanes of <code>#tine</code> take <code>e</code></td></tr>
+<tr><td><code>:=</code> and <code>&lt;-</code></td><td><code>total := &lt;0.0&gt;</code>, <code>total &lt;- total + x</code></td><td>a mutable location, and assigning to it</td></tr>
+<tr><td><code>~~</code></td><td><code>~~ a comment</code></td><td>a comment to the end of the line</td></tr>
+</tbody></table>
+</div>
+<p>Indentation shows structure, as in Python, and a line ending in <code>:</code> opens a
+body. <a href="/docs/playground/#reading-rake">The tutorial</a> explains each mark for
+readers who come from C or Python.</p>
+<h2 id="targets">Targets</h2>
+<div class="table-scroll"><table><thead><tr><th>Profile</th><th>Rack</th><th>Compiles</th></tr></thead><tbody>
+<tr><td><code>x86-avx2</code></td><td>one 256-bit register, 8 <code>f32</code> lanes</td><td>crunches and rakes over <code>f32s</code>, as assembly</td></tr>
+<tr><td><code>aarch64-neon</code></td><td>one 128-bit register, 4 <code>f32</code> lanes</td><td>crunches and rakes over <code>f32s</code>, as assembly</td></tr>
+<tr><td><code>wasm-simd128</code></td><td>one <code>v128</code>, 4 <code>f32</code> lanes</td><td>float and integer racks, runs and whole programs, as C</td></tr>
+</tbody></table>
+</div>
+<p><a href="/docs/racks-and-targets/">Racks and targets</a> lists what each profile
+compiles, and <a href="/docs/roadmap/">the roadmap</a> what comes next.</p>
+<h2 id="projects-using-rake">Projects using Rake</h2>
+<div class="project">
+<img src="/images/the-loong-game.svg" alt="" width="1440" height="960" loading="lazy">
+<div>
+<h3>The Loong Game</h3>
+<p>An open source bot and toolkit for the 2026 UNSW Battlecode tournament. A Rake profile for WebAssembly writes its room-count masks as C the tournament's judge accepts, at 437 points a turn against 435 for hand-written intrinsics.</p>
+<ul>
+<li><a href="https://over-yonder.tech/games/loong/the-choice/#rake-for-vector-kernels">The choice: Rake for vector kernels</a></li>
+<li><a href="https://over-yonder.tech/games/loong/counting-room-faster/#keeping-it-vectorised">Counting room faster: keeping it vectorised</a></li>
+</ul>
+</div>
+</div>
+<h2 id="getting-rake">Getting Rake</h2>
+<p>The compiler is written in OCaml, and its Nix development shell pins every
+tool it uses:</p>
+<pre class="code code-sh"><code><span class="tok-function">git</span> clone <span class="tok-constant">--branch</span> wasm-simd128 https://github.com/rakelang/rake
+<span class="tok-function">cd</span> rake
+<span class="tok-function">nix</span> develop <span class="tok-constant">--command</span> dune build
+<span class="tok-function">nix</span> develop <span class="tok-constant">--command</span> dune exec rakec <span class="tok-constant">--</span> <span class="tok-constant">--interpret</span> program.rk
+</code></pre>
+<p><a href="/docs/rakec/">The rakec command</a> lists its modes and options. Rake is
+released under the MIT licence. This is a beta: the language and its binary
+boundaries may still change between versions.</p>
+
+    </main>
+    
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

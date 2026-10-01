@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fused bindings | Rake</title>
+  <meta name="description" content="Rake's fused bindings: stages of one pure computation that the compiler may rewrite as a whole, how fused multiply-adds form, and what fma guarantees.">
+  <link rel="canonical" href="https://rake-lang.org/docs/fused-bindings/">
+  <meta property="og:title" content="Fused bindings | Rake">
+  <meta property="og:description" content="Rake's fused bindings: stages of one pure computation that the compiler may rewrite as a whole, how fused multiply-adds form, and what fma guarantees.">
+  <meta property="og:url" content="https://rake-lang.org/docs/fused-bindings/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Fused bindings | Rake","name":"Fused bindings | Rake","description":"Rake's fused bindings: stages of one pure computation that the compiler may rewrite as a whole, how fused multiply-adds form, and what fma guarantees.","url":"https://rake-lang.org/docs/fused-bindings/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/" aria-current="page">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="fused-bindings">Fused bindings</h1>
+<p><code>| name &lt;| expression</code> binds one stage of a fused computation. Read it from
+right to left: the expression flows into <code>name</code>. Consecutive stages line up on
+their leading bars, so a data path reads down the page:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-operator-flow">|</span> <span class="tok-variable">scaled</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.5</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">scaled</span>
+  <span class="tok-keyword">return</span> <span class="tok-variable">moved</span>
+</code></pre>
+<p>The type annotation, as in <code>scaled: f32s</code>, is optional, and when present it
+must match the expression's type. A fused name is a value, like a <code>let</code> name:
+it is bound once, and it isn't a memory location, an evaluation point or a
+rounding boundary. <code>scaled</code> exists for the reader. The two stages above are
+the same computation as <code>| moved &lt;| positions + velocities * &lt;0.5&gt;</code>.</p>
+<h2 id="the-contract">The contract</h2>
+<p>Every rack in Rake already lives in one register, with no spills. A fused
+binding adds a promise about its expression: it is pure data flow that the
+compiler can emit as one contiguous run of vector instructions. The compiler
+proves that or rejects the binding. It never falls back to something weaker.</p>
+<p>A fused expression may contain arithmetic, comparisons, mask logic, uniforms,
+<code>if ... then ... else</code>, <code>fma</code>, shuffles, and calls to these built-in
+operations:</p>
+<pre class="code code-text"><code>sqrt abs floor ceil trunc nearest min max exp log log2 tanh select
+dot narrow widen_low widen_high to_f32 to_i32
+bit_and bit_or bit_xor bit_andnot shift_bits_left shift_bits_right shift_bits_right_signed
+relaxed_madd relaxed_nmadd relaxed_min relaxed_max
+</code></pre>
+<p>It can't contain a call to a crunch, rake or other function, a reduction, a
+scan, <code>extract</code>, <code>insert</code>, <code>bitmask</code>, indexing or another memory access, a
+conversion such as <code>bitcast</code>, or a record or array. A function's effects
+aren't inferred yet, so a user-defined call can't enter a fused region even
+when it is pure. A rejection gives the binding and the reason:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-operator-flow">|</span> <span class="tok-variable">total</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-function">sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-variable">total</span>
+</code></pre>
+<h2 id="rewrites-and-fused-multiply-add">Rewrites and fused multiply-add</h2>
+<p>Inside a fused region, arithmetic describes data flow rather than instruction
+order or intermediate rounding. The language allows the compiler to
+substitute names, reassociate, factor, distribute, share common
+subexpressions and form fused instructions, choosing the cheapest graph for
+the profile. Different profiles may therefore round one floating-point
+expression differently.</p>
+<p>The compiler implements part of that. It substitutes fused names, and on
+<code>x86-avx2</code> and <code>aarch64-neon</code> it contracts a multiply feeding an add in the
+same fused region into one fused multiply-add, removing the multiply when
+nothing else uses it. <code>advance</code> above compiles to one <code>vfmadd231ps</code> on AVX2
+and one <code>fmla</code> on NEON. A multiply and an add outside a fused region, or in
+two different regions, stay separate. <code>wasm-simd128</code> contracts nothing,
+because WebAssembly SIMD128 has no fused multiply-add. Reassociation,
+factoring, distribution and the sharing of subexpressions aren't implemented.</p>
+<p><code>fma(a, b, c)</code> says the program needs <code>a * b + c</code> rounded once. It is for
+correctness, not speed: the compiler forms fused multiply-adds by itself
+where it may. On <code>x86-avx2</code> and <code>aarch64-neon</code> it is one fused instruction,
+and <code>--verify-native</code> checks that the object holds exactly the fused
+multiply-adds the compiler selected, both contracted and explicit.
+<code>wasm-simd128</code> rejects <code>fma</code>. Rake has no slower, stricter arithmetic mode: a
+program that depends on an exact operation names it.</p>
+<p>Reductions and scans have a defined lane order. That order is part of their
+result, and fusion never reassociates it, even when their input comes from a
+fused region.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#the-contract">The contract</a></li>
+<li><a href="#rewrites-and-fused-multiply-add">Rewrites and fused multiply-add</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Testing the compiler | Rake</title>
+  <meta name="description" content="How the Rake compiler is tested: the fixture manifest, the interpreter and WebAssembly differential, the C boundary tests and the checked documentation.">
+  <link rel="canonical" href="https://rake-lang.org/docs/testing/">
+  <meta property="og:title" content="Testing the compiler | Rake">
+  <meta property="og:description" content="How the Rake compiler is tested: the fixture manifest, the interpreter and WebAssembly differential, the C boundary tests and the checked documentation.">
+  <meta property="og:url" content="https://rake-lang.org/docs/testing/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Testing the compiler | Rake","name":"Testing the compiler | Rake","description":"How the Rake compiler is tested: the fixture manifest, the interpreter and WebAssembly differential, the C boundary tests and the checked documentation.","url":"https://rake-lang.org/docs/testing/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/" aria-current="page">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="rakes-tests">Rake's tests</h1>
+<p><code>manifest.tsv</code> lists every <code>.rk</code> file under <code>test/</code> and <code>examples/</code>, once
+each, with the category its directory implies:</p>
+<div class="table-scroll"><table><thead><tr><th>Category</th><th>Directory</th><th>What passing means</th></tr></thead><tbody>
+<tr><td><code>frontend</code></td><td><code>test/frontend/</code></td><td>parses and type-checks</td></tr>
+<tr><td><code>native</code></td><td><code>test/native/</code></td><td>emits native IR and a verified object for its targets</td></tr>
+<tr><td><code>reject</code></td><td><code>test/reject/</code></td><td>the checker rejects it with the recorded diagnostic substring</td></tr>
+<tr><td><code>program</code></td><td><code>test/program/</code></td><td><code>main</code> gives the same result in <code>rakec --interpret</code> and as WebAssembly built from the emitted C</td></tr>
+<tr><td><code>trap</code></td><td><code>test/program/trap/</code></td><td>traps in both</td></tr>
+<tr><td><code>abi</code></td><td><code>test/abi/</code></td><td>a C harness calls its runs and checks the results</td></tr>
+<tr><td><code>future</code></td><td><code>examples/future/</code></td><td>a design sketch, not compiled</td></tr>
+</tbody></table>
+</div>
+<p>To add a case, put one <code>.rk</code> file in its directory and one row in
+<code>manifest.tsv</code>. A rejection records a stable substring of the diagnostic,
+without its location.</p>
+<p>The suites run from the development shell. <code>test/run_tests.sh</code> checks the
+release identity, the manifest's fixtures and the documentation's examples:</p>
+<pre class="code code-sh"><code><span class="tok-function">nix</span> develop <span class="tok-constant">--command</span> bash <span class="tok-constant">-c</span> <span class="tok-string">'dune build &amp;&amp; bash test/run_tests.sh'</span>
+</code></pre>
+<p><code>test/full_tests.sh</code> adds the target profiles, the x86 backend's runtime
+differential, the whole-program differential and the C boundary of runs:</p>
+<pre class="code code-sh"><code><span class="tok-function">nix</span> develop <span class="tok-constant">--command</span> bash <span class="tok-constant">-c</span> <span class="tok-string">'dune build &amp;&amp; bash test/full_tests.sh'</span>
+</code></pre>
+<p><code>tools/release_gate.sh</code> runs every check, including the OCaml unit tests
+(<code>dune runtest</code>), the AArch64 differential under QEMU, the capability
+evidence in <code>capability_evidence.tsv</code>, the parser differential and the
+website.</p>
+<p><code>tools/check_documentation_examples.sh</code> compiles every <code>```rake</code> block in
+the README, the documentation and the website's pages. The pages own their
+examples, so a change to the language that breaks one fails here until the
+page is updated. Its header lists the checks a page can ask for.</p>
+<p><code>test/parser_differential.sh</code> compares the compiler's parser with the
+Tree-sitter grammar in a sibling <code>tree-sitter-rake</code> checkout. It parses every
+manifest fixture and the malformed sources in <code>parser/manifest.tsv</code>, and the
+two parsers must accept and reject the same sources:</p>
+<pre class="code code-sh"><code><span class="tok-function">nix</span> shell nixpkgs#tree-sitter <span class="tok-constant">--command</span> bash test/parser_differential.sh
+</code></pre>
+
+    </main>
+    
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

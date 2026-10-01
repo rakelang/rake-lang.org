@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reductions and scans | Rake</title>
+  <meta name="description" content="Rake's reductions and inclusive scans: their strict lane order, binary32 rounding, strict minimum and maximum, and the profiles that compile them.">
+  <link rel="canonical" href="https://rake-lang.org/docs/reductions-and-scans/">
+  <meta property="og:title" content="Reductions and scans | Rake">
+  <meta property="og:description" content="Rake's reductions and inclusive scans: their strict lane order, binary32 rounding, strict minimum and maximum, and the profiles that compile them.">
+  <meta property="og:url" content="https://rake-lang.org/docs/reductions-and-scans/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Reductions and scans | Rake","name":"Reductions and scans | Rake","description":"Rake's reductions and inclusive scans: their strict lane order, binary32 rounding, strict minimum and maximum, and the profiles that compile them.","url":"https://rake-lang.org/docs/reductions-and-scans/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/" aria-current="page">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="reductions-and-scans">Reductions and scans</h1>
+<p>A reduction combines every lane of a rack into one scalar. A scan returns a
+rack whose lane <code>i</code> holds the reduction of lanes 0 to <code>i</code>. Both have names
+rather than operators, so they are easy to find in code and to read aloud.</p>
+<div class="table-scroll"><table><thead><tr><th>Form</th><th>Operand</th><th>Result</th><th>Each step</th></tr></thead><tbody>
+<tr><td><code>sum(x)</code></td><td><code>f32s</code></td><td><code>f32</code></td><td>binary32 addition</td></tr>
+<tr><td><code>product(x)</code></td><td><code>f32s</code></td><td><code>f32</code></td><td>binary32 multiplication</td></tr>
+<tr><td><code>minimum(x)</code></td><td><code>f32s</code></td><td><code>f32</code></td><td>strict minimum</td></tr>
+<tr><td><code>maximum(x)</code></td><td><code>f32s</code></td><td><code>f32</code></td><td>strict maximum</td></tr>
+<tr><td><code>all(m)</code></td><td>mask</td><td><code>bool</code></td><td>and</td></tr>
+<tr><td><code>any(m)</code></td><td>mask</td><td><code>bool</code></td><td>or</td></tr>
+<tr><td><code>scan_sum(x)</code></td><td><code>f32s</code></td><td><code>f32s</code></td><td>binary32 addition</td></tr>
+<tr><td><code>scan_product(x)</code></td><td><code>f32s</code></td><td><code>f32s</code></td><td>binary32 multiplication</td></tr>
+<tr><td><code>scan_minimum(x)</code></td><td><code>f32s</code></td><td><code>f32s</code></td><td>strict minimum</td></tr>
+<tr><td><code>scan_maximum(x)</code></td><td><code>f32s</code></td><td><code>f32s</code></td><td>strict maximum</td></tr>
+</tbody></table>
+</div>
+<p>Nothing converts an operand to fit: the arithmetic forms reject masks and
+integer racks, and <code>all</code> and <code>any</code> reject racks. <code>extract(x, lane)</code> and
+<code>bitmask(m)</code>, defined in <a href="/docs/racks-and-targets/">racks and targets</a>,
+also turn a rack into a scalar.</p>
+<p>A crunch can return a reduction's scalar. In a run, <code>let &lt;x: T&gt; = ...</code> binds
+one as a uniform, and arithmetic on reductions there is scalar work:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">top</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-function">maximum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">prefix_sums</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-function">scan_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">let</span> <span class="tok-operator">&lt;</span><span class="tok-variable">width</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span> <span class="tok-operator">=</span> <span class="tok-function">top</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-</span> <span class="tok-function">minimum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">width</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">1.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">2.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4.0</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">prefix_sums</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">sums</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-variable">width</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">width</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">10.0</span> <span class="tok-operator">+</span> <span class="tok-variable">width</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<h2 id="lane-order">Lane order</h2>
+<p>For a rack <code>x</code> of <code>N</code> lanes:</p>
+<pre class="code code-text"><code>p[0] = x[0]
+p[i] = step(p[i - 1], x[i])    for i from 1 to N - 1
+</code></pre>
+<p>A reduction returns <code>p[N - 1]</code>, and a scan returns <code>p[0]</code> to <code>p[N - 1]</code>, so
+every scan is inclusive. The fold always runs from lane 0 upwards. No
+implementation may use a tree, reassociate, contract, or keep a wider
+intermediate, so each addition and multiplication rounds to binary32 in turn.
+A rack always has lanes, so there is no empty case and no identity value.</p>
+<h2 id="strict-minimum-and-maximum">Strict minimum and maximum</h2>
+<p>Each step of <code>minimum</code>, <code>maximum</code>, <code>scan_minimum</code> and <code>scan_maximum</code>:</p>
+<ol>
+<li>returns the quiet NaN <code>0x7fc00000</code> when either operand is NaN,</li>
+<li>for two zeros, returns −0 from <code>minimum</code> when either is −0, and from
+<code>maximum</code> only when both are,</li>
+<li>otherwise returns the smaller or larger operand, and the left one when
+they are equal.</li>
+</ol>
+<p>Once a NaN enters, every later prefix and the reduction are that NaN. A
+backend can't use a machine minimum or maximum directly where its NaN or
+signed-zero rule differs.</p>
+<h2 id="restrictions-and-profiles">Restrictions and profiles</h2>
+<p>Each lane of a reduction or scan depends on the others, so neither can run
+under a mask. They are rejected in a <code>through</code> block and in a traversal,
+where the tail's mask would apply. They are also outside fused bindings: a
+reduction leaves the rack, and a scan orders its lanes.</p>
+<div class="table-scroll"><table><thead><tr><th>Profile</th><th class="align-center">Reductions and scans</th><th class="align-center"><code>all</code>, <code>any</code></th></tr></thead><tbody>
+<tr><td><code>x86-avx2</code></td><td class="align-center">yes</td><td class="align-center">no</td></tr>
+<tr><td><code>aarch64-neon</code></td><td class="align-center">no</td><td class="align-center">no</td></tr>
+<tr><td><code>wasm-simd128</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+</tbody></table>
+</div>
+<p>On AVX2, an eight-lane fold takes seven ordered steps of shuffles,
+permutations, blends and packed arithmetic, and a reduction's scalar returns
+in <code>xmm0</code>. On <code>wasm-simd128</code>, each of a reduction's three steps moves lane <code>i</code>
+to lane 0 with one <code>i8x16.shuffle</code> and combines it with the running value. A
+scan keeps the running prefix in a rack and, for lanes 1 to 3, combines the
+previous prefix with lane <code>i</code> and shuffles the result into lane <code>i</code>. A
+minimum or maximum step is <code>f32x4.min</code> or <code>f32x4.max</code>, then an <code>f32x4.ne</code>
+self-comparison of each operand, a <code>v128.or</code> and a <code>v128.bitselect</code> of the
+canonical NaN, because WebAssembly leaves a NaN result's payload unspecified.
+<code>all</code> and <code>any</code> are the mask width's <code>all_true</code> and <code>v128.any_true</code>.
+<code>test/program/vector_tier.rk</code> compares the four reductions, <code>scan_sum</code>,
+<code>scan_maximum</code>, <code>all</code>, <code>any</code> and <code>bitmask</code> with the interpreter.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#lane-order">Lane order</a></li>
+<li><a href="#strict-minimum-and-maximum">Strict minimum and maximum</a></li>
+<li><a href="#restrictions-and-profiles">Restrictions and profiles</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The slow tier | Rake</title>
+  <meta name="description" content="Rake's slow tier: the scalar code of a whole program, its records, state, embedded data and calls to C, and the rules that keep vector code's promises.">
+  <link rel="canonical" href="https://rake-lang.org/docs/slow-tier/">
+  <meta property="og:title" content="The slow tier | Rake">
+  <meta property="og:description" content="Rake's slow tier: the scalar code of a whole program, its records, state, embedded data and calls to C, and the rules that keep vector code's promises.">
+  <meta property="og:url" content="https://rake-lang.org/docs/slow-tier/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The slow tier | Rake","name":"The slow tier | Rake","description":"Rake's slow tier: the scalar code of a whole program, its records, state, embedded data and calls to C, and the rules that keep vector code's promises.","url":"https://rake-lang.org/docs/slow-tier/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/" aria-current="page">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="the-slow-tier-and-whole-programs">The slow tier and whole programs</h1>
+<p>A Rake program can hold its scalar orchestration as well as its vector
+kernels. Slow code is that orchestration: records, arrays, module state,
+embedded data, control flow, and calls to C. It is ordinary scalar code and is
+marked <code>slow</code> so that nobody mistakes it for vector code. Vector code
+(<code>crunch</code>, <code>rake</code>, <code>run</code>) keeps every promise it had: slow code can't hold a
+rack, and it reaches vector work only through a run or crunch call whose
+uniform arguments are marked <code>&lt;...&gt;</code>.</p>
+<p>A program with any slow, run, record, state, embed, const or extern
+definition is a whole program. On <code>wasm-simd128</code> it compiles to one C
+translation unit with <code>int main(void)</code>, which is what a C-only judge takes.
+Whole programs are implemented for <code>wasm-simd128</code> and
+<code>wasm-simd128-relaxed</code> only. Other profiles reject them.</p>
+<h2 id="an-example">An example</h2>
+<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">quality</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">weigh</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">pack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">chunk</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">let</span> <span class="tok-variable">quality</span> <span class="tok-operator">=</span> <span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">quality</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
+    <span class="tok-keyword">yield</span> <span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">scale</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-variable">quality</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">running_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">n</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">total</span> <span class="tok-operator">:=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">for</span> <span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-keyword">from</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">n</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">by</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">4</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-variable">total</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">total</span> <span class="tok-operator">+</span> <span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span>
+    <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">total</span>
+
+<span class="tok-keyword">state</span> <span class="tok-variable">calls</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span> <span class="tok-operator">:=</span> <span class="tok-number">0</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">1.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">2.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">5.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">6.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">7.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">8.0</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">qualities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">u8</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">weighed</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">weigh</span><span class="tok-punctuation-bracket">(</span><span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">quality</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">qualities</span> <span class="tok-punctuation-bracket">}</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.5</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">weighed</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">running_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">weighed</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-variable">calls</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">calls</span> <span class="tok-operator">+</span> <span class="tok-number">1</span>
+  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">7</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">4.0</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">+</span> <span class="tok-variable">calls</span>
+</code></pre>
+<p><code>rakec --interpret program.rk</code> runs <code>main</code> in Rake's executable semantics and
+prints its result. <code>rakec --emit-asm --target wasm-simd128 -o program.c program.rk</code> writes the C unit, and <code>--verify-native</code> compiles it and checks
+every crunch, rake and run in the object (see <a href="#verification">Verification</a>).</p>
+<h2 id="definitions">Definitions</h2>
+<div class="table-scroll"><table><thead><tr><th>Definition</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>slow name(parameters) -&gt; T:</code></td><td>a scalar function, with or without <code>-&gt; T</code></td></tr>
+<tr><td><code>extern slow name(parameters) -&gt; T from "header.h"</code></td><td>a C function</td></tr>
+<tr><td><code>record Name { T: field, field; }</code></td><td>a record with Rake's layout</td></tr>
+<tr><td><code>record Name from "header.h" { T: field; }</code></td><td>a C struct</td></tr>
+<tr><td><code>state name: T := constant</code>, <code>state name: T</code></td><td>module state</td></tr>
+<tr><td><code>embed name from "file"</code></td><td>a file's bytes</td></tr>
+<tr><td><code>const name: T = constant</code></td><td>a compile-time constant</td></tr>
+</tbody></table>
+</div>
+<p><code>slow main() -&gt; i32</code> is the program's entry point. A slow function that
+returns a value must return on every path. Slow functions may call each other
+in any order and recurse.</p>
+<p>A record declared with a header is a C struct whose layout C owns: the unit
+includes the header, and each declared scalar, pointer or scalar-array field
+gets a <code>_Static_assert</code> that its C size matches. Other records have Rake's
+layout. A record can't contain itself, directly or through other records.</p>
+<p><code>state</code> is module state: a C static that holds its value for the life of the
+process, across turns of a judge's loop. Its initial value is a constant, or
+zero. <code>embed</code> makes a file's bytes a read-only <code>[]u8</code>, a 16-byte-aligned
+static. <code>const</code> binds a compile-time value computed from literals. Vector code
+may use an integer or float constant as a literal.</p>
+<p><code>extern slow</code> declares a C function from a header. Its parameters are
+scalars, pointers and records passed by value.</p>
+<h2 id="types">Types</h2>
+<div class="table-scroll"><table><thead><tr><th>Type</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>i8</code> … <code>u64</code>, <code>f32</code>, <code>f64</code>, <code>bool</code></td><td>scalars</td></tr>
+<tr><td><code>[N]T</code></td><td>an array of <code>N &gt;= 1</code> elements held by value</td></tr>
+<tr><td><code>[]T</code></td><td>a view: a borrowed run of elements with an <code>i32</code> count</td></tr>
+<tr><td><code>ptr T</code></td><td>a C pointer, for extern interoperation</td></tr>
+<tr><td><code>Name</code></td><td>a record</td></tr>
+<tr><td><code>mut T</code></td><td>in a parameter list: a view, pack, array or record the callee writes</td></tr>
+</tbody></table>
+</div>
+<p>Arrays and records are values: binding or assigning one copies it. Views and
+pointers alias the storage they name. A slow parameter of array or record type
+is passed by reference and is read-only. <code>mut</code> makes it writable, and the
+argument must then be a location the caller may write. A view parameter is
+passed by value and is writable through when declared <code>mut []T</code>.</p>
+<p>Slow code has no rack, mask or pack values. A pack exists only as the argument
+of a run call, written as a record literal of the stack whose fields are
+views: <code>Samples { value: values, quality: qualities }</code>.</p>
+<h2 id="statements">Statements</h2>
+<div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>let name = e</code>, <code>let name: T = e</code></td><td>immutable binding</td></tr>
+<tr><td><code>name := e</code>, <code>name: T := e</code></td><td>mutable binding</td></tr>
+<tr><td><code>place &lt;- e</code></td><td>assign a variable, state, field or element</td></tr>
+<tr><td><code>if c:</code> … <code>else if c:</code> … <code>else:</code></td><td>conditional</td></tr>
+<tr><td><code>while c:</code></td><td>loop</td></tr>
+<tr><td><code>for i from a up to b:</code>, <code>... by s:</code></td><td>counted loop over <code>a &lt;= i &lt; b</code></td></tr>
+<tr><td><code>break</code>, <code>continue</code></td><td>inside a loop</td></tr>
+<tr><td><code>return</code>, <code>return e</code></td><td>leave the function</td></tr>
+<tr><td><code>e</code></td><td>a call evaluated for its effect</td></tr>
+</tbody></table>
+</div>
+<p>A name is bound once in a function. It can't shadow another binding or a
+module definition. A counted loop's index is <code>i32</code> unless declared, its step
+must be positive, and it stops at the bound rather than stepping past it, so
+the index never overflows.</p>
+<h2 id="expressions-and-their-meaning">Expressions and their meaning</h2>
+<p>Operands of an arithmetic or comparison operator have one type: there are no
+implicit conversions. A literal takes the type of the operand beside it or the
+type expected where it stands. An integer literal elsewhere is <code>i32</code> and must
+fit.</p>
+<p>Integer <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code> and negation are checked: overflow, division
+by zero and the most negative value divided by <code>-1</code> trap. <code>%</code> is integer
+remainder, truncating as C does. The wrapping operations are explicit:
+<code>wrap_add</code>, <code>wrap_sub</code> and <code>wrap_mul</code>. Float arithmetic is IEEE 754 in the
+operand's precision.</p>
+<div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>T(x)</code></td><td>a checked conversion, which traps unless the value fits <code>T</code>. A float converts to an integer toward zero, and an integer to a float to nearest</td></tr>
+<tr><td><code>wrap(T, x)</code></td><td>the low bits of an integer, as integer type <code>T</code></td></tr>
+<tr><td><code>bitcast(T, x)</code></td><td>the same bits as a numeric type of the same width</td></tr>
+<tr><td><code>if c then a else b</code></td><td>evaluates <code>c</code>, then only the chosen branch</td></tr>
+<tr><td><code>a[i]</code></td><td>checked element: traps unless <code>0 &lt;= i &lt; count</code></td></tr>
+<tr><td><code>a[unchecked i]</code></td><td>element under the caller's promise that <code>i</code> is in bounds</td></tr>
+<tr><td><code>r.field</code>, <code>p.field</code></td><td>a record's field, directly or through a pointer</td></tr>
+<tr><td><code>Name { field: e, ... }</code></td><td>a record literal naming every field</td></tr>
+<tr><td><code>[a, b, c]</code>, <code>[e; n]</code></td><td>array literals</td></tr>
+<tr><td><code>"text"</code></td><td>a string literal, only as an extern's <code>ptr u8</code> or <code>ptr i8</code> argument</td></tr>
+</tbody></table>
+</div>
+<p>Slow code's built-in functions:</p>
+<div class="table-scroll"><table><thead><tr><th>Functions</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>sqrt</code> <code>exp</code> <code>log</code> <code>log2</code> <code>tanh</code> <code>floor</code> <code>ceil</code></td><td>of floats</td></tr>
+<tr><td><code>abs</code> <code>min</code> <code>max</code></td><td>of any number</td></tr>
+<tr><td><code>bit_not</code> <code>bit_and</code> <code>bit_or</code> <code>bit_xor</code> <code>bit_andnot</code></td><td>of integers</td></tr>
+<tr><td><code>shift_bits_left</code> <code>shift_bits_right</code> <code>shift_bits_right_signed</code> <code>rotate_bits_left</code> <code>rotate_bits_right</code></td><td>the count taken modulo the operand's bits</td></tr>
+<tr><td><code>count_leading_zeros</code> <code>count_trailing_zeros</code> <code>popcount</code></td><td>of integers</td></tr>
+<tr><td><code>wrap_add</code> <code>wrap_sub</code> <code>wrap_mul</code></td><td>integer arithmetic that wraps</td></tr>
+<tr><td><code>count(v)</code></td><td>the elements of a view or array</td></tr>
+<tr><td><code>slice(a, start, count)</code></td><td>a checked subview</td></tr>
+<tr><td><code>unchecked_view(p, count)</code></td><td>a view of a pointer's elements</td></tr>
+<tr><td><code>addr(place)</code>, <code>is_null(p)</code></td><td>a pointer to a location, and a test for null</td></tr>
+</tbody></table>
+</div>
+<p>A pointer is always indexed <code>p[unchecked i]</code>, because it carries no bounds.</p>
+<p><code>exp</code>, <code>log</code>, <code>log2</code> and <code>tanh</code> are fixed sequences of binary32 operations
+(Cephes' single-precision polynomials), the same in slow code, in racks and in
+the interpreter, so every target agrees bit for bit. Float <code>min</code> and <code>max</code> of
+a NaN give a NaN. Of two zeros, <code>min</code> gives negative zero if either is, and
+<code>max</code> positive zero if either is.</p>
+<h2 id="calling-vector-code">Calling vector code</h2>
+<p>Slow code calls a run as a statement and a crunch or rake as an expression:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">score</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">y</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-function">extract</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">x</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">y</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">a</span> <span class="tok-operator">=</span> <span class="tok-number">2.0</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">b</span> <span class="tok-operator">=</span> <span class="tok-number">3.0</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">best</span> <span class="tok-operator">=</span> <span class="tok-function">score</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">a</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">b</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">best</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p>The run call in <a href="#an-example">the example</a> above,
+<code>weigh(Samples { value: values, quality: qualities }, &lt;8&gt;, &lt;0.5&gt;, weighed)</code>,
+passes a pack, two uniforms and its output view.</p>
+<p>Memory arguments, views and packs, are passed bare. An array passed where a
+view is expected lends all its elements. Every scalar argument is marked
+<code>&lt;...&gt;</code>, as in <code>&lt;name&gt;</code>, <code>&lt;3&gt;</code>, <code>&lt;record.field&gt;</code> or <code>&lt;view[index]&gt;</code>, because it
+becomes a rack in the callee. A run declared <code>-&gt; T</code> takes its output view as a last argument. A
+crunch or rake is callable from slow code only when all its parameters are
+uniform and its result is a scalar. Slow code can't pass or receive a rack.</p>
+<p>At a run call, every column of a traversed pack, of a pack the traversal
+stores into, and the output view must hold the traversal's count, or the call
+traps before the run starts.</p>
+<h2 id="the-explicitness-rules">The explicitness rules</h2>
+<ul>
+<li>Slow code can't name, hold, pass or return a rack, mask or rack array.</li>
+<li>Slow code reaches vector work only by calling a run, or a crunch or rake
+with uniform parameters, and every scalar that becomes a rack is marked
+<code>&lt;...&gt;</code> at the call. A <code>&lt;...&gt;</code> mark anywhere else in slow code is an error.</li>
+<li>Vector code can't call slow code or an extern, and can't read module state:
+a value it needs is passed as a parameter.</li>
+<li>Inside vector code the existing rules are unchanged: uniform scalars are
+marked at their declaration and use, broadcasts are explicit, and a
+computation the target can't keep in racks is rejected.</li>
+</ul>
+<h2 id="how-the-tier-keeps-vector-codes-promises">How the tier keeps vector code's promises</h2>
+<ul>
+<li>One rack is one <code>v128</code>. Slow code holds no racks, so no rack is alive
+across a slow branch, loop or call, and nothing slow code does can split or
+spill one.</li>
+<li>Fused regions stay pure. A fused binding is vector code. Slow code can't
+appear in it, and the tier adds no operation to the fused contract.</li>
+<li>Rakes stay predicated. Slow code's <code>if</code> is scalar control flow around
+vector calls. It never selects lanes. Lane selection remains a tine, a
+<code>through</code>, a sweep or a mask <code>if</code>.</li>
+<li>Scalars and broadcasts stay explicit. A scalar crosses into vector code only
+at a marked argument, and vector code reads only its parameters.</li>
+<li>Properties are proved or rejected. Every crunch, rake and run in a whole
+program goes through the same checks and object verification as before, and
+slow code has its own checked semantics.</li>
+<li>Existing lowering is unchanged. Crunches and rakes are emitted by the same
+selection and C emission. A run's pure rack expressions become always-inline
+functions lowered through that same pipeline. Slow code is plain C beside
+them.</li>
+</ul>
+<h2 id="executable-semantics">Executable semantics</h2>
+<p><code>rakec --interpret</code> defines what a whole program means, independently of its
+C. It runs slow code over values, copying records and arrays and aliasing
+views and pointers. It traps where the C traps: checked arithmetic,
+conversions, indexing, slices and the counts at run calls. Only the frame
+stack's limit is the C's alone. It evaluates a run's rack expressions in the
+same reference semantics as crunches. An extern has no implementation there,
+so programs that call C are tested through C (<code>test/abi/interop.rk</code>).</p>
+<p><code>test/program_test.sh</code> runs every <code>test/program/*.rk</code> in the interpreter and,
+compiled from the emitted C in both addressings, under wasmtime, and requires
+equal results. Programs under <code>test/program/trap/</code> must trap in both.
+<code>test/abi_test.sh</code> calls runs from C across the <a href="/docs/packs-and-runs/#wasm32-boundary">wasm32
+boundary</a> and runs <code>interop.rk</code> against
+its C functions.
+<code>test/reject/slow_*.rk</code> and <code>test/reject/run_*.rk</code> show each explicitness rule
+rejecting a program that breaks it.</p>
+<h2 id="the-c-unit">The C unit</h2>
+<p>Each slow function is a <code>static</code> C function, and <code>main</code> is <code>int main(void)</code>.
+Records, arrays and views are structs. State and embedded data are statics.
+Checked arithmetic, conversions, indexing and slices are small inline helpers
+that call <code>__builtin_trap</code>. Each run is an external, never-inlined <code>void</code>
+function.</p>
+<p>Slow functions keep aggregates larger than 256 bytes in Rake's frame stack: a
+static region of <code>RAKE_FRAME_BYTES</code> bytes (4 MiB unless defined otherwise when
+compiling the C) from which each call takes a frame and releases it on
+return. Running out of it traps. The C stack holds only small values. The
+reason is the judge's linker: wasm-ld places its default 64 KiB stack after
+static data, so kilobyte-sized local arrays that overflow it grow down into
+that data and overwrite it without a trap.</p>
+<h2 id="verification">Verification</h2>
+<p><code>rakec --verify-native</code> compiles the unit and disassembles it. Every crunch
+and rake must be locals, constants and register SIMD only. Every run must
+contain no <code>call</code>, <code>call_indirect</code> or <code>global.get</code> or <code>global.set</code> (so no C
+stack frame, and no rack passing through memory Rake didn't name). Each SIMD
+instruction in it must be one its source operations select, or one of the
+documented equivalents Clang substitutes: constants folded into <code>v128.const</code>,
+splats of loads into splatting loads, zero- and sign-extending loads, a
+signed or unsigned twin, a reversed or complemented comparison, an add for a
+subtraction of a constant or a doubling, and scalar float arithmetic computed
+in a vector lane. It may have no more lane extractions
+and replacements, and no more loops, than its source states. Slow code isn't
+held to these rules: it is scalar, and Clang may use SIMD moves to copy its
+aggregates.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#an-example">An example</a></li>
+<li><a href="#definitions">Definitions</a></li>
+<li><a href="#types">Types</a></li>
+<li><a href="#statements">Statements</a></li>
+<li><a href="#expressions-and-their-meaning">Expressions and their meaning</a></li>
+<li><a href="#calling-vector-code">Calling vector code</a></li>
+<li><a href="#the-explicitness-rules">The explicitness rules</a></li>
+<li><a href="#how-the-tier-keeps-vector-codes-promises">How the tier keeps vector code's promises</a></li>
+<li><a href="#executable-semantics">Executable semantics</a></li>
+<li><a href="#the-c-unit">The C unit</a></li>
+<li><a href="#verification">Verification</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compiler roadmap | Rake</title>
+  <meta name="description" content="What the Rake compiler doesn't do yet: runs on x86 and AArch64, the operations each profile lacks, fused rewrites, more profiles, and the release gates.">
+  <link rel="canonical" href="https://rake-lang.org/docs/roadmap/">
+  <meta property="og:title" content="Compiler roadmap | Rake">
+  <meta property="og:description" content="What the Rake compiler doesn't do yet: runs on x86 and AArch64, the operations each profile lacks, fused rewrites, more profiles, and the release gates.">
+  <meta property="og:url" content="https://rake-lang.org/docs/roadmap/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Compiler roadmap | Rake","name":"Compiler roadmap | Rake","description":"What the Rake compiler doesn't do yet: runs on x86 and AArch64, the operations each profile lacks, fused rewrites, more profiles, and the release gates.","url":"https://rake-lang.org/docs/roadmap/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/" aria-current="page">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="roadmap">Roadmap</h1>
+<p>The compiler covers part of what <a href="/docs/goals/">the goals</a> promise. This page
+lists the rest, grouped by the work it needs. <a href="/docs/changelog/">The changelog</a>
+records what each release added.</p>
+<h2 id="runs-on-x86-and-aarch64">Runs on x86 and AArch64</h2>
+<p>Runs, packs and whole programs compile on <code>wasm-simd128</code> only. On <code>x86-avx2</code>
+and <code>aarch64-neon</code> they need traversal in the native IR, full-rack loops with
+native loads and stores, tails with masked memory and benign operands, the
+<a href="/docs/packs-and-runs/#planned-x86-64-boundary">planned x86-64 boundary</a>
+and its AArch64 counterpart, and tests that call them from C over empty, short,
+exact and tail counts and check the object for vector memory operations and no
+scalar cleanup loop.</p>
+<h2 id="operations-on-every-profile">Operations on every profile</h2>
+<p><a href="/docs/racks-and-targets/">Racks and targets</a> lists what each profile
+compiles. The gaps:</p>
+<ul>
+<li>On <code>x86-avx2</code> and <code>aarch64-neon</code>:
+<ul>
+<li><code>min</code>, <code>max</code>, <code>abs</code>, <code>floor</code>, <code>ceil</code>, <code>trunc</code> and <code>nearest</code>,</li>
+<li><code>exp</code>, <code>log</code>, <code>log2</code> and <code>tanh</code>,</li>
+<li>conditionals on a uniform,</li>
+<li><code>all</code>, <code>any</code>, <code>bitmask</code>, <code>extract</code>, <code>insert</code> and shuffles,</li>
+<li>integer racks, and</li>
+<li>gather.</li>
+</ul>
+</li>
+<li>On <code>aarch64-neon</code>: reductions and scans.</li>
+<li>On every profile:
+<ul>
+<li><code>lanes</code> and <code>@</code>,</li>
+<li>moving whole lanes: <code>shift_left</code>, <code>shift_right</code>, <code>rotate_left</code>,
+<code>rotate_right</code> and <code>zip_low</code>,</li>
+<li><code>sin</code>, <code>cos</code>, <code>tan</code>, <code>pow</code> and <code>atan2</code>, and float <code>%</code>,</li>
+<li><code>f64s</code>, <code>i8s</code>, <code>u16s</code> and <code>bools</code> racks,</li>
+<li>comparisons, <code>min</code> and <code>max</code> of <code>u32s</code> and <code>u64s</code>, and <code>min</code> and <code>max</code>
+of <code>i64s</code>,</li>
+<li>integer reductions,</li>
+<li>widening bytes into 16-bit lanes, and narrow columns into 64-bit lanes,</li>
+<li>scalar arithmetic in a crunch, as on reductions' results,</li>
+<li>scatter, on a profile with a scatter instruction, and</li>
+<li>compression and expansion, as <a href="/docs/memory-operations/">memory
+operations</a> design them.</li>
+</ul>
+</li>
+</ul>
+<p>An operation may lower to several vector instructions when the profile's
+published sequence allows it. It may never lower to scalar lanes, helper
+calls, split racks or memory temporaries.</p>
+<h2 id="fused-rewrites">Fused rewrites</h2>
+<p>The optimiser substitutes fused names and forms fused multiply-adds. The
+language also allows reassociation, factoring, distribution, sharing of
+common subexpressions and strength reduction inside a fused region, chosen by
+each profile's operation costs. Each rewrite needs tests whose expected bits
+come from the verified optimised graph.</p>
+<h2 id="more-profiles">More profiles</h2>
+<p><code>x86-avx512</code> and <code>x86-sse2</code> each need their own selection, register
+allocation, assembly, calling convention, object verification and runtime
+tests. AVX-512 should use its mask registers for through blocks, masked memory
+and tails. SSE2 must reject any operation whose only form would split a rack,
+call a helper or spill. The planned <code>scalar</code> profile would run Rake without
+the one-register guarantee.</p>
+<h2 id="forms-that-parse-but-dont-compile">Forms that parse but don't compile</h2>
+<p>Tuples, lambdas, expression pipelines and single-record layouts have AST forms
+but no source syntax or semantics yet. Each needs a language decision before it
+can become source.</p>
+<h2 id="release-gates">Release gates</h2>
+<p>A capability moves from unavailable to supported when one compiler revision
+has all of these:</p>
+<ul>
+<li>the specification gives its types and meaning,</li>
+<li>unavailable and malformed uses get diagnostics with a source location,</li>
+<li>the interpreter covers ordinary, boundary and exceptional inputs,</li>
+<li>the compiled code matches the interpreter,</li>
+<li>the object verifier checks the profile's rules for it, and</li>
+<li><code>rakec --print-capabilities</code>, the tests, the changelog and the
+documentation agree.</li>
+</ul>
+<p>A published benchmark records its source, compiler version, profile,
+command, input size, machine and baseline.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#runs-on-x86-and-aarch64">Runs on x86 and AArch64</a></li>
+<li><a href="#operations-on-every-profile">Operations on every profile</a></li>
+<li><a href="#fused-rewrites">Fused rewrites</a></li>
+<li><a href="#more-profiles">More profiles</a></li>
+<li><a href="#forms-that-parse-but-dont-compile">Forms that parse but don't compile</a></li>
+<li><a href="#release-gates">Release gates</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

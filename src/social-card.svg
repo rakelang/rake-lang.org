@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#1e1410"/>
+  <path d="M0 540L1200 300V630H0Z" fill="#2a1c16"/>
+  <g fill="#e0c090">
+    <rect x="880" y="96" width="218" height="28"/>
+    <rect x="880" y="96" width="28" height="210"/>
+    <rect x="918" y="96" width="28" height="210"/>
+    <rect x="956" y="96" width="28" height="210"/>
+    <rect x="994" y="96" width="28" height="210"/>
+    <rect x="1032" y="96" width="28" height="210"/>
+    <rect x="1070" y="96" width="28" height="210"/>
+    <rect x="880" y="176" width="218" height="24"/>
+  </g>
+  <text x="80" y="330" fill="#f0e6d8" font-family="Inter, Arial, sans-serif" font-size="170" font-weight="700">Rake</text>
+  <text x="86" y="420" fill="#e0c090" font-family="Inter, Arial, sans-serif" font-size="44">A programming language for SIMD kernels</text>
+</svg>

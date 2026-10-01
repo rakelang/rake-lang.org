@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The compiler backend | Rake</title>
+  <meta name="description" content="How rakec turns Rake into machine code: native IR, instruction selection, no-spill register allocation, C for WebAssembly, and object verification.">
+  <link rel="canonical" href="https://rake-lang.org/docs/backend/">
+  <meta property="og:title" content="The compiler backend | Rake">
+  <meta property="og:description" content="How rakec turns Rake into machine code: native IR, instruction selection, no-spill register allocation, C for WebAssembly, and object verification.">
+  <meta property="og:url" content="https://rake-lang.org/docs/backend/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The compiler backend | Rake","name":"The compiler backend | Rake","description":"How rakec turns Rake into machine code: native IR, instruction selection, no-spill register allocation, C for WebAssembly, and object verification.","url":"https://rake-lang.org/docs/backend/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/" aria-current="page">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="the-backend">The backend</h1>
+<p>This page describes how <code>rakec</code> turns source into machine code, and which
+stage checks each promise from <a href="/docs/goals/">the goals</a>.</p>
+<h2 id="crunches-and-rakes">Crunches and rakes</h2>
+<pre class="code code-text"><code>source
+  -&gt; layout check, lexer and layout tokens, parser       the AST
+  -&gt; type checker                                        types and capabilities
+  -&gt; native lowering                                     typed native IR
+  -&gt; native IR verifier
+  -&gt; optimiser                                           names substituted, fused multiply-adds formed, dead code removed
+  -&gt; instruction selection for the profile
+       x86-avx2      machine IR -&gt; no-spill YMM allocation -&gt; GNU assembly -&gt; as
+       aarch64-neon  machine IR -&gt; no-spill vector allocation -&gt; GNU assembly -&gt; as
+       wasm-simd128  WebAssembly instructions -&gt; C with one intrinsic each -&gt; clang
+  -&gt; object verifier                                     the disassembled object
+</code></pre>
+<p>The type checker accepts a program only when every construct it uses has a
+type rule and is available, and <code>rakec --print-capabilities</code> lists that
+status for each feature. Native lowering turns a crunch or rake into typed
+SSA, inlining the crunches and rakes it calls. The IR verifier checks that
+every value is defined once and before its uses, that each operation has
+operands of the right types, that a fused region is contiguous and holds only
+pure rack or mask operations, that every block ends in exactly one
+terminator, and, on profiles with floating-point exceptions, that each
+exception-capable operation under a mask has replaced its inactive operands.
+<code>--emit-native-ir</code> prints the IR after optimisation. For the <code>advance</code> crunch
+of <a href="/docs/fused-bindings/">fused bindings</a>, on <code>x86-avx2</code>:</p>
+<pre class="code code-text"><code>func @advance(%0 : rack&lt;f32&gt; positions, %1 : rack&lt;f32&gt; velocities) -&gt; rack&lt;f32&gt; {
+  %2 : rack&lt;f32&gt; = rack.splat f32:0x3f000000
+  %4 : rack&lt;f32&gt; = rack.fma %1, %2, %0 {fused=0}
+  return %4
+}
+</code></pre>
+<p>Each value is numbered and typed, constants show their bits, and <code>{fused=0}</code>
+or <code>{through=%3}</code> records the fused region or the mask an instruction belongs
+to. On <code>wasm-simd128</code> the same function keeps its <code>mul</code> and <code>add</code>, because
+that profile forms no fused multiply-adds.</p>
+<p>Instruction selection either finds a native form for every operation or
+rejects the function and reports the operation. Nothing falls back to scalar
+code or a helper call. The x86 and AArch64 allocators place every live rack
+in one register and reject a function that would need more registers than the
+profile has, or arguments on the stack. <code>--emit-asm</code> prints the assembly, or
+the C on wasm, and the system assembler or clang only encodes it.</p>
+<h2 id="whole-programs">Whole programs</h2>
+<pre class="code code-text"><code>source
+  -&gt; parser and type checker
+  -&gt; tier checker                  runs and slow code in tier IR; each pure rack
+                                   expression in a run goes through the crunch
+                                   pipeline above
+  -&gt; C emitter                     one C file with int main(void)
+  -&gt; clang for wasm32 with SIMD128
+  -&gt; object verifier               crunches, rakes and runs in the object
+</code></pre>
+<p>The tier checker enforces the rules of <a href="/docs/slow-tier/">the slow tier</a>:
+slow code holds no racks, a scalar becomes a rack only at a marked argument,
+and vector code calls nothing and reads no module state. The C emitter forms a
+run's addresses, writes its loops, tails and checks, and inlines its rack
+expressions, which native lowering and wasm selection compile as they compile
+a crunch. <code>rakec --interpret</code> runs <code>main</code> in Rake's executable semantics,
+evaluating rack expressions in the same reference semantics as crunches, and
+<code>test/program_test.sh</code> compares it with the compiled program.</p>
+<h2 id="profiles">Profiles</h2>
+<p>On <code>x86-avx2</code>, an <code>f32s</code> rack is one YMM register and a mask is a YMM value.
+Arguments follow the System V convention in eight SSE-class registers, and a
+uniform <code>f32</code> arrives in an XMM register, whose YMM name is the same physical
+register, so the allocator tracks the pair as one. A uniform's use is a
+<code>vbroadcastss</code>. The profile needs AVX2 and FMA3.</p>
+<p>On <code>aarch64-neon</code>, an <code>f32s</code> rack is one 128-bit vector register. Arguments
+take <code>v0</code> to <code>v7</code> and the result returns in <code>v0</code>. The allocator uses the 24
+registers that a call may clobber, <code>v0</code> to <code>v7</code> and <code>v16</code> to <code>v31</code>. GNU
+cross-binutils assemble and disassemble the object, and
+<code>test/neon_backend_test.sh</code> compares exact result bits under QEMU.</p>
+<p>On <code>wasm-simd128</code>, a rack is one <code>v128</code>. WebAssembly's locals are typed and
+unlimited, so there is no register allocation and no spill to rule out.
+Selection orders the value stack: a value used once is computed where it is
+used, and one used more than once is kept in a local. The output is C, one
+<code>wasm_simd128.h</code> intrinsic for each selected instruction, because some wasm32
+toolchains accept only C and reject <code>v128</code> operands to inline assembly.</p>
+<h2 id="object-verification">Object verification</h2>
+<p><code>--verify-native</code> disassembles the object and checks each function against
+its profile's list of instructions:</p>
+<ul>
+<li>On <code>x86-avx2</code> and <code>aarch64-neon</code>: no calls, no stack, every rack in one
+whole register, no scalar arithmetic on rack lanes, cross-lane instructions
+only in reductions and scans, and exactly the fused multiply-adds that the
+compiler selected.</li>
+<li>For a <code>wasm-simd128</code> crunch or rake: only locals, constants and register
+instructions, with no calls, memory or branches.</li>
+<li>For a <code>wasm-simd128</code> run: no calls and no C stack, only the vector
+instructions its source selected or their documented equivalents, and no
+more lane operations or loops than its source states.</li>
+</ul>
+<p><a href="/docs/racks-and-targets/#verification">Racks and targets</a> and <a href="/docs/slow-tier/#verification">the
+slow tier</a> give the details.</p>
+<h2 id="ownership">Ownership</h2>
+<p>Rake owns the IR, its rewrites, instruction selection, register allocation,
+assembly and verification. The system assembler, clang and the linker own
+object formats, relocations, linking and start-up. Debug information and
+exception unwinding aren't produced. The x86 and AArch64 backends compile
+crunches and rakes only. Runs and whole programs compile on <code>wasm-simd128</code>,
+and the <a href="/docs/packs-and-runs/#planned-x86-64-boundary">planned x86-64 run boundary</a>
+is a design.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#crunches-and-rakes">Crunches and rakes</a></li>
+<li><a href="#whole-programs">Whole programs</a></li>
+<li><a href="#profiles">Profiles</a></li>
+<li><a href="#object-verification">Object verification</a></li>
+<li><a href="#ownership">Ownership</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

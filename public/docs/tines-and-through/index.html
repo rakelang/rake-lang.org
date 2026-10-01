@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tines, through and sweeps | Rake</title>
+  <meta name="description" content="How a Rake rake chooses values lane by lane without branches: tines name masks, through blocks compute under them, and a sweep picks each lane's result.">
+  <link rel="canonical" href="https://rake-lang.org/docs/tines-and-through/">
+  <meta property="og:title" content="Tines, through and sweeps | Rake">
+  <meta property="og:description" content="How a Rake rake chooses values lane by lane without branches: tines name masks, through blocks compute under them, and a sweep picks each lane's result.">
+  <meta property="og:url" content="https://rake-lang.org/docs/tines-and-through/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Tines, through and sweeps | Rake","name":"Tines, through and sweeps | Rake","description":"How a Rake rake chooses values lane by lane without branches: tines name masks, through blocks compute under them, and a sweep picks each lane's result.","url":"https://rake-lang.org/docs/tines-and-through/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/" aria-current="page">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="tines-through-and-sweeps">Tines, through and sweeps</h1>
+<p>A rake computes a different value in different lanes without branching. Tines
+name lane masks, through blocks compute values under them, and a sweep picks
+each lane's result.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">when</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+
+  <span class="tok-keyword">return</span> <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>      <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">n</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-keyword">from</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">n</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">by</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">4</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">-</span><span class="tok-number">1.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">9.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">16.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">-</span><span class="tok-number">4.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">25.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1.0</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-variable">total</span> <span class="tok-operator">:=</span> <span class="tok-number">0.0</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">i</span> <span class="tok-keyword">from</span> <span class="tok-number">0</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-number">8</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-variable">total</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">total</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-variable">i</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">total</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p>A rake's body has four parts in this order: <code>let</code> bindings, at least one
+tine, at least one through block, and the sweep. Its racks are <code>f32s</code>. Rakes
+compile on <code>x86-avx2</code>, <code>aarch64-neon</code> and <code>wasm-simd128</code>, and a crunch, rake
+or run can call one.</p>
+<h2 id="tines">Tines</h2>
+<p><code>tine #valid when values &gt;= &lt;0.0&gt;</code> declares a mask with one Boolean for each
+lane. The predicate compares float racks and uniforms, and combines
+comparisons and earlier tines with <code>not</code>, <code>and</code> and <code>or</code>. Its operands may
+use arithmetic and fields, but no calls. A tine can refer only to tines
+declared before it, and each name is declared once. A tine is only a mask: it
+computes nothing else and stores nothing.</p>
+<h2 id="through-blocks">Through blocks</h2>
+<p><code>through #valid else &lt;0.0&gt; into rooted:</code> computes its body in the lanes of
+<code>#valid</code> and calls the result <code>rooted</code>. The lanes outside the tine take the
+<code>else</code> value, a uniform or a literal. The header gives one tine or a
+predicate in parentheses, such as <code>through (#valid and not #large)</code>.</p>
+<p>The body is any <code>let</code> and fused bindings, then the expression whose value is
+the result. It can't assign, loop, call a function other than a built-in
+operation, reduce across lanes, scan, or use <code>%</code>.</p>
+<p>An inactive lane's computation doesn't happen. It can't fail on an invalid
+operand, raise a floating-point exception, touch memory or have any other
+effect, and the result has the <code>else</code> value there. <code>rakec --interpret</code> skips
+inactive lanes.</p>
+<p>A vector backend computes every lane, so it replaces the operands of
+inactive lanes with benign values before each operation that could raise an
+exception, then selects the results:</p>
+<div class="table-scroll"><table><thead><tr><th>Operation</th><th>Benign operands in inactive lanes</th></tr></thead><tbody>
+<tr><td><code>sqrt</code></td><td><code>1.0</code></td></tr>
+<tr><td><code>+</code>, <code>-</code>, <code>min</code>, <code>max</code>, comparisons</td><td><code>0.0</code></td></tr>
+<tr><td><code>*</code></td><td><code>1.0</code></td></tr>
+<tr><td><code>/</code></td><td><code>0.0</code> divided by <code>1.0</code></td></tr>
+<tr><td><code>fma</code></td><td><code>0.0</code></td></tr>
+</tbody></table>
+</div>
+<p>The native IR records each replacement, and the IR verifier rejects an
+exception-capable operation under a mask whose operands weren't replaced.
+WebAssembly has no floating-point exception state, so its instructions never
+trap or set a flag. On <code>wasm-simd128</code> an inactive lane's value is discarded by
+the final selection, and the compiler replaces no operands. Memory accesses
+stay masked on every target.</p>
+<h2 id="sweeps">Sweeps</h2>
+<pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">grade</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">scores</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">high</span> <span class="tok-keyword">when</span> <span class="tok-variable">scores</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">90.0</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">pass</span> <span class="tok-keyword">when</span> <span class="tok-variable">scores</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">50.0</span><span class="tok-operator">&gt;</span></span>
+
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">high</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">top</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">3.0</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">pass</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">middle</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2.0</span><span class="tok-operator">&gt;</span></span>
+
+  <span class="tok-keyword">return</span> <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">high</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">top</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">pass</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">middle</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>     <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">grades</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-function">grade</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">scores</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">95.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">60.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">10.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">50.0</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">result</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">grades</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">scores</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">1000.0</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">100.0</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">10.0</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p>A score of 95 is in both <code>#high</code> and <code>#pass</code>, and the first arm gives it 3.
+A sweep lists arms in priority order. For each lane, the first arm whose tine
+holds gives the result, and the final <code>_</code> arm gives the result for every lane
+no earlier arm took. Tines may overlap, and the order of the arms decides
+between them. Every sweep ends with exactly one <code>_</code> arm. The compiler rejects
+a sweep without one, an arm after it, or a tine named twice. <code>return sweep:</code>
+is always the last statement of a rake, and it gives the rake's result.</p>
+<p>The backends build the sweep from vector selections, starting from the <code>_</code>
+value and applying the named arms from last to first, so every lane gets a
+value from the source.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#tines">Tines</a></li>
+<li><a href="#through-blocks">Through blocks</a></li>
+<li><a href="#sweeps">Sweeps</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,494 @@
+/* Rake's components. Each is defined once here, and pages use its classes. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--colour-ground);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--colour-text);
+  font-family: var(--font-text);
+  font-size: var(--size-text);
+  line-height: var(--leading);
+}
+
+/* Header and footer */
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--colour-rule);
+}
+
+.site-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--colour-sand);
+  font-weight: 700;
+  font-size: 1.15rem;
+  text-decoration: none;
+}
+
+.site-name img {
+  border-radius: 4px;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+}
+
+.site-nav a {
+  color: var(--colour-text-dim);
+  text-decoration: none;
+  font-size: var(--size-small);
+}
+
+.site-nav a:hover {
+  color: var(--colour-sand);
+}
+
+.site-footer {
+  padding: var(--space-4);
+  border-top: 1px solid var(--colour-rule);
+  color: var(--colour-text-dim);
+  font-size: var(--size-small);
+  text-align: center;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+/* Layouts */
+
+.page {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-6);
+}
+
+.content {
+  min-width: 0;
+  max-width: var(--measure);
+}
+
+.layout-home .content,
+.layout-plain .content {
+  margin: 0 auto;
+}
+
+.layout-docs .page {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr) 12rem;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 70rem) {
+  .layout-docs .page {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+  .page-contents {
+    display: none;
+  }
+}
+
+@media (max-width: 48rem) {
+  .page {
+    padding: var(--space-4) var(--space-3) var(--space-5);
+  }
+  /* On a phone the page comes first, and the list of pages follows it. */
+  .layout-docs .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .docs-nav {
+    position: static;
+    order: 2;
+    margin-top: var(--space-5);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--colour-rule);
+  }
+}
+
+/* Text */
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--colour-sand-light);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  scroll-margin-top: var(--space-4);
+}
+
+h1 {
+  margin: 0 0 var(--space-4);
+  color: var(--colour-sand);
+  font-size: var(--size-h1);
+  font-weight: 700;
+}
+
+h2 {
+  margin: var(--space-5) 0 var(--space-3);
+  font-size: var(--size-h2);
+  font-weight: 600;
+}
+
+h3 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--size-h3);
+  font-weight: 600;
+}
+
+p,
+ul,
+ol,
+dl {
+  margin: 0 0 var(--space-3);
+}
+
+ul,
+ol {
+  padding-left: var(--space-4);
+}
+
+li + li {
+  margin-top: var(--space-1);
+}
+
+a {
+  color: var(--colour-link);
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--colour-sand-light);
+}
+
+strong {
+  color: var(--colour-sand-light);
+}
+
+/* Tables */
+
+.table-scroll {
+  margin: 0 0 var(--space-4);
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--size-small);
+  line-height: 1.5;
+}
+
+th,
+td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--colour-rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--colour-sand);
+  font-weight: 600;
+  background: var(--colour-ground-raised);
+}
+
+/* Code */
+
+code {
+  font-family: var(--font-code);
+  font-size: 0.875em;
+  font-variant-ligatures: none;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: var(--colour-ground-code);
+  overflow-wrap: anywhere;
+}
+
+pre.code {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+  border: 1px solid var(--colour-rule);
+  border-radius: var(--radius);
+  background: var(--colour-code-ground);
+  color: var(--colour-code-text);
+  font-size: var(--size-code);
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+pre.code code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  overflow-wrap: normal;
+  font-variant-ligatures: common-ligatures contextual;
+}
+
+.tok-keyword,
+.tok-constant-builtin {
+  color: var(--colour-code-keyword);
+  font-weight: 500;
+}
+
+.tok-type,
+.tok-type-builtin {
+  color: var(--colour-code-type);
+}
+
+.tok-function,
+.tok-function-builtin {
+  color: var(--colour-code-function);
+}
+
+.tok-tag {
+  color: var(--colour-code-tine);
+  font-weight: 500;
+}
+
+/* A tine or a uniform is one mark, whatever its parts are. */
+.tok-tag span,
+.tok-constant span {
+  color: inherit;
+  font-weight: inherit;
+}
+
+.tok-constant {
+  color: var(--colour-code-uniform);
+  font-weight: 500;
+  /* <-1.0> would otherwise draw as an arrow. */
+  font-variant-ligatures: none;
+}
+
+.tok-operator-flow {
+  color: var(--colour-code-flow);
+  font-weight: 500;
+}
+
+.tok-number,
+.tok-boolean,
+.tok-string,
+.tok-string-special,
+.tok-escape {
+  color: var(--colour-code-number);
+}
+
+.tok-comment {
+  color: var(--colour-code-comment);
+  font-style: italic;
+}
+
+.tok-operator,
+.tok-punctuation-bracket,
+.tok-punctuation-delimiter,
+.tok-punctuation-special,
+.tok-delimiter,
+.tok-property {
+  color: var(--colour-code-punctuation);
+}
+
+/* Home page */
+
+.home-intro {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+.home-intro-image {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.home-intro h1 {
+  margin-bottom: var(--space-3);
+}
+
+.home-intro p {
+  font-size: 1.15rem;
+  color: var(--colour-text);
+}
+
+@media (max-width: 40rem) {
+  .home-intro {
+    grid-template-columns: 6rem minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+  }
+  .home-intro p {
+    font-size: var(--size-text);
+  }
+}
+
+.link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link-row li + li {
+  margin-top: 0;
+}
+
+.link-button {
+  display: inline-block;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--colour-sand-dim);
+  border-radius: var(--radius);
+  color: var(--colour-sand);
+  font-weight: 600;
+  font-size: var(--size-small);
+  text-decoration: none;
+}
+
+.link-button:hover {
+  border-color: var(--colour-sand);
+  color: var(--colour-sand-light);
+}
+
+.project {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  margin: 0 0 var(--space-4);
+}
+
+.project img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.project h3 {
+  margin-top: 0;
+}
+
+@media (max-width: 40rem) {
+  .project {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Documentation */
+
+.docs-nav {
+  position: sticky;
+  top: var(--space-4);
+  font-size: var(--size-small);
+}
+
+.docs-nav-group {
+  margin: var(--space-4) 0 var(--space-1);
+  color: var(--colour-text-dim);
+  font-weight: 600;
+}
+
+.docs-nav-group:first-child {
+  margin-top: 0;
+}
+
+.docs-nav ul,
+.page-contents ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-nav li + li,
+.page-contents li + li {
+  margin-top: 0.15rem;
+}
+
+.docs-nav a,
+.page-contents a {
+  color: var(--colour-text);
+  text-decoration: none;
+}
+
+.docs-nav a:hover,
+.page-contents a:hover {
+  color: var(--colour-sand);
+}
+
+.docs-nav a[aria-current="page"] {
+  color: var(--colour-sand);
+  font-weight: 600;
+}
+
+.page-contents {
+  position: sticky;
+  top: var(--space-4);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.page-contents-title {
+  margin: 0 0 var(--space-2);
+  color: var(--colour-text-dim);
+  font-weight: 600;
+}
+
+.page-contents code {
+  padding: 0;
+  background: none;
+}
+
+.docs-list dt {
+  margin-top: var(--space-3);
+  font-weight: 600;
+}
+
+.docs-list dd {
+  margin: var(--space-1) 0 0;
+  color: var(--colour-text-dim);
+}
+
+.align-left {
+  text-align: left;
+}
+
+.align-center {
+  text-align: center;
+}
+
+.align-right {
+  text-align: right;
+}
+
+td code,
+th code {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* Diagrams and output keep their characters, so their columns line up. */
+pre.code-text code {
+  font-variant-ligatures: none;
+}

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Control flow | Rake</title>
+  <meta name="description" content="Conditional expressions by mask or uniform, fixed-count repeat loops, counted loops and branches in runs, and the control flow of Rake's slow code.">
+  <link rel="canonical" href="https://rake-lang.org/docs/control-flow/">
+  <meta property="og:title" content="Control flow | Rake">
+  <meta property="og:description" content="Conditional expressions by mask or uniform, fixed-count repeat loops, counted loops and branches in runs, and the control flow of Rake's slow code.">
+  <meta property="og:url" content="https://rake-lang.org/docs/control-flow/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="ahrefs-site-verification" content="014aab88e8d56a1424964cd58463f063d036793686abaa2fcbe35105efb2f6b4">
+  <link rel="icon" href="/images/icon-32.png?v=77c1fb55" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/images/icon-180.png?v=b256d282">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
+  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Control flow | Rake","name":"Control flow | Rake","description":"Conditional expressions by mask or uniform, fixed-count repeat loops, counted loops and branches in runs, and the control flow of Rake's slow code.","url":"https://rake-lang.org/docs/control-flow/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
+</head>
+<body class="layout-docs">
+  <header class="site-header">
+    <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
+    <nav class="site-nav" aria-label="Site">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/playground/">Playground</a>
+      <a href="https://github.com/rakelang/rake">GitHub</a>
+    </nav>
+  </header>
+  <div class="page">
+    <nav class="docs-nav" aria-label="Documentation">
+<p class="docs-nav-group">Overview</p>
+<ul>
+<li><a href="/docs/">Rake documentation</a></li>
+</ul>
+<p class="docs-nav-group">Language</p>
+<ul>
+<li><a href="/docs/syntax/">Syntax reference</a></li>
+<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
+<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
+<li><a href="/docs/control-flow/" aria-current="page">Control flow</a></li>
+<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
+<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/memory-operations/">Memory operations</a></li>
+<li><a href="/docs/slow-tier/">The slow tier</a></li>
+</ul>
+<p class="docs-nav-group">Learning</p>
+<ul>
+<li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/glossary/">Glossary</a></li>
+</ul>
+<p class="docs-nav-group">Compiler</p>
+<ul>
+<li><a href="/docs/rakec/">The rakec command</a></li>
+<li><a href="/docs/backend/">The compiler backend</a></li>
+<li><a href="/docs/testing/">Testing the compiler</a></li>
+</ul>
+<p class="docs-nav-group">Project</p>
+<ul>
+<li><a href="/docs/goals/">Language goals</a></li>
+<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
+<li><a href="/docs/changelog/">Changelog</a></li>
+<li><a href="/docs/comparisons/">Rake and other languages</a></li>
+<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
+</ul>
+</nav>
+    <main class="content">
+<h1 id="control-flow">Control flow</h1>
+<p>Rake has two kinds of choice. A uniform condition, one <code>bool</code> for every lane,
+chooses which code runs. A mask, one <code>bool</code> for each lane, chooses each lane's
+value, and every lane's code runs. Tines, through blocks and sweeps are the
+named form of the second kind, defined in <a href="/docs/tines-and-through/">tines, through and
+sweeps</a>. This page defines conditional
+expressions, loops and branches.</p>
+<h2 id="conditional-expressions">Conditional expressions</h2>
+<p><code>if c then a else b</code> is a value. Its condition decides how it chooses.</p>
+<p>A mask condition chooses lane by lane. Each branch is computed under its
+mask, the condition's lanes for <code>a</code> and the others for <code>b</code>, combined with
+any mask around the expression, and a lane-wise selection joins them. An
+inactive lane's computation doesn't happen, as in a through block, so
+operands are replaced with benign values on targets with floating-point
+exceptions. On WebAssembly, the expression below is two subtractions, a
+comparison and one <code>v128.bitselect</code>. A mask conditional compiles on
+<code>x86-avx2</code>, <code>aarch64-neon</code> and <code>wasm-simd128</code>:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">distance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">v</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">w</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-keyword">if</span> <span class="tok-variable">v</span> <span class="tok-operator">&gt;</span> <span class="tok-variable">w</span> <span class="tok-keyword">then</span> <span class="tok-variable">v</span> <span class="tok-operator">-</span> <span class="tok-variable">w</span> <span class="tok-keyword">else</span> <span class="tok-variable">w</span> <span class="tok-operator">-</span> <span class="tok-variable">v</span>
+</code></pre>
+<p>A uniform condition chooses one whole rack. In vector code both branches are
+rack expressions that the target computes before selecting one, so computing
+the branch not taken has no effect. In slow code, only the chosen branch is
+evaluated. A uniform conditional in vector code compiles on <code>wasm-simd128</code>
+only:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">pick</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">near</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">far</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">late</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-keyword">if</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">late</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">then</span> <span class="tok-variable">near</span> <span class="tok-keyword">else</span> <span class="tok-variable">far</span>
+</code></pre>
+<p>In vector code, a branch can't read memory. A load, gather or element read is
+bound with <code>let</code> before the conditional, so it visibly happens whichever way
+the condition goes:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">choose</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">late</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-keyword">if</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">late</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">then</span> <span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-keyword">else</span> <span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">4</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span>
+</code></pre>
+<h2 id="fixed-count-loops">Fixed-count loops</h2>
+<p><code>repeat &lt;i: i32&gt; from &lt;0&gt; up to &lt;4&gt;:</code> runs its body once for each index from
+the first bound up to, but not including, the second. Both bounds are
+constants, and the brackets mark the index as uniform. Inside the body the
+index is a constant, so it can index an array of rack locations and take part
+in address arithmetic.</p>
+<p>In a crunch or rake, <code>repeat</code> unrolls completely, and the body may update
+mutable rack locations, so a crunch stays straight-line code. This compiles on
+every production profile:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">cube</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">a</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">power</span> <span class="tok-operator">:=</span> <span class="tok-variable">a</span>
+  <span class="tok-keyword">repeat</span> <span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-keyword">from</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-variable">power</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">power</span> <span class="tok-operator">*</span> <span class="tok-variable">a</span>
+  <span class="tok-keyword">return</span> <span class="tok-variable">power</span>
+</code></pre>
+<p>In a run, <code>repeat</code> unrolls while its trips times its body's statements stay
+within 4096, and otherwise it stays a loop with the same meaning. Either way
+each rack location stays one register, in a WebAssembly local. In
+<code>test/program/vector_tier.rk</code>, a <code>repeat</code> of 5000 trips compiles to a loop of
+one <code>f32x4.mul</code>, one <code>f32x4.add</code> and the counter.</p>
+<h2 id="loops-and-branches-in-runs">Loops and branches in runs</h2>
+<p>A run's counted loop, <code>for &lt;i: i32&gt; from &lt;a&gt; up to &lt;b&gt; by &lt;s&gt;:</code>, has a uniform
+index, bounds and step. The step is 1 unless given. A step of zero or less
+traps, and the last iteration stops at the bound instead of stepping past it.
+A statement <code>if &lt;c&gt;:</code>, with <code>else if</code> and <code>else</code> arms, takes a uniform
+condition and branches around whole statements:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">clip_rows</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">n</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">limit</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-keyword">from</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">n</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">by</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">4</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">let</span> <span class="tok-variable">row</span> <span class="tok-operator">=</span> <span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span>
+    <span class="tok-keyword">if</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">&lt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">limit</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+      <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">row</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2.0</span><span class="tok-operator">&gt;</span></span>
+    <span class="tok-keyword">else</span><span class="tok-punctuation-delimiter">:</span>
+      <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">row</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">12</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">1.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">12</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">result</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">12</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">12</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">clip_rows</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">result</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">12</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-variable">total</span> <span class="tok-operator">:=</span> <span class="tok-number">0.0</span>
+  <span class="tok-variable">i</span> <span class="tok-operator">:=</span> <span class="tok-number">0</span>
+  <span class="tok-keyword">while</span> <span class="tok-boolean">true</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">if</span> <span class="tok-variable">i</span> <span class="tok-operator">=</span> <span class="tok-number">12</span><span class="tok-punctuation-delimiter">:</span>
+      <span class="tok-keyword">break</span>
+    <span class="tok-variable">total</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">total</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-variable">i</span><span class="tok-punctuation-bracket">]</span>
+    <span class="tok-variable">i</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">i</span> <span class="tok-operator">+</span> <span class="tok-number">1</span>
+  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">total</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p>A run has no <code>while</code>, <code>break</code>, <code>continue</code> or <code>return</code>, so every vector loop
+runs a counted number of iterations. Mutable rack locations, such as
+<code>total := &lt;0.0&gt;</code>, and arrays of them, such as <code>acc: [8]i32s := &lt;0&gt;</code>, carry
+values across iterations. In a traversal's tail an assignment updates only
+the active lanes.</p>
+<p>A traversal, <code>for chunk in input using f32s up to &lt;count&gt;:</code>, is a different
+loop: it visits a pack's records a rack at a time, as <a href="/docs/packs-and-runs/">packs and
+runs</a> define. A counted loop may contain a traversal, and
+a traversal may contain counted loops, <code>repeat</code>, statement <code>if</code> and a
+traversal of the same lane count.</p>
+<h2 id="slow-control-flow">Slow control flow</h2>
+<p>Slow code has <code>if</code>, <code>else if</code> and <code>else</code>, <code>while</code>, the counted <code>for i from a up to b by s</code>, <code>break</code>, <code>continue</code> and <code>return</code>, as <a href="/docs/slow-tier/">the slow
+tier</a> defines. It holds no racks, so a run called inside a
+slow loop does whole-rack work once each iteration.</p>
+
+    </main>
+    <nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#conditional-expressions">Conditional expressions</a></li>
+<li><a href="#fixed-count-loops">Fixed-count loops</a></li>
+<li><a href="#loops-and-branches-in-runs">Loops and branches in runs</a></li>
+<li><a href="#slow-control-flow">Slow control flow</a></li>
+</ul>
+</nav>
+  </div>
+  <footer class="site-footer">
+    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+  </footer>
+</body>
+</html>
