@@ -1,1 +1,4 @@
 /tools/site/target/
+/tools/playground/node_modules/
+/tools/playground/dist/
+/.build/

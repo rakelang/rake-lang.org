@@ -35,6 +35,7 @@ struct Config {
     site: PathBuf,
     rake: PathBuf,
     branch: String,
+    playground_assets: PathBuf,
 }
 
 #[derive(Clone, PartialEq)]
@@ -94,7 +95,10 @@ fn configure() -> Result<Config, String> {
     let rake = std::env::var("RAKE_DIR").map(PathBuf::from).unwrap_or_else(|_| site.join("../rake-wasm-simd128"));
     let rake = fs::canonicalize(&rake).map_err(|e| format!("Rake checkout {}: {e} (set RAKE_DIR)", rake.display()))?;
     let branch = std::env::var("RAKE_BRANCH").unwrap_or_else(|_| "wasm-simd128".to_string());
-    Ok(Config { site, rake, branch })
+    let playground_assets = std::env::var("PLAYGROUND_ASSETS")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| site.join(".build/playground"));
+    Ok(Config { site, rake, branch, playground_assets })
 }
 
 // ─── Pages ──────────────────────────────────────────────────────────────
@@ -163,7 +167,8 @@ fn build(config: &Config, out: &Path) -> Result<usize, String> {
     if out.exists() {
         fs::remove_dir_all(out).map_err(|e| format!("{}: {e}", out.display()))?;
     }
-    let assets = copy_static(&config.site.join("src/static"), out)?;
+    let mut assets = copy_static(&config.site.join("src/static"), out)?;
+    assets.extend(copy_static(&config.playground_assets, out)?);
 
     for page in &pages {
         let markdown = read(&page.source)?;
@@ -487,12 +492,21 @@ fn fill(
         body.push_str(&docs_index(pages));
     }
     let (layout, sidebar, contents) = match page.kind {
+        Kind::Doc if page.url == "/docs/playground/" => ("layout-playground", String::new(), String::new()),
         Kind::Doc | Kind::DocsIndex => ("layout-docs", docs_sidebar(pages, page), contents_list(&rendered.sections)),
         Kind::Home => ("layout-home", String::new(), String::new()),
         Kind::NotFound => ("layout-plain", String::new(), String::new()),
     };
     let robots = if page.kind == Kind::NotFound { "<meta name=\"robots\" content=\"noindex\">\n  " } else { "" };
     let schema = schema_json(page, &canonical, version);
+    let (body, scripts) = if page.url == "/docs/playground/" {
+        (
+            format!("{}\n<article id=\"playground-reference\" class=\"playground-reference\">{body}</article>", playground(assets)?),
+            format!("<script type=\"module\" src=\"{}\"></script>", asset_url(assets, "scripts/playground.js")?),
+        )
+    } else {
+        (body, String::new())
+    };
     let mut html = template
         .replace("{{title}}", &escape(&page.title))
         .replace("{{description}}", &escape(&page.description))
@@ -505,6 +519,7 @@ fn fill(
         .replace("{{body}}", &body)
         .replace("{{version}}", version)
         .replace("{{github}}", GITHUB);
+    html = html.replace("{{scripts}}", &scripts);
     while let Some(start) = html.find("{{asset:") {
         let end = html[start..].find("}}").ok_or("unterminated {{asset:")? + start;
         let name = &html[start + 8..end];
@@ -515,6 +530,75 @@ fn fill(
         return Err(format!("{}: unfilled template placeholder", page.url));
     }
     Ok(html)
+}
+
+fn asset_url(assets: &BTreeMap<String, String>, name: &str) -> Result<String, String> {
+    let hash = assets.get(name).ok_or_else(|| format!("playground asks for missing asset {name}"))?;
+    Ok(format!("/{name}?v={hash}"))
+}
+
+fn playground(assets: &BTreeMap<String, String>) -> Result<String, String> {
+    Ok(format!(r#"<section class="playground-app" data-rake-playground
+  data-worker="{}"
+  data-compiler="{}"
+  data-tree-sitter="{}"
+  data-rake-language="{}"
+  data-rake-highlights="{}">
+  <header class="playground-heading">
+    <div>
+      <p class="playground-progress" data-lesson-number>Lesson 1 of 12</p>
+      <h2 data-lesson-title>A program</h2>
+    </div>
+    <nav class="playground-steps" aria-label="Tutorial lessons">
+      <button type="button" data-previous>Previous</button>
+      <button type="button" data-next>Next</button>
+    </nav>
+  </header>
+  <div class="playground-grid">
+    <section class="playground-lesson" aria-label="Lesson">
+      <div data-lesson-text></div>
+      <p class="playground-keyboard"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> runs the program.</p>
+    </section>
+    <section class="playground-workbench" aria-label="Rake editor">
+      <div class="playground-editor-shell">
+        <pre class="playground-highlighting" aria-hidden="true"><code data-highlighting></code></pre>
+        <textarea data-editor aria-label="Rake source code" aria-describedby="playground-status" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+      </div>
+      <div class="playground-controls">
+        <button class="playground-run" type="button" data-run>Run</button>
+        <label>Target
+          <select data-target>
+            <option value="wasm-simd128">wasm-simd128</option>
+            <option value="x86-avx2">x86-avx2</option>
+            <option value="aarch64-neon">aarch64-neon</option>
+          </select>
+        </label>
+        <button type="button" data-reset>Reset</button>
+        <label class="playground-check"><input type="checkbox" data-ligatures checked> Ligatures</label>
+      </div>
+      <p class="playground-target-note" data-target-note></p>
+      <div class="playground-output">
+        <div class="playground-tabs" role="tablist" aria-label="Compiler output">
+          <button type="button" role="tab" aria-selected="true" data-tab="result">Result</button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="lanes">Lanes</button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="code">Code</button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="messages">Messages</button>
+        </div>
+        <div class="playground-panel" role="tabpanel" data-panel="result"></div>
+        <div class="playground-panel" role="tabpanel" data-panel="lanes" hidden></div>
+        <pre class="playground-panel playground-code" role="tabpanel" data-panel="code" hidden></pre>
+        <div class="playground-panel" role="tabpanel" data-panel="messages" hidden></div>
+      </div>
+      <p class="playground-status" id="playground-status" role="status" data-status>Loading the compiler…</p>
+    </section>
+  </div>
+</section>"#,
+        asset_url(assets, "scripts/playground-worker.js")?,
+        asset_url(assets, "scripts/rake-compiler.js")?,
+        asset_url(assets, "scripts/tree-sitter.wasm")?,
+        asset_url(assets, "scripts/tree-sitter-rake.wasm")?,
+        asset_url(assets, "scripts/rake-highlights.scm")?,
+    ))
 }
 
 fn schema_json(page: &Page, canonical: &str, version: &str) -> String {

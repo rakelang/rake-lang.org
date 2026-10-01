@@ -1,0 +1,16 @@
+{
+  "name": "rake-playground",
+  "private": true,
+  "version": "0.4.0",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --format=esm --platform=browser --target=es2022 --external:fs/promises --external:module --outfile=dist/playground.js && esbuild src/worker.ts --bundle --format=iife --platform=browser --target=es2022 --outfile=dist/playground-worker.js"
+  },
+  "dependencies": {
+    "web-tree-sitter": "0.25.10"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "typescript": "5.9.3"
+  }
+}

@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="{{asset:styles/tokens.css}}">
   <link rel="stylesheet" href="{{asset:styles/components.css}}">
   {{schema}}
+{{scripts}}
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
 </head>
 <body class="{{layout}}">
@@ -33,11 +34,11 @@
     </nav>
   </header>
   <div class="page">
-    {{sidebar}}
+{{sidebar}}
     <main class="content">
 {{body}}
     </main>
-    {{contents}}
+{{contents}}
   </div>
   <footer class="site-footer">
     <p>Rake {{version}}. MIT licence. Source on <a href="{{github}}">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>

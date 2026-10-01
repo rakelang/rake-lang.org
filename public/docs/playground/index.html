@@ -19,11 +19,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=f7535922">
+  <link rel="stylesheet" href="/styles/components.css?v=7613b19d">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Playground and tutorial | Rake","name":"Playground and tutorial | Rake","description":"A design for a Rake playground: twelve lessons and the moment each idea lands, Rake's syntax explained for C and Python programmers, and ligature fonts.","url":"https://rake-lang.org/docs/playground/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+<script type="module" src="/scripts/playground.js?v=1c3d5825"></script>
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
 </head>
-<body class="layout-docs">
+<body class="layout-playground">
   <header class="site-header">
     <a class="site-name" href="/"><img src="/images/icon-32.png?v=77c1fb55" alt="" width="24" height="24">Rake</a>
     <nav class="site-nav" aria-label="Site">
@@ -33,53 +34,72 @@
     </nav>
   </header>
   <div class="page">
-    <nav class="docs-nav" aria-label="Documentation">
-<p class="docs-nav-group">Overview</p>
-<ul>
-<li><a href="/docs/">Rake documentation</a></li>
-</ul>
-<p class="docs-nav-group">Language</p>
-<ul>
-<li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
-<li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
-<li><a href="/docs/fused-bindings/">Fused bindings</a></li>
-<li><a href="/docs/control-flow/">Control flow</a></li>
-<li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
-<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
-<li><a href="/docs/memory-operations/">Memory operations</a></li>
-<li><a href="/docs/slow-tier/">The slow tier</a></li>
-</ul>
-<p class="docs-nav-group">Learning</p>
-<ul>
-<li><a href="/docs/playground/" aria-current="page">Playground and tutorial</a></li>
-<li><a href="/docs/glossary/">Glossary</a></li>
-</ul>
-<p class="docs-nav-group">Compiler</p>
-<ul>
-<li><a href="/docs/rakec/">The rakec command</a></li>
-<li><a href="/docs/backend/">The compiler backend</a></li>
-<li><a href="/docs/testing/">Testing the compiler</a></li>
-</ul>
-<p class="docs-nav-group">Project</p>
-<ul>
-<li><a href="/docs/goals/">Language goals</a></li>
-<li><a href="/docs/roadmap/">Compiler roadmap</a></li>
-<li><a href="/docs/changelog/">Changelog</a></li>
-<li><a href="/docs/comparisons/">Rake and other languages</a></li>
-<li><a href="/docs/gpu/">GPU profiles (design)</a></li>
-</ul>
-</nav>
+
     <main class="content">
-<h1 id="the-rake-playground">The Rake playground</h1>
-<p>This page designs a playground: a page in the browser where someone who has
-never written SIMD code learns Rake by editing and running small programs.
-Nothing here is built yet. The page sets out what the playground shows, the
-lessons it teaches in order, the moment in each lesson where the new idea
-lands, and how it explains the syntax that looks strange to a programmer
-who comes from C, Java, JavaScript or Python. Every program on this page is
-compiled by the documentation checker, and its result is the one the lesson
-promises.</p>
+<section class="playground-app" data-rake-playground
+  data-worker="/scripts/playground-worker.js?v=185e0038"
+  data-compiler="/scripts/rake-compiler.js?v=9c73338c"
+  data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
+  data-rake-language="/scripts/tree-sitter-rake.wasm?v=1fd950fa"
+  data-rake-highlights="/scripts/rake-highlights.scm?v=654a5ae2">
+  <header class="playground-heading">
+    <div>
+      <p class="playground-progress" data-lesson-number>Lesson 1 of 12</p>
+      <h2 data-lesson-title>A program</h2>
+    </div>
+    <nav class="playground-steps" aria-label="Tutorial lessons">
+      <button type="button" data-previous>Previous</button>
+      <button type="button" data-next>Next</button>
+    </nav>
+  </header>
+  <div class="playground-grid">
+    <section class="playground-lesson" aria-label="Lesson">
+      <div data-lesson-text></div>
+      <p class="playground-keyboard"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> runs the program.</p>
+    </section>
+    <section class="playground-workbench" aria-label="Rake editor">
+      <div class="playground-editor-shell">
+        <pre class="playground-highlighting" aria-hidden="true"><code data-highlighting></code></pre>
+        <textarea data-editor aria-label="Rake source code" aria-describedby="playground-status" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+      </div>
+      <div class="playground-controls">
+        <button class="playground-run" type="button" data-run>Run</button>
+        <label>Target
+          <select data-target>
+            <option value="wasm-simd128">wasm-simd128</option>
+            <option value="x86-avx2">x86-avx2</option>
+            <option value="aarch64-neon">aarch64-neon</option>
+          </select>
+        </label>
+        <button type="button" data-reset>Reset</button>
+        <label class="playground-check"><input type="checkbox" data-ligatures checked> Ligatures</label>
+      </div>
+      <p class="playground-target-note" data-target-note></p>
+      <div class="playground-output">
+        <div class="playground-tabs" role="tablist" aria-label="Compiler output">
+          <button type="button" role="tab" aria-selected="true" data-tab="result">Result</button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="lanes">Lanes</button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="code">Code</button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="messages">Messages</button>
+        </div>
+        <div class="playground-panel" role="tabpanel" data-panel="result"></div>
+        <div class="playground-panel" role="tabpanel" data-panel="lanes" hidden></div>
+        <pre class="playground-panel playground-code" role="tabpanel" data-panel="code" hidden></pre>
+        <div class="playground-panel" role="tabpanel" data-panel="messages" hidden></div>
+      </div>
+      <p class="playground-status" id="playground-status" role="status" data-status>Loading the compiler…</p>
+    </section>
+  </div>
+</section>
+<article id="playground-reference" class="playground-reference"><h1 id="the-rake-playground">The Rake playground</h1>
+<p>This page includes the playground: someone who has never written SIMD code
+can learn Rake by editing and running small programs in the browser. The
+tutorial introduces one idea at a time and makes each idea visible in the
+result, lane trace, generated code or compiler message. The reference after
+the editor records the lesson design and explains syntax that may look strange
+to a programmer coming from C, Java, JavaScript or Python. Every program is
+also compiled by the documentation checker, and its result is the one the
+lesson promises.</p>
 <h2 id="the-screen">The screen</h2>
 <pre class="code code-text"><code>+------------------------------------------------------------------------+
 | Rake playground     Lesson 4 of 12: Marking uniforms     [Prev] [Next] |
@@ -111,10 +131,13 @@ all the lanes at once, the idea the whole tutorial builds on.</p>
 compile on <code>wasm-simd128</code> only, so a lesson that uses them disables the other
 two and says why.</p>
 <h2 id="how-it-works">How it works</h2>
-<p>The compiler runs in the page. <code>rakec</code> is OCaml, and <code>wasm_of_ocaml</code> can
-compile its front end, its interpreter and its emitters to WebAssembly, so the
-playground calls the same code behind <code>rakec --interpret</code> and <code>rakec --emit-asm</code> that runs on a workstation. The parts that start clang and the
-assembler stay out of the browser build. The Lanes tab reads the
+<p>The compiler runs in the page. <code>rakec</code> is OCaml, and <code>js_of_ocaml</code> compiles
+its front end, interpreter and emitters for the browser, so the playground
+calls the same code behind <code>rakec --interpret</code> and <code>rakec --emit-asm</code> that
+runs on a workstation. The parts that start clang and the assembler stay out
+of the browser build. Compilation and execution happen in a worker; a program
+that runs for more than three seconds is stopped without freezing the editor.
+The Lanes tab reads the
 interpreter's values, which it already computes lane by lane. Object
 verification needs clang and a disassembler, so the playground leaves it to
 the command line, and the Code tab says so.</p>
@@ -512,30 +535,9 @@ without that rule, <code>&lt; -1.0&gt;</code> with a space means the same and dr
 <p>The playground has ligatures on, with a switch beside the target menu that
 shows the plain characters, for a learner copying code into an editor that
 draws them differently.</p>
-
+</article>
     </main>
-    <nav class="page-contents" aria-label="On this page">
-<p class="page-contents-title">On this page</p>
-<ul>
-<li><a href="#the-screen">The screen</a></li>
-<li><a href="#how-it-works">How it works</a></li>
-<li><a href="#the-lessons">The lessons</a></li>
-<li><a href="#1-a-program">1. A program</a></li>
-<li><a href="#2-changing-values">2. Changing values</a></li>
-<li><a href="#3-a-rack">3. A rack</a></li>
-<li><a href="#4-marking-uniforms">4. Marking uniforms</a></li>
-<li><a href="#5-loops-and-reductions">5. Loops and reductions</a></li>
-<li><a href="#6-fused-stages">6. Fused stages</a></li>
-<li><a href="#7-choosing-by-lane">7. Choosing by lane</a></li>
-<li><a href="#8-tines-and-sweeps">8. Tines and sweeps</a></li>
-<li><a href="#9-columns">9. Columns</a></li>
-<li><a href="#10-a-whole-program">10. A whole program</a></li>
-<li><a href="#11-proved-or-refused">11. Proved or refused</a></li>
-<li><a href="#12-bits">12. Bits</a></li>
-<li><a href="#reading-rake">Reading Rake</a></li>
-<li><a href="#ligatures">Ligatures</a></li>
-</ul>
-</nav>
+
   </div>
   <footer class="site-footer">
     <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
