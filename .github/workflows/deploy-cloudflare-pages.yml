@@ -39,6 +39,12 @@ jobs:
         run: |
           bash tools/build.sh build
           bash tools/build.sh check
+      - name: Keep Cloudflare as the single analytics owner
+        run: |
+          if grep -R -n -E 'static\.cloudflareinsights\.com/beacon\.min\.js|data-cf-beacon' rake-lang.org/public --include='*.html'; then
+            echo 'Cloudflare injects analytics. Remove manual beacons from the site.' >&2
+            exit 1
+          fi
       - name: Deploy the checked build
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
