@@ -77,6 +77,19 @@
 website. Beta releases may still change the source language and the binary
 boundaries between versions. A design in the documentation gets a version
 only when the compiler implements it and the tests cover it.</p>
+<h2 id="unreleased">Unreleased</h2>
+<ul>
+<li>Native slow-only programs emit platform C and compile to x86-64 or
+AArch64 objects. Their public slow functions use the platform C ABI,
+with header-backed struct imports, pointer parameters and struct returns.
+Native mixed vector/slow units and runs remain work in progress.</li>
+<li>Native slow frames are thread-local; independent host threads can call
+exported functions with large recursive locals. Module state stays shared.</li>
+<li>Pointer fields in C struct declarations are checked against
+<code>sizeof(void *)</code>, rather than assuming a wasm32 pointer.</li>
+<li>Slow scalar bit casts use an alias-safe byte copy, shared by the native
+and WebAssembly C paths.</li>
+</ul>
 <h2 id="060-beta">0.6.0-beta</h2>
 <ul>
 <li>SSE2 and AVX-512F compile float crunches and rakes to verified vector
@@ -218,6 +231,7 @@ and displays generated C or assembly beside source diagnostics.</li>
 <nav class="page-contents" aria-label="On this page">
 <p class="page-contents-title">On this page</p>
 <ul>
+<li><a href="#unreleased">Unreleased</a></li>
 <li><a href="#060-beta">0.6.0-beta</a></li>
 <li><a href="#050-beta">0.5.0-beta</a></li>
 <li><a href="#040-beta">0.4.0-beta</a></li>

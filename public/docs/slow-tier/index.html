@@ -85,7 +85,9 @@ scalar function can instead be declared <code>slow name(...)</code>.</p>
 definition is a whole program. On <code>wasm-simd128</code> it compiles to one C
 translation unit with <code>int main(void)</code>, which is what a C-only judge takes.
 Whole programs are implemented for <code>wasm-simd128</code> and
-<code>wasm-simd128-relaxed</code> only. Other profiles reject them.</p>
+<code>wasm-simd128-relaxed</code> in the 0.6.0-beta tag. The unreleased development
+compiler also emits native C and objects for slow-only programs on x86-64
+and AArch64. It still rejects native runs and mixed vector/slow units.</p>
 <h2 id="an-example">An example</h2>
 <pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
@@ -157,7 +159,7 @@ expression to produce its result. In a run, <code>break</code> and <code>continu
 block refer only to scalar loops inside that block.</p>
 <p>Crunches, rakes and fused regions remain pure vector kernels and reject slow
 blocks. Put scalar orchestration in the run that calls them. Blocks and whole
-programs currently compile for WebAssembly only.</p>
+programs containing vector work currently compile for WebAssembly only.</p>
 <h2 id="definitions">Definitions</h2>
 <div class="table-scroll"><table><thead><tr><th>Definition</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>slow name(parameters) -&gt; T:</code></td><td>a scalar function, with or without <code>-&gt; T</code></td></tr>
@@ -338,6 +340,17 @@ Records, arrays and views are structs. State and embedded data are statics.
 Checked arithmetic, conversions, indexing and slices are small inline helpers
 that call <code>__builtin_trap</code>. Each run is an external, never-inlined <code>void</code>
 function.</p>
+<p>On the development compiler's native slow-only path, ordinary slow functions
+instead have external linkage and use the platform C ABI. Scalar and pointer
+arguments pass by value, array and record arguments are borrowed pointers,
+and record results return by value. Header-backed records retain their C
+layout, including native pointer widths and padding. Rake emits checked
+scalar C; the platform compiler owns its register allocation and calling
+convention. This does not delegate vector kernel compilation to C.</p>
+<p>The native entry remains <code>int main(void)</code>. Unions, callbacks, function
+pointers and <code>argc</code>/<code>argv</code> entry are work in progress. Native slow frames are
+thread-local, while module state remains process-wide and needs the caller's
+normal synchronization when several threads use it.</p>
 <p>A slow block in scalar code becomes a GNU C statement expression, preserving
 its lexical scope and enclosing function's <code>return</code>. A block in a run becomes
 a never-inlined scalar helper. Its captured uniforms are scalar parameters,

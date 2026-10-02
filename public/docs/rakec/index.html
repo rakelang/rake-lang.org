@@ -85,7 +85,7 @@
 <tr><td>none</td><td>parses and type-checks the file, and prints a confirmation</td></tr>
 <tr><td><code>--interpret</code></td><td>runs <code>slow main() -&gt; i32</code> in Rake's executable semantics and prints its result, or the trap</td></tr>
 <tr><td><code>--emit-native-ir</code></td><td>the typed native IR after optimisation, and a whole program's tier IR</td></tr>
-<tr><td><code>--emit-asm</code></td><td>GNU assembly on x86 and AArch64, C on the wasm profiles</td></tr>
+<tr><td><code>--emit-asm</code></td><td>GNU assembly for native kernels; C for wasm programs and native slow-only programs</td></tr>
 <tr><td><code>--emit-obj</code></td><td>an object file, assembled or compiled from that output</td></tr>
 <tr><td><code>--verify-native</code></td><td>the object, after disassembling and checking it</td></tr>
 <tr><td><code>--emit-tokens</code>, <code>--emit-ast</code></td><td>the tokens or the syntax tree, for debugging the front end</td></tr>
@@ -98,7 +98,12 @@
 with <code>.s</code>, <code>.c</code> or <code>.o</code> unless <code>-o path</code> gives another. <code>-o</code> isn't allowed
 with the check, token and syntax-tree modes. A whole program, one with slow
 code, runs, records, state, embedded files, constants or externs, compiles for
-the wasm profiles only.</p>
+the wasm profiles in 0.6.0-beta. The unreleased development compiler also
+supports slow-only native programs. Their <code>--emit-asm</code> output is <code>.c</code> and
+their <code>--emit-obj</code> output is a platform C object. <code>--verify-native</code> applies
+to vector kernels and WebAssembly programs, not native slow-only units:
+these have no vector function whose instruction contract could be checked.
+Native mixed vector/slow programs and runs remain work in progress.</p>
 <h2 id="options">Options</h2>
 <div class="table-scroll"><table><thead><tr><th>Option</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>--target p</code></td><td>the profile: <code>native</code> (the default), <code>x86-sse2</code>, <code>x86-avx2</code>, <code>x86-avx512</code>, <code>aarch64-neon</code>, <code>wasm-simd128</code>, <code>wasm-simd128-relaxed</code>, or the WIP scalar fallback</td></tr>
@@ -120,6 +125,13 @@ runs</a> explains the addressing modes.</p>
 <tr><td><code>RAKE_WASM_CFLAGS</code></td><td>empty</td><td>extra flags when compiling a whole program</td></tr>
 </tbody></table>
 </div>
+<p>The development compiler's native slow C path uses <code>gcc</code> on x86 and
+<code>aarch64-unknown-linux-gnu-gcc</code> on AArch64. <code>RAKE_NATIVE_CC</code> can select a
+different executable with the same GCC-compatible command-line interface.
+The compiler writes GNU C11, disables floating-point contraction and fast
+math, and compiles with warnings treated as errors. Its source directory is
+on the include path. Link the emitted object with the platform linker and
+its required C libraries, including <code>libm</code> for scalar maths.</p>
 <p>The emitted C reads two macros. <code>RAKE_WASM_LINKAGE</code> replaces <code>static inline</code>
 on each crunch and rake, and <code>RAKE_FRAME_BYTES</code> sets the size of a whole
 program's frame stack, 4 MiB by default, as <a href="/docs/slow-tier/#the-c-unit">the slow

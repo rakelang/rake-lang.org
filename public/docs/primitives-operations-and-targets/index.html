@@ -265,7 +265,9 @@ use, <code>&lt;scale&gt;</code>. The use is where the broadcast happens: <code>v
 AVX2 and AVX-512, <code>shufps</code> on SSE2, <code>dup</code> on NEON and a splat on wasm.</p>
 <p>A run's boundary is in <a href="/docs/packs-and-runs/#wasm32-boundary">packs and runs</a>,
 and a whole program's in <a href="/docs/slow-tier/">the slow tier</a>. The x86 and AArch64
-backends compile neither runs nor slow code.</p>
+backends in the 0.6.0-beta tag compile neither runs nor slow code. The
+unreleased development compiler adds slow-only native C programs; native
+runs and mixed vector/slow programs remain work in progress.</p>
 <h2 id="verification">Verification</h2>
 <p><code>--verify-native</code> assembles the emitted code, or compiles the emitted C,
 then disassembles the object and checks every function:</p>

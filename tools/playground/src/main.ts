@@ -117,8 +117,8 @@ async function start(root: HTMLElement): Promise<void> {
     }
     if (wholeProgram) target.value = "wasm-simd128";
     required<HTMLElement>(root, "[data-target-note]").textContent = wholeProgram
-      ? "Whole programs run on wasm-simd128."
-      : "Inspect vector definitions for SSE2, AVX2, AVX-512, NEON or WebAssembly. Browser execution uses WebAssembly.";
+      ? "Whole programs use the WebAssembly emitter here. Results come from Rake's interpreter."
+      : "Inspect vector code for SSE2, AVX2, AVX-512, NEON or WebAssembly. Results come from Rake's interpreter.";
     history.replaceState(null, "", `#lesson-${lessonIndex + 1}`);
     highlight();
     if (ready) void compile();
