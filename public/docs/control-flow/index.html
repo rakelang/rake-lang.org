@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=7613b19d">
+  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Control flow | Rake","name":"Control flow | Rake","description":"Conditional expressions by mask or uniform, fixed-count repeat loops, counted loops and branches in runs, and the control flow of Rake's slow code.","url":"https://rake-lang.org/docs/control-flow/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -123,7 +123,7 @@ every production profile:</p>
 </code></pre>
 <p>In a run, <code>repeat</code> unrolls while its trips times its body's statements stay
 within 4096, and otherwise it stays a loop with the same meaning. Either way
-each rack location stays one register, in a WebAssembly local. In
+each rack location stays one <code>v128</code> value in a WebAssembly local. In
 <code>test/program/vector_tier.rk</code>, a <code>repeat</code> of 5000 trips compiles to a loop of
 one <code>f32x4.mul</code>, one <code>f32x4.add</code> and the counter.</p>
 <h2 id="loops-and-branches-in-runs">Loops and branches in runs</h2>

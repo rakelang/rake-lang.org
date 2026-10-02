@@ -12,9 +12,36 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: cloudflare/wrangler-action@v3
+      - name: Check out the site
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          path: rake-lang.org
+      - name: Check out the compiler and documentation
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: rakelang/rake
+          ref: main
+          path: rake
+      - name: Check out the Tree-sitter grammar
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: rakelang/tree-sitter-rake
+          ref: main
+          path: tree-sitter-rake
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@786fff0690178f1234e4e1fe9b536e94f5433196 # v20
+      - name: Build and check the published site
+        working-directory: rake-lang.org
+        env:
+          RAKE_DIR: ${{ github.workspace }}/rake
+          RAKE_BRANCH: main
+          TREE_SITTER_RAKE_DIR: ${{ github.workspace }}/tree-sitter-rake
+        run: |
+          bash tools/build.sh build
+          bash tools/build.sh check
+      - name: Deploy the checked build
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy public --project-name=rake-lang --branch=main
+          command: pages deploy rake-lang.org/public --project-name=rake-lang --branch=main

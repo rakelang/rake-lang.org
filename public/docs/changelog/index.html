@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=7613b19d">
+  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Changelog | Rake","name":"Changelog | Rake","description":"What changed in each Rake release, starting with 0.4.0-beta: integer racks, runs and whole programs on WebAssembly, and checked documentation examples.","url":"https://rake-lang.org/docs/changelog/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -144,6 +144,10 @@ which they overflowed without a trap.</li>
 <li><code>rakec --interpret</code> runs a program's <code>main</code> in Rake's executable
 semantics. It reports a program without <code>main</code> instead of failing, and
 broadcasts a uniform stored where a rack goes, as the compiled code does.</li>
+<li>The compiler library exposes the front end, interpreter, C and assembly
+emitters, and a bounded lane trace to the browser through <code>js_of_ocaml</code>.
+The browser build runs in a worker and returns source diagnostics without
+requiring a server-side compiler.</li>
 <li><code>wasm-simd128-relaxed</code> is an opt-in profile with <code>relaxed_madd</code>,
 <code>relaxed_nmadd</code>, <code>relaxed_min</code> and <code>relaxed_max</code>.</li>
 </ul>
@@ -164,6 +168,14 @@ test corpus. The grammar parses indentation with an external scanner, as
 the compiler does.</li>
 <li>Every Rake example in the README, the documentation and the website is
 compiled by <code>tools/check_documentation_examples.sh</code>, and most are run.</li>
+</ul>
+<h3 id="website-and-documentation">Website and documentation</h3>
+<ul>
+<li>rake-lang.org now publishes the compiler documentation as a checked set of
+reference pages with Tree-sitter highlighting.</li>
+<li>The playground is an interactive twelve-lesson tutorial. It runs the same
+compiler and interpreter in the browser, shows rack values in the Lanes tab,
+and displays generated C or assembly beside source diagnostics.</li>
 </ul>
 <h3 id="removed">Removed</h3>
 <ul>

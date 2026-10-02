@@ -4,7 +4,7 @@ import type { CompileResult, LaneTrace, WorkerReply, WorkerRequest } from "./pro
 type Lesson = {
   heading: HTMLElement;
   source: string;
-  introduction: Node[];
+  instructions: Node[];
 };
 
 async function start(root: HTMLElement): Promise<void> {
@@ -31,25 +31,16 @@ async function start(root: HTMLElement): Promise<void> {
     throw new Error(`The playground needs 12 lessons; found ${lessons.length}`);
   }
 
-  status.textContent = "Loading the compiler and syntax grammar…";
-  await Promise.all([
-    Parser.init({ locateFile: () => root.dataset.treeSitter! }),
-    compiler.ready(),
-  ]);
-  const language = await Language.load(root.dataset.rakeLanguage!);
-  const parser = new Parser();
-  parser.setLanguage(language);
-  const querySource = await fetch(root.dataset.rakeHighlights!).then((response) => {
-    if (!response.ok) throw new Error(`Could not load the highlighting query (${response.status})`);
-    return response.text();
-  });
-  const query = new Query(language, querySource);
-  status.textContent = "Compiler ready";
-
   let lessonIndex = lessonFromHash(lessons);
   let starter = "";
   let errorAt: { line: number; column: number } | null = null;
   let renderSerial = 0;
+  let parser: Parser | null = null;
+  let query: Query | null = null;
+  let ready = false;
+  run.disabled = true;
+  target.disabled = true;
+  status.textContent = "Loading the compiler and syntax grammar…";
 
   const showTab = (name: string): void => {
     for (const button of root.querySelectorAll<HTMLButtonElement>("[data-tab]")) {
@@ -63,11 +54,20 @@ async function start(root: HTMLElement): Promise<void> {
   };
 
   const highlight = (): void => {
+    if (!parser || !query) {
+      highlighting.textContent = editor.value;
+      highlighting.append(document.createTextNode("\n"));
+      return;
+    }
     highlighting.innerHTML = highlighted(parser, query, editor.value, errorAt);
     highlighting.append(document.createTextNode("\n"));
   };
 
   const compile = async (): Promise<void> => {
+    if (!ready) {
+      status.textContent = "The compiler is still loading…";
+      return;
+    }
     const attempt = ++renderSerial;
     errorAt = null;
     status.textContent = "Compiling…";
@@ -108,7 +108,7 @@ async function start(root: HTMLElement): Promise<void> {
     root.classList.remove("has-editor-error");
     lessonNumber.textContent = `Lesson ${lessonIndex + 1} of ${lessons.length}`;
     lessonTitle.textContent = lesson.heading.textContent?.replace(/^\d+\.\s*/, "") ?? "";
-    lessonText.replaceChildren(...lesson.introduction.map((node) => node.cloneNode(true)));
+    lessonText.replaceChildren(...lesson.instructions.map((node) => node.cloneNode(true)));
     previous.disabled = lessonIndex === 0;
     next.disabled = lessonIndex === lessons.length - 1;
     const wholeProgram = /(^|\n)(slow|run|record|state|embed|extern|const)\s/m.test(starter);
@@ -121,11 +121,25 @@ async function start(root: HTMLElement): Promise<void> {
       : "Vector definitions compile for all three targets.";
     history.replaceState(null, "", `#lesson-${lessonIndex + 1}`);
     highlight();
-    void compile();
+    if (ready) void compile();
   };
 
   for (const button of root.querySelectorAll<HTMLButtonElement>("[data-tab]")) {
     button.addEventListener("click", () => showTab(button.dataset.tab!));
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const tabs = [...root.querySelectorAll<HTMLButtonElement>("[data-tab]")];
+      const current = tabs.indexOf(button);
+      const selected = event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? tabs.length - 1
+          : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      const tab = tabs[selected];
+      showTab(tab.dataset.tab!);
+      tab.focus();
+    });
   }
   editor.addEventListener("input", () => {
     renderSerial += 1;
@@ -169,6 +183,24 @@ async function start(root: HTMLElement): Promise<void> {
   });
 
   loadLesson(lessonIndex);
+  await Promise.all([
+    Parser.init({ locateFile: () => root.dataset.treeSitter! }),
+    compiler.ready(),
+  ]);
+  const language = await Language.load(root.dataset.rakeLanguage!);
+  parser = new Parser();
+  parser.setLanguage(language);
+  const querySource = await fetch(root.dataset.rakeHighlights!).then((response) => {
+    if (!response.ok) throw new Error(`Could not load the highlighting query (${response.status})`);
+    return response.text();
+  });
+  query = new Query(language, querySource);
+  ready = true;
+  run.disabled = false;
+  target.disabled = false;
+  status.textContent = "Compiler ready";
+  highlight();
+  await compile();
 }
 
 class CompilerWorker {
@@ -237,19 +269,34 @@ function collectLessons(): Lesson[] {
   const lessons: Lesson[] = [];
   for (const heading of reference.querySelectorAll<HTMLElement>("h2[id]")) {
     if (!/^\d+-/.test(heading.id)) continue;
-    const introduction: Node[] = [];
-    let source = "";
-    let sibling = heading.nextElementSibling;
-    while (sibling && sibling.tagName !== "H2") {
-      const code = sibling.matches("pre.code-rake") ? sibling.querySelector("code") : null;
-      if (code && source === "") {
-        source = code.textContent ?? "";
-      } else if (source === "" && ["P", "UL", "OL"].includes(sibling.tagName)) {
-        introduction.push(sibling);
+    const instructions: Node[] = [];
+    let firstSource = "";
+    let markedSource = "";
+    let markedStarter = false;
+    let sibling = heading.nextSibling;
+    while (sibling) {
+      if (sibling instanceof HTMLElement && sibling.tagName === "H2") break;
+      if (sibling.nodeType === Node.COMMENT_NODE && sibling.textContent?.trim() === "playground-starter") {
+        markedStarter = true;
+      } else if (sibling instanceof HTMLElement) {
+        if (sibling.matches("[data-playground-starter]")) {
+          markedStarter = true;
+          sibling = sibling.nextSibling;
+          continue;
+        }
+        const code = sibling.matches("pre.code-rake") ? sibling.querySelector("code") : null;
+        if (code) {
+          if (firstSource === "") firstSource = code.textContent ?? "";
+          if (markedStarter && markedSource === "") markedSource = code.textContent ?? "";
+          markedStarter = false;
+        } else if (["H3", "H4", "P", "UL", "OL", "BLOCKQUOTE"].includes(sibling.tagName)) {
+          instructions.push(sibling);
+        }
       }
-      sibling = sibling.nextElementSibling;
+      sibling = sibling.nextSibling;
     }
-    if (source) lessons.push({ heading, source, introduction });
+    const source = markedSource || firstSource;
+    if (source) lessons.push({ heading, source, instructions });
   }
   return lessons;
 }
@@ -388,5 +435,16 @@ if (root) {
     const messages = root.querySelector<HTMLElement>("[data-panel=messages]");
     if (status) status.textContent = "The playground could not start";
     if (messages) messages.replaceChildren(message("error", detail));
+    for (const panel of root.querySelectorAll<HTMLElement>("[data-panel]")) {
+      panel.hidden = panel !== messages;
+    }
+    const messagesTab = root.querySelector<HTMLButtonElement>("[data-tab=messages]");
+    if (messagesTab) {
+      for (const tab of root.querySelectorAll<HTMLButtonElement>("[data-tab]")) {
+        const selected = tab === messagesTab;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      }
+    }
   });
 }

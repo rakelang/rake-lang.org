@@ -19,7 +19,7 @@ description in `src/pages.tsv`.
 
 ## Building
 
-The build reads the compiler checkout in `../rake-wasm-simd128` and the
+The build reads the compiler checkout in `../rake` and the
 grammar in `../tree-sitter-rake`, and writes `public/`:
 
 ```sh

@@ -521,7 +521,7 @@ pre.code-text code {
   border-bottom: 1px solid var(--colour-rule);
 }
 
-.playground-heading h2 {
+.playground-lesson-title {
   margin: 0;
   font-size: var(--size-h2);
 }
@@ -840,7 +840,7 @@ kbd {
     align-items: flex-start;
     padding: var(--space-3);
   }
-  .playground-heading h2 {
+  .playground-lesson-title {
     font-size: var(--size-h3);
   }
   .playground-lesson,

@@ -2,7 +2,7 @@
 <img class="home-intro-image" src="/images/wallpaper.webp" alt="The Rake mark, a rake's head drawn as a grid of tines, above furrows of raked sand" width="1024" height="1536">
 <div>
 <h1>Rake</h1>
-<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Its values are racks, each one vector register of the machine, and the compiler keeps every rack in its register or refuses the program.</p>
+<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Each rack is one vector register on a physical target, or one vector value in the WebAssembly virtual machine. Rake emits vector instructions outside slow code, or refuses an unsupported operation.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
 <li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
@@ -40,19 +40,20 @@ slow main() -> i32:
   return i32(rooted[0] + rooted[2] + rooted[5])
 ```
 
-`rakec --interpret` prints 12, which is 4 + 3 + 5. Compiled for
-WebAssembly, `safe_root` becomes a comparison, a square root and a select on
-whole vector registers, with no branch for any lane.
+`rakec --interpret` prints 12, which is 4 + 3 + 5. Compiled for WebAssembly,
+`safe_root` becomes a comparison, a square root and a select on whole `v128`
+values, with no branch for any lane.
 
 ## Characteristics
 
-### Racks are registers
+### Racks are vector values
 
-`f32s` is a rack of `f32` values, one vector register wide. On AVX2 it holds
-eight floats, and on NEON and WebAssembly four. The source never states the
-width, so one program compiles for each machine, and the compiler fails
-rather than split a rack across registers, keep it in memory or compute it a
-lane at a time.
+`f32s` is a rack of `f32` values. On AVX2 it is one physical register holding
+eight floats, and on NEON one holding four. On WebAssembly it is one `v128`
+value holding four. Rake adheres to the virtual machine's fiction and doesn't
+try to replace the runtime's physical register allocation. Its promise stays
+the same: outside a `slow` block, rack work uses vector instructions wherever
+the selected profile supports the operation, or the compiler refuses it.
 
 ### Scalars are marked
 
@@ -115,10 +116,11 @@ hold for the whole program.
 ### Every claim is checked
 
 `rakec --verify-native` disassembles what it built and checks it against the
-profile's rules: no calls, no stack, every rack in one register, and nothing
-outside the profile's list of instructions. A rack sine has no vector implementation
-yet, so the compiler rejects `sin(values)` instead of calling a scalar
-library function once per lane.
+profile's rules: no hidden calls or stack work, one physical register per rack
+on physical targets, and only the permitted WebAssembly virtual instructions
+on `wasm-simd128`. A rack sine has no vector implementation yet, so the
+compiler rejects `sin(values)` instead of calling a scalar library function
+once per lane.
 
 ## Notation
 
@@ -168,7 +170,7 @@ The compiler is written in OCaml, and its Nix development shell pins every
 tool it uses:
 
 ```sh
-git clone --branch wasm-simd128 https://github.com/rakelang/rake
+git clone https://github.com/rakelang/rake
 cd rake
 nix develop --command dune build
 nix develop --command dune exec rakec -- --interpret program.rk

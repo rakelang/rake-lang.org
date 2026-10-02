@@ -500,7 +500,7 @@ var TreeCursor = class _TreeCursor {
     unmarshalTreeCursor(this);
   }
 };
-var Node = class {
+var Node2 = class {
   static {
     __name(this, "Node");
   }
@@ -1090,7 +1090,7 @@ function unmarshalNode(tree, address = TRANSFER_BUFFER) {
   const column = C.getValue(address, "i32");
   address += SIZE_OF_INT;
   const other = C.getValue(address, "i32");
-  const result = new Node(INTERNAL, {
+  const result = new Node2(INTERNAL, {
     id,
     tree,
     startIndex: index,
@@ -3968,24 +3968,16 @@ async function start2(root2) {
   if (lessons.length !== 12) {
     throw new Error(`The playground needs 12 lessons; found ${lessons.length}`);
   }
-  status.textContent = "Loading the compiler and syntax grammar\u2026";
-  await Promise.all([
-    Parser.init({ locateFile: () => root2.dataset.treeSitter }),
-    compiler.ready()
-  ]);
-  const language = await Language.load(root2.dataset.rakeLanguage);
-  const parser = new Parser();
-  parser.setLanguage(language);
-  const querySource = await fetch(root2.dataset.rakeHighlights).then((response) => {
-    if (!response.ok) throw new Error(`Could not load the highlighting query (${response.status})`);
-    return response.text();
-  });
-  const query = new Query(language, querySource);
-  status.textContent = "Compiler ready";
   let lessonIndex = lessonFromHash(lessons);
   let starter = "";
   let errorAt = null;
   let renderSerial = 0;
+  let parser = null;
+  let query = null;
+  let ready = false;
+  run2.disabled = true;
+  target.disabled = true;
+  status.textContent = "Loading the compiler and syntax grammar\u2026";
   const showTab = (name2) => {
     for (const button of root2.querySelectorAll("[data-tab]")) {
       const selected = button.dataset.tab === name2;
@@ -3997,10 +3989,19 @@ async function start2(root2) {
     }
   };
   const highlight = () => {
+    if (!parser || !query) {
+      highlighting.textContent = editor.value;
+      highlighting.append(document.createTextNode("\n"));
+      return;
+    }
     highlighting.innerHTML = highlighted(parser, query, editor.value, errorAt);
     highlighting.append(document.createTextNode("\n"));
   };
   const compile = async () => {
+    if (!ready) {
+      status.textContent = "The compiler is still loading\u2026";
+      return;
+    }
     const attempt = ++renderSerial;
     errorAt = null;
     status.textContent = "Compiling\u2026";
@@ -4037,7 +4038,7 @@ async function start2(root2) {
     root2.classList.remove("has-editor-error");
     lessonNumber.textContent = `Lesson ${lessonIndex + 1} of ${lessons.length}`;
     lessonTitle.textContent = lesson.heading.textContent?.replace(/^\d+\.\s*/, "") ?? "";
-    lessonText.replaceChildren(...lesson.introduction.map((node) => node.cloneNode(true)));
+    lessonText.replaceChildren(...lesson.instructions.map((node) => node.cloneNode(true)));
     previous.disabled = lessonIndex === 0;
     next.disabled = lessonIndex === lessons.length - 1;
     const wholeProgram = /(^|\n)(slow|run|record|state|embed|extern|const)\s/m.test(starter);
@@ -4048,10 +4049,20 @@ async function start2(root2) {
     required(root2, "[data-target-note]").textContent = wholeProgram ? "Whole programs run on wasm-simd128." : "Vector definitions compile for all three targets.";
     history.replaceState(null, "", `#lesson-${lessonIndex + 1}`);
     highlight();
-    void compile();
+    if (ready) void compile();
   };
   for (const button of root2.querySelectorAll("[data-tab]")) {
     button.addEventListener("click", () => showTab(button.dataset.tab));
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const tabs = [...root2.querySelectorAll("[data-tab]")];
+      const current = tabs.indexOf(button);
+      const selected = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      const tab = tabs[selected];
+      showTab(tab.dataset.tab);
+      tab.focus();
+    });
   }
   editor.addEventListener("input", () => {
     renderSerial += 1;
@@ -4094,6 +4105,24 @@ async function start2(root2) {
     if (selected !== lessonIndex) loadLesson(selected);
   });
   loadLesson(lessonIndex);
+  await Promise.all([
+    Parser.init({ locateFile: () => root2.dataset.treeSitter }),
+    compiler.ready()
+  ]);
+  const language = await Language.load(root2.dataset.rakeLanguage);
+  parser = new Parser();
+  parser.setLanguage(language);
+  const querySource = await fetch(root2.dataset.rakeHighlights).then((response) => {
+    if (!response.ok) throw new Error(`Could not load the highlighting query (${response.status})`);
+    return response.text();
+  });
+  query = new Query(language, querySource);
+  ready = true;
+  run2.disabled = false;
+  target.disabled = false;
+  status.textContent = "Compiler ready";
+  highlight();
+  await compile();
 }
 var CompilerWorker = class {
   constructor(workerUrl, compilerUrl) {
@@ -4157,19 +4186,34 @@ function collectLessons() {
   const lessons = [];
   for (const heading of reference.querySelectorAll("h2[id]")) {
     if (!/^\d+-/.test(heading.id)) continue;
-    const introduction = [];
-    let source = "";
-    let sibling = heading.nextElementSibling;
-    while (sibling && sibling.tagName !== "H2") {
-      const code = sibling.matches("pre.code-rake") ? sibling.querySelector("code") : null;
-      if (code && source === "") {
-        source = code.textContent ?? "";
-      } else if (source === "" && ["P", "UL", "OL"].includes(sibling.tagName)) {
-        introduction.push(sibling);
+    const instructions = [];
+    let firstSource = "";
+    let markedSource = "";
+    let markedStarter = false;
+    let sibling = heading.nextSibling;
+    while (sibling) {
+      if (sibling instanceof HTMLElement && sibling.tagName === "H2") break;
+      if (sibling.nodeType === Node.COMMENT_NODE && sibling.textContent?.trim() === "playground-starter") {
+        markedStarter = true;
+      } else if (sibling instanceof HTMLElement) {
+        if (sibling.matches("[data-playground-starter]")) {
+          markedStarter = true;
+          sibling = sibling.nextSibling;
+          continue;
+        }
+        const code = sibling.matches("pre.code-rake") ? sibling.querySelector("code") : null;
+        if (code) {
+          if (firstSource === "") firstSource = code.textContent ?? "";
+          if (markedStarter && markedSource === "") markedSource = code.textContent ?? "";
+          markedStarter = false;
+        } else if (["H3", "H4", "P", "UL", "OL", "BLOCKQUOTE"].includes(sibling.tagName)) {
+          instructions.push(sibling);
+        }
       }
-      sibling = sibling.nextElementSibling;
+      sibling = sibling.nextSibling;
     }
-    if (source) lessons.push({ heading, source, introduction });
+    const source = markedSource || firstSource;
+    if (source) lessons.push({ heading, source, instructions });
   }
   return lessons;
 }
@@ -4293,5 +4337,16 @@ if (root) {
     const messages = root.querySelector("[data-panel=messages]");
     if (status) status.textContent = "The playground could not start";
     if (messages) messages.replaceChildren(message("error", detail));
+    for (const panel of root.querySelectorAll("[data-panel]")) {
+      panel.hidden = panel !== messages;
+    }
+    const messagesTab = root.querySelector("[data-tab=messages]");
+    if (messagesTab) {
+      for (const tab of root.querySelectorAll("[data-tab]")) {
+        const selected = tab === messagesTab;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      }
+    }
   });
 }

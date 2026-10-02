@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>The compiler backend | Rake</title>
-  <meta name="description" content="How rakec turns Rake into machine code: native IR, instruction selection, no-spill register allocation, C for WebAssembly, and object verification.">
+  <meta name="description" content="How rakec turns source into code: native IR, physical-target register allocation, WebAssembly SIMD instructions and object verification.">
   <link rel="canonical" href="https://rake-lang.org/docs/backend/">
   <meta property="og:title" content="The compiler backend | Rake">
-  <meta property="og:description" content="How rakec turns Rake into machine code: native IR, instruction selection, no-spill register allocation, C for WebAssembly, and object verification.">
+  <meta property="og:description" content="How rakec turns source into code: native IR, physical-target register allocation, WebAssembly SIMD instructions and object verification.">
   <meta property="og:url" content="https://rake-lang.org/docs/backend/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
@@ -19,8 +19,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=7613b19d">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The compiler backend | Rake","name":"The compiler backend | Rake","description":"How rakec turns Rake into machine code: native IR, instruction selection, no-spill register allocation, C for WebAssembly, and object verification.","url":"https://rake-lang.org/docs/backend/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The compiler backend | Rake","name":"The compiler backend | Rake","description":"How rakec turns source into code: native IR, physical-target register allocation, WebAssembly SIMD instructions and object verification.","url":"https://rake-lang.org/docs/backend/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
 </head>
@@ -144,12 +144,17 @@ take <code>v0</code> to <code>v7</code> and the result returns in <code>v0</code
 registers that a call may clobber, <code>v0</code> to <code>v7</code> and <code>v16</code> to <code>v31</code>. GNU
 cross-binutils assemble and disassemble the object, and
 <code>test/neon_backend_test.sh</code> compares exact result bits under QEMU.</p>
-<p>On <code>wasm-simd128</code>, a rack is one <code>v128</code>. WebAssembly's locals are typed and
-unlimited, so there is no register allocation and no spill to rule out.
-Selection orders the value stack: a value used once is computed where it is
-used, and one used more than once is kept in a local. The output is C, one
+<p>On <code>wasm-simd128</code>, a rack is one <code>v128</code> in the WebAssembly virtual machine.
+Rake adheres to that machine's fiction. It selects virtual SIMD instructions
+and locals, but doesn't try to replace the WebAssembly runtime's physical
+register allocation. A value used once is computed where it is consumed, and
+one used more than once is kept in a local. The output is C, one
 <code>wasm_simd128.h</code> intrinsic for each selected instruction, because some wasm32
 toolchains accept only C and reject <code>v128</code> operands to inline assembly.</p>
+<p>The promise is the same as on a physical target: outside a <code>slow</code> block, rack
+work uses vector instructions wherever the selected profile implements the
+operation. A run may also contain the uniform address, loop and bounds work
+written in its source. It never replaces rack work with scalar lane loops.</p>
 <h2 id="object-verification">Object verification</h2>
 <p><code>--verify-native</code> disassembles the object and checks each function against
 its profile's list of instructions:</p>
@@ -167,13 +172,14 @@ more lane operations or loops than its source states.</li>
 <p><a href="/docs/racks-and-targets/#verification">Racks and targets</a> and <a href="/docs/slow-tier/#verification">the
 slow tier</a> give the details.</p>
 <h2 id="ownership">Ownership</h2>
-<p>Rake owns the IR, its rewrites, instruction selection, register allocation,
-assembly and verification. The system assembler, clang and the linker own
-object formats, relocations, linking and start-up. Debug information and
-exception unwinding aren't produced. The x86 and AArch64 backends compile
-crunches and rakes only. Runs and whole programs compile on <code>wasm-simd128</code>,
-and the <a href="/docs/packs-and-runs/#planned-x86-64-boundary">planned x86-64 run boundary</a>
-is a design.</p>
+<p>Rake owns the IR, its rewrites and instruction selection on every profile.
+It owns register allocation and assembly on x86 and AArch64. For WebAssembly,
+clang encodes the selected virtual instructions and the runtime assigns
+physical registers. The system toolchain also owns object formats,
+relocations, linking and start-up. Debug information and exception unwinding
+aren't produced. The x86 and AArch64 backends compile crunches and rakes only.
+Runs and whole programs compile on <code>wasm-simd128</code>, and the <a href="/docs/packs-and-runs/#planned-x86-64-boundary">planned x86-64 run
+boundary</a> is a design.</p>
 
     </main>
 <nav class="page-contents" aria-label="On this page">

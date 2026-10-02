@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=7613b19d">
+  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Compiler roadmap | Rake","name":"Compiler roadmap | Rake","description":"What the Rake compiler doesn't do yet: runs on x86 and AArch64, the operations each profile lacks, fused rewrites, more profiles, and the release gates.","url":"https://rake-lang.org/docs/roadmap/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -109,7 +109,7 @@ compiles. The gaps:</p>
 <li>comparisons, <code>min</code> and <code>max</code> of <code>u32s</code> and <code>u64s</code>, and <code>min</code> and <code>max</code>
 of <code>i64s</code>,</li>
 <li>integer reductions,</li>
-<li>widening bytes into 16-bit lanes, and narrow columns into 64-bit lanes,</li>
+<li>widening <code>i16s</code> lanes into 32-bit lanes, and narrow columns into 64-bit lanes,</li>
 <li>scalar arithmetic in a crunch, as on reductions' results,</li>
 <li>scatter, on a profile with a scatter instruction, and</li>
 <li>compression and expansion, as <a href="/docs/memory-operations/">memory

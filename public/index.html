@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rake: a programming language for SIMD kernels</title>
-  <meta name="description" content="Rake is a language for SIMD kernels whose values are vector registers. The compiler keeps every rack in one register, or it refuses the program.">
+  <meta name="description" content="Rake is a language for SIMD kernels. Each rack is one vector value, and profiles require vector instructions or reject unsupported operations.">
   <link rel="canonical" href="https://rake-lang.org/">
   <meta property="og:title" content="Rake: a programming language for SIMD kernels">
-  <meta property="og:description" content="Rake is a language for SIMD kernels whose values are vector registers. The compiler keeps every rack in one register, or it refuses the program.">
+  <meta property="og:description" content="Rake is a language for SIMD kernels. Each rack is one vector value, and profiles require vector instructions or reject unsupported operations.">
   <meta property="og:url" content="https://rake-lang.org/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
@@ -19,8 +19,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=7613b19d">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a language for SIMD kernels whose values are vector registers. The compiler keeps every rack in one register, or it refuses the program.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","version":"0.4.0-beta","license":"https://opensource.org/licenses/MIT","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a language for SIMD kernels. Each rack is one vector value, and profiles require vector instructions or reject unsupported operations.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","version":"0.4.0-beta","license":"https://opensource.org/licenses/MIT","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
 </head>
@@ -40,7 +40,7 @@
 <img class="home-intro-image" src="/images/wallpaper.webp" alt="The Rake mark, a rake's head drawn as a grid of tines, above furrows of raked sand" width="1024" height="1536">
 <div>
 <h1>Rake</h1>
-<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Its values are racks, each one vector register of the machine, and the compiler keeps every rack in its register or refuses the program.</p>
+<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Each rack is one vector register on a physical target, or one vector value in the WebAssembly virtual machine. Rake emits vector instructions outside slow code, or refuses an unsupported operation.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
 <li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
@@ -73,16 +73,17 @@ scalar code, fills the array and adds three of the results:</p>
   <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">5</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p><code>rakec --interpret</code> prints 12, which is 4 + 3 + 5. Compiled for
-WebAssembly, <code>safe_root</code> becomes a comparison, a square root and a select on
-whole vector registers, with no branch for any lane.</p>
+<p><code>rakec --interpret</code> prints 12, which is 4 + 3 + 5. Compiled for WebAssembly,
+<code>safe_root</code> becomes a comparison, a square root and a select on whole <code>v128</code>
+values, with no branch for any lane.</p>
 <h2 id="characteristics">Characteristics</h2>
-<h3 id="racks-are-registers">Racks are registers</h3>
-<p><code>f32s</code> is a rack of <code>f32</code> values, one vector register wide. On AVX2 it holds
-eight floats, and on NEON and WebAssembly four. The source never states the
-width, so one program compiles for each machine, and the compiler fails
-rather than split a rack across registers, keep it in memory or compute it a
-lane at a time.</p>
+<h3 id="racks-are-vector-values">Racks are vector values</h3>
+<p><code>f32s</code> is a rack of <code>f32</code> values. On AVX2 it is one physical register holding
+eight floats, and on NEON one holding four. On WebAssembly it is one <code>v128</code>
+value holding four. Rake adheres to the virtual machine's fiction and doesn't
+try to replace the runtime's physical register allocation. Its promise stays
+the same: outside a <code>slow</code> block, rack work uses vector instructions wherever
+the selected profile supports the operation, or the compiler refuses it.</p>
 <h3 id="scalars-are-marked">Scalars are marked</h3>
 <p>A value shared by every lane is a uniform, and angle brackets mark it where
 it is declared and where it is used: <code>&lt;dt: f32&gt;</code> and <code>&lt;dt&gt;</code>. Every point where
@@ -127,10 +128,11 @@ through calls whose uniform arguments are marked, so the guarantees above
 hold for the whole program.</p>
 <h3 id="every-claim-is-checked">Every claim is checked</h3>
 <p><code>rakec --verify-native</code> disassembles what it built and checks it against the
-profile's rules: no calls, no stack, every rack in one register, and nothing
-outside the profile's list of instructions. A rack sine has no vector implementation
-yet, so the compiler rejects <code>sin(values)</code> instead of calling a scalar
-library function once per lane.</p>
+profile's rules: no hidden calls or stack work, one physical register per rack
+on physical targets, and only the permitted WebAssembly virtual instructions
+on <code>wasm-simd128</code>. A rack sine has no vector implementation yet, so the
+compiler rejects <code>sin(values)</code> instead of calling a scalar library function
+once per lane.</p>
 <h2 id="notation">Notation</h2>
 <p>Most of Rake reads like any expression language. These marks are its own:</p>
 <div class="table-scroll"><table><thead><tr><th>Mark</th><th>Example</th><th>Meaning</th></tr></thead><tbody>
@@ -169,7 +171,7 @@ compiles, and <a href="/docs/roadmap/">the roadmap</a> what comes next.</p>
 <h2 id="getting-rake">Getting Rake</h2>
 <p>The compiler is written in OCaml, and its Nix development shell pins every
 tool it uses:</p>
-<pre class="code code-sh"><code><span class="tok-function">git</span> clone <span class="tok-constant">--branch</span> wasm-simd128 https://github.com/rakelang/rake
+<pre class="code code-sh"><code><span class="tok-function">git</span> clone https://github.com/rakelang/rake
 <span class="tok-function">cd</span> rake
 <span class="tok-function">nix</span> develop <span class="tok-constant">--command</span> dune build
 <span class="tok-function">nix</span> develop <span class="tok-constant">--command</span> dune exec rakec <span class="tok-constant">--</span> <span class="tok-constant">--interpret</span> program.rk

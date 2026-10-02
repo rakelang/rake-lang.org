@@ -92,9 +92,11 @@ fn main() -> ExitCode {
 fn configure() -> Result<Config, String> {
     let site = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let site = fs::canonicalize(&site).map_err(|e| format!("site root {}: {e}", site.display()))?;
-    let rake = std::env::var("RAKE_DIR").map(PathBuf::from).unwrap_or_else(|_| site.join("../rake-wasm-simd128"));
+    let rake = std::env::var("RAKE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| site.join("../rake"));
     let rake = fs::canonicalize(&rake).map_err(|e| format!("Rake checkout {}: {e} (set RAKE_DIR)", rake.display()))?;
-    let branch = std::env::var("RAKE_BRANCH").unwrap_or_else(|_| "wasm-simd128".to_string());
+    let branch = std::env::var("RAKE_BRANCH").unwrap_or_else(|_| "main".to_string());
     let playground_assets = std::env::var("PLAYGROUND_ASSETS")
         .map(PathBuf::from)
         .unwrap_or_else(|_| site.join(".build/playground"));
@@ -248,7 +250,11 @@ fn render(
     let mut index = 0;
     while index < events.len() {
         match &events[index] {
-            // The documentation checker's annotations aren't for readers.
+            // The playground uses one source marker per lesson. Other HTML
+            // comments are documentation-checker annotations, not page copy.
+            Event::Html(html) | Event::InlineHtml(html) if html.trim() == "<!-- playground-starter -->" => {
+                output.push(Event::Html(CowStr::from("<span data-playground-starter hidden></span>\n")));
+            }
             Event::Html(html) | Event::InlineHtml(html) if html.trim_start().starts_with("<!--") => {}
             Event::Start(Tag::Heading { level, .. }) => {
                 let level = *level;
@@ -500,8 +506,11 @@ fn fill(
     let robots = if page.kind == Kind::NotFound { "<meta name=\"robots\" content=\"noindex\">\n  " } else { "" };
     let schema = schema_json(page, &canonical, version);
     let (body, scripts) = if page.url == "/docs/playground/" {
+        let (heading, reference) = body
+            .split_once("</h1>\n")
+            .ok_or("the playground page needs one H1 before the application")?;
         (
-            format!("{}\n<article id=\"playground-reference\" class=\"playground-reference\">{body}</article>", playground(assets)?),
+            format!("{heading}</h1>\n{}\n<article id=\"playground-reference\" class=\"playground-reference\">{reference}</article>", playground(assets)?),
             format!("<script type=\"module\" src=\"{}\"></script>", asset_url(assets, "scripts/playground.js")?),
         )
     } else {
@@ -547,7 +556,7 @@ fn playground(assets: &BTreeMap<String, String>) -> Result<String, String> {
   <header class="playground-heading">
     <div>
       <p class="playground-progress" data-lesson-number>Lesson 1 of 12</p>
-      <h2 data-lesson-title>A program</h2>
+      <p class="playground-lesson-title" data-lesson-title>A program</p>
     </div>
     <nav class="playground-steps" aria-label="Tutorial lessons">
       <button type="button" data-previous>Previous</button>
@@ -579,15 +588,15 @@ fn playground(assets: &BTreeMap<String, String>) -> Result<String, String> {
       <p class="playground-target-note" data-target-note></p>
       <div class="playground-output">
         <div class="playground-tabs" role="tablist" aria-label="Compiler output">
-          <button type="button" role="tab" aria-selected="true" data-tab="result">Result</button>
-          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="lanes">Lanes</button>
-          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="code">Code</button>
-          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-tab="messages">Messages</button>
+          <button id="playground-tab-result" type="button" role="tab" aria-selected="true" aria-controls="playground-panel-result" data-tab="result">Result</button>
+          <button id="playground-tab-lanes" type="button" role="tab" aria-selected="false" aria-controls="playground-panel-lanes" tabindex="-1" data-tab="lanes">Lanes</button>
+          <button id="playground-tab-code" type="button" role="tab" aria-selected="false" aria-controls="playground-panel-code" tabindex="-1" data-tab="code">Code</button>
+          <button id="playground-tab-messages" type="button" role="tab" aria-selected="false" aria-controls="playground-panel-messages" tabindex="-1" data-tab="messages">Messages</button>
         </div>
-        <div class="playground-panel" role="tabpanel" data-panel="result"></div>
-        <div class="playground-panel" role="tabpanel" data-panel="lanes" hidden></div>
-        <pre class="playground-panel playground-code" role="tabpanel" data-panel="code" hidden></pre>
-        <div class="playground-panel" role="tabpanel" data-panel="messages" hidden></div>
+        <div id="playground-panel-result" class="playground-panel" role="tabpanel" aria-labelledby="playground-tab-result" data-panel="result"></div>
+        <div id="playground-panel-lanes" class="playground-panel" role="tabpanel" aria-labelledby="playground-tab-lanes" data-panel="lanes" hidden></div>
+        <pre id="playground-panel-code" class="playground-panel playground-code" role="tabpanel" aria-labelledby="playground-tab-code" data-panel="code" hidden></pre>
+        <div id="playground-panel-messages" class="playground-panel" role="tabpanel" aria-labelledby="playground-tab-messages" data-panel="messages" hidden></div>
       </div>
       <p class="playground-status" id="playground-status" role="status" data-status>Loading the compiler…</p>
     </section>

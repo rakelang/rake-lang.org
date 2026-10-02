@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=7613b19d">
+  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Syntax reference | Rake","name":"Syntax reference | Rake","description":"Rake's syntax: layout, names, literals, definitions, types, statements and expressions, with the marks for uniforms, tines and fused stages explained.","url":"https://rake-lang.org/docs/syntax/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -172,7 +172,7 @@ calls nest at most 32 deep and recursion is rejected.</p>
 <h2 id="types">Types</h2>
 <div class="table-scroll"><table><thead><tr><th>Type</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>f32</code> <code>f64</code> <code>i8</code> <code>i16</code> <code>i32</code> <code>i64</code> <code>u8</code> <code>u16</code> <code>u32</code> <code>u64</code> <code>bool</code></td><td>a scalar</td></tr>
-<tr><td><code>f32s</code> <code>u8s</code> <code>i16s</code> <code>i32s</code> <code>u32s</code> <code>i64s</code> <code>u64s</code></td><td>a rack: one register of lanes of that element</td></tr>
+<tr><td><code>f32s</code> <code>u8s</code> <code>i16s</code> <code>i32s</code> <code>u32s</code> <code>i64s</code> <code>u64s</code></td><td>a rack: one vector value of lanes of that element</td></tr>
 <tr><td><code>mask</code></td><td>a lane mask</td></tr>
 <tr><td><code>pack Name</code>, <code>mut pack Name</code></td><td>the columns of a stack, read or written</td></tr>
 <tr><td><code>[]T</code>, <code>mut []T</code></td><td>a view: elements with a runtime count</td></tr>

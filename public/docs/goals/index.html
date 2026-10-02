@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Language goals | Rake</title>
-  <meta name="description" content="The promises Rake makes: racks stay registers, scalars are marked, lanes choose by masks, fused regions stay pure, and the compiler proves what it claims.">
+  <meta name="description" content="The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.">
   <link rel="canonical" href="https://rake-lang.org/docs/goals/">
   <meta property="og:title" content="Language goals | Rake">
-  <meta property="og:description" content="The promises Rake makes: racks stay registers, scalars are marked, lanes choose by masks, fused regions stay pure, and the compiler proves what it claims.">
+  <meta property="og:description" content="The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.">
   <meta property="og:url" content="https://rake-lang.org/docs/goals/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
@@ -19,8 +19,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=7613b19d">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Language goals | Rake","name":"Language goals | Rake","description":"The promises Rake makes: racks stay registers, scalars are marked, lanes choose by masks, fused regions stay pure, and the compiler proves what it claims.","url":"https://rake-lang.org/docs/goals/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Language goals | Rake","name":"Language goals | Rake","description":"The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.","url":"https://rake-lang.org/docs/goals/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
 </head>
@@ -79,17 +79,20 @@ writing intrinsics or assembly. This page sets out the promises the language
 makes. A compiler may reject a program or a profile it can't compile under
 them, and it never keeps a program by weakening a rack, a fused region or a
 rake into scalar code. Each section ends with what the compiler does today.</p>
-<h2 id="racks-are-registers">Racks are registers</h2>
-<p>A rack is one vector register of the target profile. The profile fixes the
-register's width, and the element type gives the lane count: on a 256-bit
-profile an <code>f32s</code> rack has eight lanes. A rack is never split across
-registers, narrowed, held in memory or computed lane by lane, so a program
-that would need any of these is rejected. A scalar target is a separate,
-explicit profile, never described as SIMD, and a build for another machine
-chooses its profile instead of taking the features of the machine it runs on.</p>
-<p>Today: every production profile keeps each rack in one register, and the
-verifier checks the object for it on x86 and AArch64. On <code>wasm-simd128</code> a
-rack is one <code>v128</code> value.</p>
+<h2 id="racks-are-vector-values">Racks are vector values</h2>
+<p>A rack is one vector register of a physical target profile, or one vector
+value in a virtual machine profile. The profile fixes its width, and the
+element type gives the lane count: on a 256-bit profile an <code>f32s</code> rack has
+eight lanes. A rack is never split, narrowed, held in source-visible memory
+or computed lane by lane, so a program that would need any of these is
+rejected. A scalar target is a separate, explicit profile, never described as
+SIMD, and a build for another machine chooses its profile instead of taking
+the features of the machine it runs on.</p>
+<p>Today: the x86 and AArch64 profiles keep each rack in one physical register,
+which the object verifier checks. The <code>wasm-simd128</code> profile keeps each rack
+as one <code>v128</code> value and uses SIMD instructions for rack work. Rake accepts the
+virtual machine's fiction and leaves physical register allocation to the
+WebAssembly runtime.</p>
 <h2 id="scalars-are-marked">Scalars are marked</h2>
 <p>Plural types, such as <code>f32s</code>, are racks. Angle brackets mark a uniform scalar
 where it is declared and where it is used, so every broadcast from a scalar
@@ -152,13 +155,16 @@ hold unchanged around it.</p>
 <p>Today: whole programs compile on <code>wasm-simd128</code>, as <a href="/docs/slow-tier/">the slow
 tier</a> describes.</p>
 <h2 id="compilation-is-predictable">Compilation is predictable</h2>
-<p>The compiler owns every lowering decision from typed source to machine code:
-instruction selection, register allocation, scheduling and assembly. The
-assembler only encodes what it is given. Every stage can be inspected, the
-compiler proves the properties it claims for an accepted program, and when it
-can't prove one it fails with the source construct, the profile and the
-obligation that failed. A benchmark result is reported with its source,
-profile, compiler version, command, input size and baseline.</p>
+<p>On physical profiles the compiler owns every lowering decision from typed
+source to machine code: instruction selection, register allocation,
+scheduling and assembly. The assembler only encodes what it is given. On
+WebAssembly, Rake owns selection of the virtual machine instructions and the
+shape of its <code>v128</code> values. The WebAssembly runtime owns their eventual
+physical registers. Every compiler stage can be inspected, and the compiler
+proves the properties it claims for an accepted program. When it can't prove
+one, it fails with the source construct, profile and obligation that failed.
+A benchmark result is reported with its source, profile, compiler version,
+command, input size and baseline.</p>
 <p>Today: on <code>x86-avx2</code> and <code>aarch64-neon</code> the compiler selects instructions,
 allocates registers without spills and writes the assembly, and
 <code>--emit-native-ir</code> and <code>--emit-asm</code> show its work. On <code>wasm-simd128</code> it
@@ -170,7 +176,7 @@ which <code>--verify-native</code> checks.</p>
 <nav class="page-contents" aria-label="On this page">
 <p class="page-contents-title">On this page</p>
 <ul>
-<li><a href="#racks-are-registers">Racks are registers</a></li>
+<li><a href="#racks-are-vector-values">Racks are vector values</a></li>
 <li><a href="#scalars-are-marked">Scalars are marked</a></li>
 <li><a href="#lane-choices-are-masks">Lane choices are masks</a></li>
 <li><a href="#fused-regions-are-pure-data-flow">Fused regions are pure data flow</a></li>

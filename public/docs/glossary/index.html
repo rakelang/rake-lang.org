@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=7613b19d">
+  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Glossary | Rake","name":"Glossary | Rake","description":"The terms the Rake documentation uses, from racks, lanes, tines and sweeps to SIMD, SSA, register allocation, calling conventions and GPU subgroups.","url":"https://rake-lang.org/docs/glossary/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -77,7 +77,7 @@
 documentation uses them.</p>
 <h2 id="rakes-terms">Rake's terms</h2>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>rack</td><td>a value that is one vector register of the target, such as an <code>f32s</code></td></tr>
+<tr><td>rack</td><td>one vector value of the target profile, such as an <code>f32s</code>: a physical vector register on x86 or Arm, and one <code>v128</code> in WebAssembly</td></tr>
 <tr><td>lane</td><td>one element position in a rack: an <code>f32s</code> on AVX2 has eight</td></tr>
 <tr><td>uniform</td><td>one scalar shared by every lane, marked <code>&lt;name&gt;</code></td></tr>
 <tr><td>tine</td><td>a named mask of lanes, written <code>#name</code></td></tr>
@@ -122,7 +122,7 @@ documentation uses them.</p>
 <tr><td>SSA</td><td>static single assignment: a representation in which each value is defined once, which makes data dependencies explicit</td></tr>
 <tr><td>binding, reference</td><td>a binding gives a value a name, and a reference uses the name. It means the value, not a memory address</td></tr>
 <tr><td>instruction selection</td><td>choosing the machine instructions for each operation</td></tr>
-<tr><td>register allocation</td><td>assigning each value to a physical register</td></tr>
+<tr><td>register allocation</td><td>assigning each value to a physical register. Rake does this for its physical targets, while a WebAssembly runtime does it for <code>v128</code> values</td></tr>
 <tr><td>object code</td><td>encoded machine instructions and data, ready for a linker</td></tr>
 <tr><td>assembler</td><td>the tool that encodes textual assembly as object code</td></tr>
 <tr><td>ABI</td><td>application binary interface: the rules for passing arguments, returning values and laying out data</td></tr>

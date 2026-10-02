@@ -2,13 +2,14 @@
 # Builds rake-lang.org into public/ from src/ and the Rake documentation, or
 # with "check", confirms public/ matches a fresh build and passes the search
 # and link checks. RAKE_DIR is the compiler checkout whose docs are published
-# (default ../rake-wasm-simd128), RAKE_BRANCH the branch GitHub links point
-# at (default wasm-simd128), and TREE_SITTER_RAKE_DIR the grammar checkout
+# (default ../rake), RAKE_BRANCH the branch GitHub links point at (default
+# main), and TREE_SITTER_RAKE_DIR the grammar checkout
 # (default ../tree-sitter-rake).
 set -euo pipefail
 
 site_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export RAKE_DIR="${RAKE_DIR:-${site_root}/../rake-wasm-simd128}"
+export RAKE_DIR="${RAKE_DIR:-${site_root}/../rake}"
+export RAKE_BRANCH="${RAKE_BRANCH:-main}"
 tree_sitter_rake="${TREE_SITTER_RAKE_DIR:-${site_root}/../tree-sitter-rake}"
 export PLAYGROUND_ASSETS="${site_root}/.build/playground"
 mode="${1:-build}"

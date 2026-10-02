@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rake documentation</title>
-  <meta name="description" content="The Rake documentation: the language reference, a twelve-lesson tutorial design, the rakec compiler and its backend, the goals, roadmap and changelog.">
+  <meta name="description" content="The Rake documentation: the language reference, a twelve-lesson interactive tutorial, the rakec compiler and its backend, the goals and roadmap.">
   <link rel="canonical" href="https://rake-lang.org/docs/">
   <meta property="og:title" content="Rake documentation">
-  <meta property="og:description" content="The Rake documentation: the language reference, a twelve-lesson tutorial design, the rakec compiler and its backend, the goals, roadmap and changelog.">
+  <meta property="og:description" content="The Rake documentation: the language reference, a twelve-lesson interactive tutorial, the rakec compiler and its backend, the goals and roadmap.">
   <meta property="og:url" content="https://rake-lang.org/docs/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
@@ -19,8 +19,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=7613b19d">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","headline":"Rake documentation","name":"Rake documentation","description":"The Rake documentation: the language reference, a twelve-lesson tutorial design, the rakec compiler and its backend, the goals, roadmap and changelog.","url":"https://rake-lang.org/docs/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","headline":"Rake documentation","name":"Rake documentation","description":"The Rake documentation: the language reference, a twelve-lesson interactive tutorial, the rakec compiler and its backend, the goals and roadmap.","url":"https://rake-lang.org/docs/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
 </head>
@@ -73,7 +73,7 @@
 </nav>
     <main class="content">
 <h1 id="documentation">Documentation</h1>
-<p>These pages describe Rake as the 0.4 compiler implements it. The language
+<p>These pages describe Rake as the 0.4.0-beta compiler implements it. The language
 pages define each form, starting from <a href="/docs/syntax/">the syntax reference</a>,
 and every Rake program in them is compiled by the compiler's tests, most of
 them run with their stated result. A design that no compiler implements yet
@@ -102,7 +102,7 @@ says so at the top of its section.</p>
 <h2 id="learning">Learning</h2>
 <dl class="docs-list">
 <dt><a href="/docs/playground/">Playground and tutorial</a></dt>
-<dd>A design for a Rake playground: twelve lessons and the moment each idea lands, Rake's syntax explained for C and Python programmers, and ligature fonts.</dd>
+<dd>An interactive Rake tutorial in twelve lessons, with each concept demonstrated in the result, lane trace, compiler output or diagnostic message.</dd>
 <dt><a href="/docs/glossary/">Glossary</a></dt>
 <dd>The terms the Rake documentation uses, from racks, lanes, tines and sweeps to SIMD, SSA, register allocation, calling conventions and GPU subgroups.</dd>
 </dl>
@@ -111,14 +111,14 @@ says so at the top of its section.</p>
 <dt><a href="/docs/rakec/">The rakec command</a></dt>
 <dd>The rakec command line: its modes for checking, interpreting, emitting and verifying Rake programs, its options, its environment and its diagnostics.</dd>
 <dt><a href="/docs/backend/">The compiler backend</a></dt>
-<dd>How rakec turns Rake into machine code: native IR, instruction selection, no-spill register allocation, C for WebAssembly, and object verification.</dd>
+<dd>How rakec turns source into code: native IR, physical-target register allocation, WebAssembly SIMD instructions and object verification.</dd>
 <dt><a href="/docs/testing/">Testing the compiler</a></dt>
 <dd>How the Rake compiler is tested: the fixture manifest, the interpreter and WebAssembly differential, the C boundary tests and the checked documentation.</dd>
 </dl>
 <h2 id="project">Project</h2>
 <dl class="docs-list">
 <dt><a href="/docs/goals/">Language goals</a></dt>
-<dd>The promises Rake makes: racks stay registers, scalars are marked, lanes choose by masks, fused regions stay pure, and the compiler proves what it claims.</dd>
+<dd>The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.</dd>
 <dt><a href="/docs/roadmap/">Compiler roadmap</a></dt>
 <dd>What the Rake compiler doesn't do yet: runs on x86 and AArch64, the operations each profile lacks, fused rewrites, more profiles, and the release gates.</dd>
 <dt><a href="/docs/changelog/">Changelog</a></dt>
