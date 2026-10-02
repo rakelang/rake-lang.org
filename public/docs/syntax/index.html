@@ -141,7 +141,7 @@ lines up consecutive stages.</li>
   <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 
-  <span class="tok-keyword">return</span> <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
     <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>      <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 </code></pre>
@@ -198,6 +198,7 @@ column layout, used through <code>pack Name</code>.</p>
 <tr><td><code>place &lt;- e</code></td><td>assignment to a location, field, element or memory</td></tr>
 <tr><td><code>| name &lt;| e</code>, <code>| name: T &lt;| e</code></td><td>a fused binding</td></tr>
 <tr><td><code>return e</code>, <code>return</code></td><td>the result of a crunch, or leaving a slow function</td></tr>
+<tr><td><code>sweep:</code> with arms</td><td>the final, lane-by-lane result of a rake</td></tr>
 <tr><td><code>yield e</code></td><td>the rack a traversal produces for its chunk</td></tr>
 <tr><td><code>if c:</code> … <code>else if c:</code> … <code>else:</code></td><td>a conditional statement</td></tr>
 <tr><td><code>while c:</code></td><td>a loop in slow code</td></tr>
@@ -224,7 +225,7 @@ any <code>let</code> bindings, its tines, its through blocks and the sweep:</p>
   <span class="tok-keyword">through</span> <span class="tok-punctuation-bracket">(</span><span class="tok-tag">#</span><span class="tok-tag">above</span> <span class="tok-operator">and</span> <span class="tok-operator">not</span> <span class="tok-tag">#</span><span class="tok-tag">over</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-variable">values</span> <span class="tok-operator">-</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">low</span><span class="tok-operator">&gt;</span></span>
 
-  <span class="tok-keyword">return</span> <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">over</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">high</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">-</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">low</span><span class="tok-operator">&gt;</span></span>
     <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>     <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">shifted</span>
 </code></pre>

@@ -509,8 +509,15 @@ fn fill(
         let (heading, reference) = body
             .split_once("</h1>\n")
             .ok_or("the playground page needs one H1 before the application")?;
+        // Lesson fragments select application state. Keep their anchors at
+        // the editor, rather than scrolling to the reference below it.
+        let lesson_anchors: String = rendered.sections.iter().filter_map(|(_, title)| {
+            let (number, _) = title.split_once(". ")?;
+            let number = number.parse::<usize>().ok()?;
+            Some(format!("<span id=\"lesson-{number}\" hidden></span>\n"))
+        }).collect();
         (
-            format!("{heading}</h1>\n{}\n<article id=\"playground-reference\" class=\"playground-reference\">{reference}</article>", playground(assets)?),
+            format!("{heading}</h1>\n{lesson_anchors}{}\n<article id=\"playground-reference\" class=\"playground-reference\">{reference}</article>", playground(assets)?),
             format!("<script type=\"module\" src=\"{}\"></script>", asset_url(assets, "scripts/playground.js")?),
         )
     } else {

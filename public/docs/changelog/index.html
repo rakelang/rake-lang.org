@@ -80,6 +80,9 @@ boundaries between versions. A design in the documentation gets a version
 only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
+<li>Rakes end with <code>sweep:</code>, without <code>return</code>. This is the rake's result form.
+<code>return</code> remains the result of a crunch and an exit from a slow function.
+Compiler examples, Tree-sitter and the browser tutorial use the new form.</li>
 <li><code>slow { ... }</code> is a scoped scalar escape in runs and slow functions. It
 supports scalar loops, calls, state and memory views, nesting and a scalar
 tail result. Rack values can't cross the boundary. WebAssembly object

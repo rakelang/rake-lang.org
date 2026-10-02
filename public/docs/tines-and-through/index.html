@@ -83,7 +83,7 @@ each lane's result.</p>
   <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 
-  <span class="tok-keyword">return</span> <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
     <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>      <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 
@@ -109,8 +109,9 @@ or run can call one.</p>
 lane. The predicate compares float racks and uniforms, and combines
 comparisons and earlier tines with <code>not</code>, <code>and</code> and <code>or</code>. Its operands may
 use arithmetic and fields, but no calls. A tine can refer only to tines
-declared before it, and each name is declared once. A tine is only a mask: it
-computes nothing else and stores nothing.</p>
+declared before it, and each name is declared once. Evaluating the predicate
+computes the mask. The declaration performs no other operation and stores
+nothing.</p>
 <h2 id="through-blocks">Through blocks</h2>
 <p><code>through #valid else &lt;0.0&gt; into rooted:</code> computes its body in the lanes of
 <code>#valid</code> and calls the result <code>rooted</code>. The lanes outside the tine take the
@@ -119,6 +120,9 @@ predicate in parentheses, such as <code>through (#valid and not #large)</code>.<
 <p>The body is any <code>let</code> and fused bindings, then the expression whose value is
 the result. It can't assign, loop, call a function other than a built-in
 operation, reduce across lanes, scan, or use <code>%</code>.</p>
+<p>Names introduced inside the body are local to it. The name after <code>into</code>
+belongs to the enclosing rake: later through blocks and the sweep can use
+that complete rack, including its fallback lanes.</p>
 <p>An inactive lane's computation doesn't happen. It can't fail on an invalid
 operand, raise a floating-point exception, touch memory or have any other
 effect, and the result has the <code>else</code> value there. <code>rakec --interpret</code> skips
@@ -150,7 +154,7 @@ stay masked on every target.</p>
   <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">pass</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">middle</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2.0</span><span class="tok-operator">&gt;</span></span>
 
-  <span class="tok-keyword">return</span> <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">high</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">top</span>
     <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">pass</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">middle</span>
     <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>     <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span>
@@ -169,11 +173,48 @@ A sweep lists arms in priority order. For each lane, the first arm whose tine
 holds gives the result, and the final <code>_</code> arm gives the result for every lane
 no earlier arm took. Tines may overlap, and the order of the arms decides
 between them. Every sweep ends with exactly one <code>_</code> arm. The compiler rejects
-a sweep without one, an arm after it, or a tine named twice. <code>return sweep:</code>
+a sweep without one, an arm after it, or a tine named twice. <code>sweep:</code>
 is always the last statement of a rake, and it gives the rake's result.</p>
 <p>The backends build the sweep from vector selections, starting from the <code>_</code>
 value and applying the named arms from last to first, so every lane gets a
 value from the source.</p>
+<h2 id="intermediate-and-final-fallbacks">Intermediate and final fallbacks</h2>
+<p>A through block's <code>else</code> fills the inactive lanes of its intermediate rack.
+A sweep's <code>_</code> gives the final result for lanes no earlier arm selected.
+They have different scopes, even when both are zero.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">when</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>      <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-operator">-</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">16.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">-</span><span class="tok-number">4.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">9.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1.0</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">result</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<div class="table-scroll"><table><thead><tr><th>Stage</th><th class="align-right">Lane 0</th><th class="align-right">Lane 1</th><th class="align-right">Lane 2</th><th class="align-right">Lane 3</th></tr></thead><tbody>
+<tr><td>Input</td><td class="align-right">16</td><td class="align-right">−4</td><td class="align-right">9</td><td class="align-right">1</td></tr>
+<tr><td><code>#valid</code></td><td class="align-right">true</td><td class="align-right">false</td><td class="align-right">true</td><td class="align-right">true</td></tr>
+<tr><td><code>rooted</code></td><td class="align-right">4</td><td class="align-right">0</td><td class="align-right">3</td><td class="align-right">1</td></tr>
+<tr><td>Result</td><td class="align-right">4</td><td class="align-right">−1</td><td class="align-right">3</td><td class="align-right">1</td></tr>
+</tbody></table>
+</div>
+<p>Here the sweep reads <code>rooted</code> only where <code>#valid</code> holds, so the intermediate
+zero in lane 1 is unused. Changing the through fallback to <code>&lt;999.0&gt;</code> leaves
+the final result unchanged. The optimiser collapses the nested selections
+on that same mask into one selection. If instead the sweep's <code>_</code> arm reads
+<code>rooted</code>, its fallback lanes become part of the final result.</p>
+<p>Tines, through blocks and sweeps are pure computations. They don't build lazy
+operations that wait for the sweep to execute. The compiler optimises their
+data flow together. A sweep selects a value for each lane in place, with no
+scattering, compaction or rearrangement of lanes.</p>
 
     </main>
 <nav class="page-contents" aria-label="On this page">
@@ -182,6 +223,7 @@ value from the source.</p>
 <li><a href="#tines">Tines</a></li>
 <li><a href="#through-blocks">Through blocks</a></li>
 <li><a href="#sweeps">Sweeps</a></li>
+<li><a href="#intermediate-and-final-fallbacks">Intermediate and final fallbacks</a></li>
 </ul>
 </nav>
   </div>

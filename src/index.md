@@ -15,36 +15,107 @@
 
 ## A first look
 
-Here is a whole program. A rake called `safe_root` takes the square root of
-the lanes that hold a non-negative number and gives zero elsewhere. A run
-called `roots` walks an array four floats at a time, and `main`, ordinary
-scalar code, fills the array and adds three of the results:
+Rake's execution model can be pictured in a sentence: “`rake` data `through`
+`tine`s, then `sweep` them into the result.” The words describe how values
+move through a vector computation.
 
+### One instruction, several numbers
+
+Imagine a person at a desk with a long tape passing over it. In scalar code,
+they read one number, add 1, then advance the tape to the next number. A vector
+operation gives them a wider desk with several numbers side by side. They
+still issue one instruction, but linked pens apply it to every number at once:
+
+```text
+scalar add 1:   [4]             → [5]
+vector add 1:   [4, 7, 2, 9]    → [5, 8, 3, 10]
+```
+
+Each position is a *lane*. A 32-bit number occupies 32 bits, not 32 lanes.
+A 128-bit vector can hold four 32-bit numbers, while a 256-bit vector can
+hold eight. There is one instruction stream, rather than a separate program
+running at each seat.
+
+Rake calls one vector's worth of values a *rack*. A *pack* holds columns of
+records, and a traversal visits those columns a rack at a time. The selected
+target profile fixes the rack's width. The pack's length needn't be a power
+of two or a multiple of that width: the traversal handles its last partial
+rack without reading or writing beyond the records that exist.
+
+### Rake data through tines
+
+This program takes `sqrt(x)` when `x` is non-negative and gives zero
+elsewhere. `safe_root` describes the operation on a rack. `roots` applies it
+to a pack of seven numbers, including a partial rack on WebAssembly:
+
+<!-- rake-check: run 12 -->
 ```rake
+stack Samples {
+  f32: value;
+}
+
 rake safe_root(values: f32s) -> f32s:
   tine #valid when values >= <0.0>
 
   through #valid else <0.0> into rooted:
     sqrt(values)
 
-  return sweep:
+  sweep:
     | #valid => rooted
     | _      => <0.0>
 
-run roots(x: []f32, out: mut []f32, <n: i32>):
-  for <i: i32> from <0> up to <n> by <4>:
-    out[<i>] <- safe_root(x[<i>])
+run roots(input: pack Samples, <count: i64>) -> f32:
+  for rack in input using f32s up to <count>:
+    yield safe_root(rack.value)
 
 slow main() -> i32:
-  values: [8]f32 := [16.0, -4.0, 9.0, 1.0, 0.0, 25.0, -1.0, 4.0]
-  rooted: [8]f32 := [0.0; 8]
-  roots(values, rooted, <8>)
+  values: [7]f32 := [16.0, -4.0, 9.0, 1.0, 0.0, 25.0, -1.0]
+  rooted: [7]f32 := [0.0; 7]
+  roots(Samples { value: values }, <7>, rooted)
   return i32(rooted[0] + rooted[2] + rooted[5])
 ```
 
-`rakec --interpret` prints 12, which is 4 + 3 + 5. Compiled for WebAssembly,
-`safe_root` becomes a comparison, a square root and a select on whole `v128`
-values, with no branch for any lane.
+`rakec --interpret` prints 12, which is 4 + 3 + 5. Read `safe_root` in
+three parts:
+
+1. `tine #valid` names a mask, like the prongs of a rake catching selected
+   values. Its comparison computes one true-or-false result per lane. `#valid`
+   is the name we use to refer to that mask.
+2. `through #valid` computes square roots in the selected lanes and binds the
+   intermediate rack as `rooted`. Its `else <0.0>` fills the other lanes of
+   that rack. Names declared inside the block stay inside it; `rooted` is
+   available to subsequent blocks and the sweep.
+3. `sweep:` gives the function's result. Each lane takes the first matching
+   arm, with `_` supplying the value for any lane left over. Values keep
+   their lane positions.
+
+### Why are there two zeros?
+
+The `through` fallback belongs to the intermediate rack. The sweep's fallback
+belongs to the final result. They can differ. Change only the sweep's last
+arm to `| _ => <-1.0>` and the first rack looks like this:
+
+| Stage | Lane 0 | Lane 1 | Lane 2 | Lane 3 |
+| --- | ---: | ---: | ---: | ---: |
+| Input | 16 | −4 | 9 | 1 |
+| `#valid` | true | false | true | true |
+| `rooted` | 4 | 0 | 3 | 1 |
+| Result | 4 | −1 | 3 | 1 |
+
+In the original version, the sweep reads `rooted` only where `#valid` holds.
+Its other lanes are unused, so the two zero selections are redundant in
+this example. The compiler folds them into one. Another sweep can read the
+whole intermediate rack, making the `through` fallback matter.
+
+These are pure computations, with no side effects. They aren't lazy steps
+waiting for a sweep to trigger execution. The compiler sees their data flow
+together and chooses the instructions that implement it. On WebAssembly,
+`safe_root` becomes a vector comparison, square root and select. A sweep
+selects values in place; it doesn't scatter, compact or rearrange lanes.
+
+[Lesson 8](/docs/playground/#lesson-8) lets you change each fallback separately
+and inspect the result. [Tines, through and sweeps](/docs/tines-and-through/)
+defines the scope and masking rules.
 
 ## Characteristics
 
@@ -152,6 +223,12 @@ Most of Rake reads like any expression language. These marks are its own:
 | `:=` and `<-` | `total := <0.0>`, `total <- total + x` | a mutable location, and assigning to it |
 | `~~` | `~~ a comment` | a comment to the end of the line |
 
+If you know [Gleam's pipe operator](https://tour.gleam.run/everything/),
+the flow marks may look familiar. In Rake, `<|` binds a stage from right to
+left, while `<-` assigns to a mutable location. Neither creates a lazy
+pipeline. The fused stages describe one computation for the compiler to
+optimise.
+
 Indentation shows structure, as in Python, and a line ending in `:` opens a
 body. [The tutorial](/docs/playground/#reading-rake) explains each mark for
 readers who come from C or Python.
@@ -198,4 +275,5 @@ released under the MIT licence. This is a beta: the language and its binary
 boundaries may still change between versions.
 
 Slow blocks are available on `main` and in the playground, ahead of the next
-tagged release. The changelog separates these changes from 0.4.0-beta.
+tagged release. Rakes on `main` also end with `sweep:`, without `return`.
+The changelog separates these changes from 0.4.0-beta.
