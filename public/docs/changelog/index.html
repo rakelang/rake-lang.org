@@ -79,10 +79,21 @@ boundaries between versions. A design in the documentation gets a version
 only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
+<li>A process entry may take <code>argc: i32, argv: ptr ptr u8</code>. Native C and WASI
+startup pass the count, zero-terminated byte strings and trailing null
+pointer through a compiler-owned typed adapter. The interpreter accepts
+arguments after <code>--</code> and uses the input path as <code>argv[0]</code>.</li>
 <li>Native slow-only programs emit platform C and compile to x86-64 or
 AArch64 objects. Their public slow functions use the platform C ABI,
 with header-backed struct imports, pointer parameters and struct returns.
-Native mixed vector/slow units and runs remain work in progress.</li>
+Native runs and packs remain work in progress.</li>
+<li>Native mixed programs embed Rake-selected register assembly in their C
+unit. Slow callers use uniform <code>f32</code> parameters and <code>f32</code> results, and
+both object modes check the kernels in the final compiled object. Other
+scalar kernel boundaries remain work in progress.</li>
+<li>The interpreter accepts an explicit target profile for reference <code>f32</code>
+rack widths. The browser emits native mixed C and interprets it at that
+profile's width; it does not execute native machine code.</li>
 <li>Native slow frames are thread-local; independent host threads can call
 exported functions with large recursive locals. Module state stays shared.</li>
 <li>Pointer fields in C struct declarations are checked against

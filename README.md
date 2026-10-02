@@ -19,8 +19,9 @@ description in `src/pages.tsv`.
 
 ## Building
 
-The build reads the compiler checkout in `../rake` and the
-grammar in `../tree-sitter-rake`, and writes `public/`:
+The site flake pins its Rust, Node, Tree-sitter and Emscripten tools. The
+build enters that shell automatically, reads the compiler checkout in
+`../rake` and the grammar in `../tree-sitter-rake`, and writes `public/`:
 
 ```sh
 tools/build.sh
@@ -33,6 +34,11 @@ checkout. Code is highlighted at build time by the Tree-sitter grammars, Rake's
 with the grammar's own `queries/highlights.scm`, and the build fails if any
 Rake block doesn't parse. Asset links carry a hash of the asset, so a changed
 stylesheet or image gets a new URL.
+
+For generator development, use `nix develop` and `cargo run --manifest-path
+tools/site/Cargo.toml -- build`. Use `--profile profiling` for profiling and
+`--release` for the published build. Cargo output uses the host's target root
+under `rake-lang-site`, or an explicitly announced cache-directory fallback.
 
 `check` rebuilds into a temporary directory and requires `public/` to match
 it. It then checks every page's title, description, canonical link, Open Graph

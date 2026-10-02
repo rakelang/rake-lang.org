@@ -157,8 +157,11 @@ above hold unchanged around it. The compiler guarantees vector lowering,
 not a particular elapsed time or the fastest possible algorithm.</p>
 <p>Today: whole programs compile on <code>wasm-simd128</code>, as <a href="/docs/slow-tier/">the slow
 tier</a> describes. The unreleased development compiler
-also compiles slow-only programs to native objects through platform C.
-Native mixed vector/slow programs remain work in progress.</p>
+also compiles slow orchestration with register kernels into native objects.
+Their C unit embeds Rake-selected assembly, which remains opaque to the
+platform C compiler. Slow callers currently take uniform <code>f32</code> arguments and
+receive <code>f32</code> results. Native memory runs and other scalar kernel boundaries
+remain work in progress.</p>
 <h2 id="compilation-is-predictable">Compilation is predictable</h2>
 <p>On physical profiles the compiler owns every lowering decision from typed
 source to machine code: instruction selection, register allocation,

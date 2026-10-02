@@ -112,12 +112,9 @@ async function start(root: HTMLElement): Promise<void> {
     previous.disabled = lessonIndex === 0;
     next.disabled = lessonIndex === lessons.length - 1;
     const wholeProgram = /(^|\n)(slow|run|record|state|embed|extern|const)\s/m.test(starter);
-    for (const option of target.options) {
-      option.disabled = wholeProgram && option.value !== "wasm-simd128";
-    }
     if (wholeProgram) target.value = "wasm-simd128";
     required<HTMLElement>(root, "[data-target-note]").textContent = wholeProgram
-      ? "Whole programs use the WebAssembly emitter here. Results come from Rake's interpreter."
+      ? "Memory runs use WebAssembly. Native slow code and f32 kernel calls are available in this development compiler. Results come from Rake's interpreter."
       : "Inspect vector code for SSE2, AVX2, AVX-512, NEON or WebAssembly. Results come from Rake's interpreter.";
     history.replaceState(null, "", `#lesson-${lessonIndex + 1}`);
     highlight();

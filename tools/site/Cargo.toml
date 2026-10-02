@@ -17,3 +17,17 @@ cc = "1"
 
 [profile.release]
 opt-level = 2
+
+[profile.dev]
+opt-level = 1
+debug = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.profiling]
+inherits = "release"
+debug = 1
+strip = "none"
+codegen-units = 16
+lto = false

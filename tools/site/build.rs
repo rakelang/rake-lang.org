@@ -5,7 +5,9 @@ use std::path::PathBuf;
 fn main() {
     let grammar = std::env::var("TREE_SITTER_RAKE_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../tree-sitter-rake"));
+        .unwrap_or_else(|_| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../tree-sitter-rake")
+        });
     let source = grammar.join("src");
     cc::Build::new()
         .include(&source)
@@ -13,8 +15,17 @@ fn main() {
         .file(source.join("scanner.c"))
         .warnings(false)
         .compile("tree-sitter-rake");
-    println!("cargo:rerun-if-changed={}", source.join("parser.c").display());
-    println!("cargo:rerun-if-changed={}", source.join("scanner.c").display());
+    println!(
+        "cargo:rerun-if-changed={}",
+        source.join("parser.c").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        source.join("scanner.c").display()
+    );
     println!("cargo:rerun-if-env-changed=TREE_SITTER_RAKE_DIR");
-    println!("cargo:rustc-env=TREE_SITTER_RAKE_QUERIES={}", grammar.join("queries").display());
+    println!(
+        "cargo:rustc-env=TREE_SITTER_RAKE_QUERIES={}",
+        grammar.join("queries").display()
+    );
 }

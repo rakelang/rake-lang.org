@@ -16,15 +16,40 @@ use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter}
 
 const SITE_URL: &str = "https://rake-lang.org";
 const GITHUB: &str = "https://github.com/rakelang/rake";
-const RAKE_HIGHLIGHTS: &str = include_str!(concat!(env!("TREE_SITTER_RAKE_QUERIES"), "/highlights.scm"));
+const RAKE_HIGHLIGHTS: &str =
+    include_str!(concat!(env!("TREE_SITTER_RAKE_QUERIES"), "/highlights.scm"));
 
 /// Capture names the grammars use, each emitted as the class `tok-<name>`
 /// with dots as hyphens. The site's design stylesheets colour them.
 const HIGHLIGHT_NAMES: &[&str] = &[
-    "attribute", "boolean", "comment", "constant", "constant.builtin", "constructor", "delimiter",
-    "embedded", "escape", "function", "function.builtin", "keyword", "label", "number", "operator", "operator.flow",
-    "property", "punctuation.bracket", "punctuation.delimiter", "punctuation.special", "string",
-    "string.special", "tag", "type", "type.builtin", "variable", "variable.builtin", "variable.parameter",
+    "attribute",
+    "boolean",
+    "comment",
+    "constant",
+    "constant.builtin",
+    "constructor",
+    "delimiter",
+    "embedded",
+    "escape",
+    "function",
+    "function.builtin",
+    "keyword",
+    "label",
+    "number",
+    "operator",
+    "operator.flow",
+    "property",
+    "punctuation.bracket",
+    "punctuation.delimiter",
+    "punctuation.special",
+    "string",
+    "string.special",
+    "tag",
+    "type",
+    "type.builtin",
+    "variable",
+    "variable.builtin",
+    "variable.parameter",
 ];
 
 extern "C" {
@@ -95,12 +120,18 @@ fn configure() -> Result<Config, String> {
     let rake = std::env::var("RAKE_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| site.join("../rake"));
-    let rake = fs::canonicalize(&rake).map_err(|e| format!("Rake checkout {}: {e} (set RAKE_DIR)", rake.display()))?;
+    let rake = fs::canonicalize(&rake)
+        .map_err(|e| format!("Rake checkout {}: {e} (set RAKE_DIR)", rake.display()))?;
     let branch = std::env::var("RAKE_BRANCH").unwrap_or_else(|_| "main".to_string());
     let playground_assets = std::env::var("PLAYGROUND_ASSETS")
         .map(PathBuf::from)
         .unwrap_or_else(|_| site.join(".build/playground"));
-    Ok(Config { site, rake, branch, playground_assets })
+    Ok(Config {
+        site,
+        rake,
+        branch,
+        playground_assets,
+    })
 }
 
 // ─── Pages ──────────────────────────────────────────────────────────────
@@ -114,12 +145,20 @@ fn read_pages(config: &Config) -> Result<Vec<Page>, String> {
         }
         let fields: Vec<&str> = line.split('\t').collect();
         let [url, source, group, schema, title, description] = fields[..] else {
-            return Err(format!("src/pages.tsv:{}: expected 6 tab-separated fields", number + 1));
+            return Err(format!(
+                "src/pages.tsv:{}: expected 6 tab-separated fields",
+                number + 1
+            ));
         };
         let (source_path, rake_path) = match source.split_once(':') {
             Some(("site", path)) => (config.site.join(path), None),
             Some(("rake", path)) => (config.rake.join(path), Some(path.to_string())),
-            _ => return Err(format!("src/pages.tsv:{}: source is site:path or rake:path", number + 1)),
+            _ => {
+                return Err(format!(
+                    "src/pages.tsv:{}: source is site:path or rake:path",
+                    number + 1
+                ))
+            }
         };
         let kind = match url {
             "/" => Kind::Home,
@@ -149,7 +188,10 @@ fn version(config: &Config) -> Result<String, String> {
     let source = read(&config.rake.join("src/lib/version.ml"))?;
     source
         .lines()
-        .find_map(|line| line.strip_prefix("let value = \"").and_then(|rest| rest.strip_suffix('"')))
+        .find_map(|line| {
+            line.strip_prefix("let value = \"")
+                .and_then(|rest| rest.strip_suffix('"'))
+        })
         .map(str::to_string)
         .ok_or_else(|| "src/lib/version.ml has no `let value = \"...\"`".to_string())
 }
@@ -187,8 +229,11 @@ fn build(config: &Config, out: &Path) -> Result<usize, String> {
     }
     sitemap.push_str("</urlset>\n");
     fs::write(out.join("sitemap.xml"), sitemap).map_err(|e| e.to_string())?;
-    fs::write(out.join("robots.txt"), format!("User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n"))
-        .map_err(|e| e.to_string())?;
+    fs::write(
+        out.join("robots.txt"),
+        format!("User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n"),
+    )
+    .map_err(|e| e.to_string())?;
     Ok(pages.len())
 }
 
@@ -206,13 +251,19 @@ fn copy_static(from: &Path, out: &Path) -> Result<BTreeMap<String, String>, Stri
     let mut assets = BTreeMap::new();
     let mut stack = vec![from.to_path_buf()];
     while let Some(directory) = stack.pop() {
-        for entry in fs::read_dir(&directory).map_err(|e| format!("{}: {e}", directory.display()))? {
+        for entry in
+            fs::read_dir(&directory).map_err(|e| format!("{}: {e}", directory.display()))?
+        {
             let path = entry.map_err(|e| e.to_string())?.path();
             if path.is_dir() {
                 stack.push(path);
                 continue;
             }
-            let relative = path.strip_prefix(from).unwrap().to_string_lossy().replace('\\', "/");
+            let relative = path
+                .strip_prefix(from)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
             let bytes = fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
             let target = out.join(&relative);
             fs::create_dir_all(target.parent().unwrap()).map_err(|e| e.to_string())?;
@@ -224,7 +275,9 @@ fn copy_static(from: &Path, out: &Path) -> Result<BTreeMap<String, String>, Stri
 }
 
 fn fnv1a(bytes: &[u8]) -> u64 {
-    bytes.iter().fold(0xcbf29ce484222325u64, |hash, byte| (hash ^ *byte as u64).wrapping_mul(0x100000001b3))
+    bytes.iter().fold(0xcbf29ce484222325u64, |hash, byte| {
+        (hash ^ *byte as u64).wrapping_mul(0x100000001b3)
+    })
 }
 
 // ─── Markdown ───────────────────────────────────────────────────────────
@@ -252,10 +305,15 @@ fn render(
         match &events[index] {
             // The playground uses one source marker per lesson. Other HTML
             // comments are documentation-checker annotations, not page copy.
-            Event::Html(html) | Event::InlineHtml(html) if html.trim() == "<!-- playground-starter -->" => {
-                output.push(Event::Html(CowStr::from("<span data-playground-starter hidden></span>\n")));
+            Event::Html(html) | Event::InlineHtml(html)
+                if html.trim() == "<!-- playground-starter -->" =>
+            {
+                output.push(Event::Html(CowStr::from(
+                    "<span data-playground-starter hidden></span>\n",
+                )));
             }
-            Event::Html(html) | Event::InlineHtml(html) if html.trim_start().starts_with("<!--") => {}
+            Event::Html(html) | Event::InlineHtml(html)
+                if html.trim_start().starts_with("<!--") => {}
             Event::Start(Tag::Heading { level, .. }) => {
                 let level = *level;
                 let mut inner = Vec::new();
@@ -272,11 +330,17 @@ fn render(
                 if level == HeadingLevel::H2 {
                     sections.push((id.clone(), html.clone()));
                 }
-                output.push(Event::Html(CowStr::from(format!("<{tag} id=\"{id}\">{html}</{tag}>\n"))));
+                output.push(Event::Html(CowStr::from(format!(
+                    "<{tag} id=\"{id}\">{html}</{tag}>\n"
+                ))));
             }
             Event::Start(Tag::CodeBlock(kind)) => {
                 let language = match kind {
-                    CodeBlockKind::Fenced(info) => info.split(|c: char| c == ',' || c.is_whitespace()).next().unwrap_or("").to_string(),
+                    CodeBlockKind::Fenced(info) => info
+                        .split(|c: char| c == ',' || c.is_whitespace())
+                        .next()
+                        .unwrap_or("")
+                        .to_string(),
                     CodeBlockKind::Indented => String::new(),
                 };
                 let mut code = String::new();
@@ -307,7 +371,10 @@ fn render(
     pulldown_cmark::html::push_html(&mut body, output.into_iter());
     // Column alignment becomes a class, so the stylesheet owns it.
     for side in ["left", "center", "right"] {
-        body = body.replace(&format!(" style=\"text-align: {side}\""), &format!(" class=\"align-{side}\""));
+        body = body.replace(
+            &format!(" style=\"text-align: {side}\""),
+            &format!(" class=\"align-{side}\""),
+        );
     }
     Ok(Rendered { body, sections })
 }
@@ -359,12 +426,27 @@ fn unique_id(base: &str, used: &mut BTreeSet<String>) -> String {
 
 /// A link between documentation pages becomes a link between site pages, and
 /// a link to another file in the Rake repository goes to it on GitHub.
-fn rewrite_link<'a>(event: Event<'a>, page: &Page, config: &Config, routes: &BTreeMap<String, String>) -> Result<Event<'a>, String> {
-    let Event::Start(Tag::Link { link_type, dest_url, title, id }) = event else {
+fn rewrite_link<'a>(
+    event: Event<'a>,
+    page: &Page,
+    config: &Config,
+    routes: &BTreeMap<String, String>,
+) -> Result<Event<'a>, String> {
+    let Event::Start(Tag::Link {
+        link_type,
+        dest_url,
+        title,
+        id,
+    }) = event
+    else {
         return Ok(event);
     };
     let destination = dest_url.to_string();
-    let rewritten = if destination.starts_with("http://") || destination.starts_with("https://") || destination.starts_with('#') || destination.starts_with("mailto:") {
+    let rewritten = if destination.starts_with("http://")
+        || destination.starts_with("https://")
+        || destination.starts_with('#')
+        || destination.starts_with("mailto:")
+    {
         destination
     } else if let Some(source) = &page.rake_path {
         let (path, fragment) = match destination.split_once('#') {
@@ -378,7 +460,10 @@ fn rewrite_link<'a>(event: Event<'a>, page: &Page, config: &Config, routes: &BTr
         } else {
             let on_disk = config.rake.join(&target);
             if !on_disk.exists() {
-                return Err(format!("{}: link to {destination} resolves to {target}, which doesn't exist", page.source.display()));
+                return Err(format!(
+                    "{}: link to {destination} resolves to {target}, which doesn't exist",
+                    page.source.display()
+                ));
             }
             let kind = if on_disk.is_dir() { "tree" } else { "blob" };
             format!("{GITHUB}/{kind}/{}/{target}{fragment}", config.branch)
@@ -386,7 +471,12 @@ fn rewrite_link<'a>(event: Event<'a>, page: &Page, config: &Config, routes: &BTr
     } else {
         destination
     };
-    Ok(Event::Start(Tag::Link { link_type, dest_url: CowStr::from(rewritten), title, id }))
+    Ok(Event::Start(Tag::Link {
+        link_type,
+        dest_url: CowStr::from(rewritten),
+        title,
+        id,
+    }))
 }
 
 fn normalise(path: &Path) -> String {
@@ -407,15 +497,24 @@ fn normalise(path: &Path) -> String {
 
 fn highlighters() -> Result<Highlighters, String> {
     let configure = |language: tree_sitter::Language, name: &str, query: &str| {
-        let mut config = HighlightConfiguration::new(language, name, query, "", "").map_err(|e| format!("{name} highlights: {e}"))?;
+        let mut config = HighlightConfiguration::new(language, name, query, "", "")
+            .map_err(|e| format!("{name} highlights: {e}"))?;
         config.configure(HIGHLIGHT_NAMES);
         Ok::<_, String>(config)
     };
     let rake = unsafe { tree_sitter::Language::from_raw(tree_sitter_rake()) };
     Ok(Highlighters {
         rake: configure(rake, "rake", RAKE_HIGHLIGHTS)?,
-        c: configure(tree_sitter_c::LANGUAGE.into(), "c", tree_sitter_c::HIGHLIGHT_QUERY)?,
-        bash: configure(tree_sitter_bash::LANGUAGE.into(), "bash", tree_sitter_bash::HIGHLIGHT_QUERY)?,
+        c: configure(
+            tree_sitter_c::LANGUAGE.into(),
+            "c",
+            tree_sitter_c::HIGHLIGHT_QUERY,
+        )?,
+        bash: configure(
+            tree_sitter_bash::LANGUAGE.into(),
+            "bash",
+            tree_sitter_bash::HIGHLIGHT_QUERY,
+        )?,
     })
 }
 
@@ -435,7 +534,9 @@ fn code_block(language: &str, code: &str, highlighters: &Highlighters) -> Result
         }
         None => escape(code),
     };
-    Ok(format!("<pre class=\"code code-{class}\"><code>{body}</code></pre>\n"))
+    Ok(format!(
+        "<pre class=\"code code-{class}\"><code>{body}</code></pre>\n"
+    ))
 }
 
 /// Every Rake block parses without an error node, so its highlighting is the
@@ -444,22 +545,33 @@ fn require_parse(code: &str) -> Result<(), String> {
     let mut parser = tree_sitter::Parser::new();
     let language = unsafe { tree_sitter::Language::from_raw(tree_sitter_rake()) };
     parser.set_language(&language).map_err(|e| e.to_string())?;
-    let tree = parser.parse(code, None).ok_or("Tree-sitter returned no tree")?;
+    let tree = parser
+        .parse(code, None)
+        .ok_or("Tree-sitter returned no tree")?;
     if tree.root_node().has_error() {
         let first = code.lines().next().unwrap_or("");
-        return Err(format!("the Tree-sitter grammar can't parse the Rake block starting `{first}`"));
+        return Err(format!(
+            "the Tree-sitter grammar can't parse the Rake block starting `{first}`"
+        ));
     }
     Ok(())
 }
 
 fn highlight(config: &HighlightConfiguration, code: &str) -> Result<String, String> {
     let mut highlighter = Highlighter::new();
-    let events = highlighter.highlight(config, code.as_bytes(), None, |_| None).map_err(|e| e.to_string())?;
+    let events = highlighter
+        .highlight(config, code.as_bytes(), None, |_| None)
+        .map_err(|e| e.to_string())?;
     let mut html = String::new();
     for event in events {
         match event.map_err(|e| e.to_string())? {
             HighlightEvent::HighlightStart(h) => {
-                write!(html, "<span class=\"tok-{}\">", HIGHLIGHT_NAMES[h.0].replace('.', "-")).unwrap();
+                write!(
+                    html,
+                    "<span class=\"tok-{}\">",
+                    HIGHLIGHT_NAMES[h.0].replace('.', "-")
+                )
+                .unwrap();
             }
             HighlightEvent::Source { start, end } => html.push_str(&escape(&code[start..end])),
             HighlightEvent::HighlightEnd => html.push_str("</span>"),
@@ -498,12 +610,22 @@ fn fill(
         body.push_str(&docs_index(pages));
     }
     let (layout, sidebar, contents) = match page.kind {
-        Kind::Doc if page.url == "/docs/playground/" => ("layout-playground", String::new(), String::new()),
-        Kind::Doc | Kind::DocsIndex => ("layout-docs", docs_sidebar(pages, page), contents_list(&rendered.sections)),
+        Kind::Doc if page.url == "/docs/playground/" => {
+            ("layout-playground", String::new(), String::new())
+        }
+        Kind::Doc | Kind::DocsIndex => (
+            "layout-docs",
+            docs_sidebar(pages, page),
+            contents_list(&rendered.sections),
+        ),
         Kind::Home => ("layout-home", String::new(), String::new()),
         Kind::NotFound => ("layout-plain", String::new(), String::new()),
     };
-    let robots = if page.kind == Kind::NotFound { "<meta name=\"robots\" content=\"noindex\">\n  " } else { "" };
+    let robots = if page.kind == Kind::NotFound {
+        "<meta name=\"robots\" content=\"noindex\">\n  "
+    } else {
+        ""
+    };
     let schema = schema_json(page, &canonical, version);
     let (body, scripts) = if page.url == "/docs/playground/" {
         let (heading, reference) = body
@@ -511,11 +633,15 @@ fn fill(
             .ok_or("the playground page needs one H1 before the application")?;
         // Lesson fragments select application state. Keep their anchors at
         // the editor, rather than scrolling to the reference below it.
-        let lesson_anchors: String = rendered.sections.iter().filter_map(|(_, title)| {
-            let (number, _) = title.split_once(". ")?;
-            let number = number.parse::<usize>().ok()?;
-            Some(format!("<span id=\"lesson-{number}\" hidden></span>\n"))
-        }).collect();
+        let lesson_anchors: String = rendered
+            .sections
+            .iter()
+            .filter_map(|(_, title)| {
+                let (number, _) = title.split_once(". ")?;
+                let number = number.parse::<usize>().ok()?;
+                Some(format!("<span id=\"lesson-{number}\" hidden></span>\n"))
+            })
+            .collect();
         (
             format!("{heading}</h1>\n{lesson_anchors}{}\n<article id=\"playground-reference\" class=\"playground-reference\">{reference}</article>", playground(assets)?),
             format!("<script type=\"module\" src=\"{}\"></script>", asset_url(assets, "scripts/playground.js")?),
@@ -539,7 +665,9 @@ fn fill(
     while let Some(start) = html.find("{{asset:") {
         let end = html[start..].find("}}").ok_or("unterminated {{asset:")? + start;
         let name = &html[start + 8..end];
-        let hash = assets.get(name).ok_or_else(|| format!("template asks for missing asset {name}"))?;
+        let hash = assets
+            .get(name)
+            .ok_or_else(|| format!("template asks for missing asset {name}"))?;
         html.replace_range(start..end + 2, &format!("/{name}?v={hash}"));
     }
     if html.contains("{{") {
@@ -549,12 +677,15 @@ fn fill(
 }
 
 fn asset_url(assets: &BTreeMap<String, String>, name: &str) -> Result<String, String> {
-    let hash = assets.get(name).ok_or_else(|| format!("playground asks for missing asset {name}"))?;
+    let hash = assets
+        .get(name)
+        .ok_or_else(|| format!("playground asks for missing asset {name}"))?;
     Ok(format!("/{name}?v={hash}"))
 }
 
 fn playground(assets: &BTreeMap<String, String>) -> Result<String, String> {
-    Ok(format!(r#"<section class="playground-app" data-rake-playground
+    Ok(format!(
+        r#"<section class="playground-app" data-rake-playground
   data-worker="{}"
   data-compiler="{}"
   data-tree-sitter="{}"
@@ -623,7 +754,8 @@ fn schema_json(page: &Page, canonical: &str, version: &str) -> String {
     if page.schema == "-" {
         return String::new();
     }
-    let publisher = r#"{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}"#;
+    let publisher =
+        r#"{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}"#;
     let json = match page.schema.as_str() {
         "SoftwareSourceCode" => format!(
             r#"{{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"{canonical}","description":"{}","codeRepository":"{GITHUB}","programmingLanguage":"Rake","version":"{version}","license":"https://opensource.org/licenses/MIT","publisher":{publisher}}}"#,
@@ -646,16 +778,34 @@ fn json_escape(text: &str) -> String {
 fn docs_sidebar(pages: &[Page], current: &Page) -> String {
     let mut html = String::from("<nav class=\"docs-nav\" aria-label=\"Documentation\">\n");
     let mut group = "";
-    for page in pages.iter().filter(|page| matches!(page.kind, Kind::Doc | Kind::DocsIndex)) {
+    for page in pages
+        .iter()
+        .filter(|page| matches!(page.kind, Kind::Doc | Kind::DocsIndex))
+    {
         if page.group != group {
             if !group.is_empty() {
                 html.push_str("</ul>\n");
             }
             group = &page.group;
-            write!(html, "<p class=\"docs-nav-group\">{}</p>\n<ul>\n", escape(group)).unwrap();
+            write!(
+                html,
+                "<p class=\"docs-nav-group\">{}</p>\n<ul>\n",
+                escape(group)
+            )
+            .unwrap();
         }
-        let current_attribute = if page.url == current.url { " aria-current=\"page\"" } else { "" };
-        write!(html, "<li><a href=\"{}\"{current_attribute}>{}</a></li>\n", page.url, escape(short_title(page))).unwrap();
+        let current_attribute = if page.url == current.url {
+            " aria-current=\"page\""
+        } else {
+            ""
+        };
+        writeln!(
+            html,
+            "<li><a href=\"{}\"{current_attribute}>{}</a></li>",
+            page.url,
+            escape(short_title(page))
+        )
+        .unwrap();
     }
     html.push_str("</ul>\n</nav>");
     html
@@ -672,7 +822,7 @@ fn contents_list(sections: &[(String, String)]) -> String {
     }
     let mut html = String::from("<nav class=\"page-contents\" aria-label=\"On this page\">\n<p class=\"page-contents-title\">On this page</p>\n<ul>\n");
     for (id, title) in sections {
-        write!(html, "<li><a href=\"#{id}\">{title}</a></li>\n").unwrap();
+        writeln!(html, "<li><a href=\"#{id}\">{title}</a></li>").unwrap();
     }
     html.push_str("</ul>\n</nav>");
     html
@@ -687,9 +837,22 @@ fn docs_index(pages: &[Page]) -> String {
                 html.push_str("</dl>\n");
             }
             group = &page.group;
-            write!(html, "<h2 id=\"{}\">{}</h2>\n<dl class=\"docs-list\">\n", slug(group), escape(group)).unwrap();
+            write!(
+                html,
+                "<h2 id=\"{}\">{}</h2>\n<dl class=\"docs-list\">\n",
+                slug(group),
+                escape(group)
+            )
+            .unwrap();
         }
-        write!(html, "<dt><a href=\"{}\">{}</a></dt>\n<dd>{}</dd>\n", page.url, escape(short_title(page)), escape(&page.description)).unwrap();
+        write!(
+            html,
+            "<dt><a href=\"{}\">{}</a></dt>\n<dd>{}</dd>\n",
+            page.url,
+            escape(short_title(page)),
+            escape(&page.description)
+        )
+        .unwrap();
     }
     if !group.is_empty() {
         html.push_str("</dl>\n");
@@ -716,7 +879,10 @@ fn check(config: &Config) -> Result<(), String> {
     let mut documents = BTreeMap::new();
     for page in &pages {
         let html = read(&output_path(&public, &page.url))?;
-        ids.insert(page.url.clone(), attribute_values(&html, "id").into_iter().collect());
+        ids.insert(
+            page.url.clone(),
+            attribute_values(&html, "id").into_iter().collect(),
+        );
         documents.insert(page.url.clone(), html);
     }
     for page in &pages {
@@ -725,26 +891,46 @@ fn check(config: &Config) -> Result<(), String> {
         if !html.contains(&format!("Rake {version}")) {
             problem(format!("doesn't show the release, Rake {version}"));
         }
-        for (number, block) in html.split("<pre class=\"code code-rake\">").skip(1).enumerate() {
+        for (number, block) in html
+            .split("<pre class=\"code code-rake\">")
+            .skip(1)
+            .enumerate()
+        {
             let block = block.split("</pre>").next().unwrap_or("");
             if !block.contains("class=\"tok-keyword\"") {
-                problem(format!("Rake block {} has no highlighted keywords", number + 1));
+                problem(format!(
+                    "Rake block {} has no highlighted keywords",
+                    number + 1
+                ));
             }
         }
         for (target, fragment) in internal_links(html) {
-            let resolved = if target.is_empty() { page.url.clone() } else { target.clone() };
+            let resolved = if target.is_empty() {
+                page.url.clone()
+            } else {
+                target.clone()
+            };
             if !resolved.starts_with('/') {
                 problem(format!("relative link {target}"));
                 continue;
             }
             let file = output_path(&public, &resolved);
             if !file.is_file() {
-                let as_directory = public.join(resolved.trim_start_matches('/')).join("index.html");
-                problem(if as_directory.is_file() { format!("link {resolved} needs its trailing slash") } else { format!("broken link {resolved}") });
+                let as_directory = public
+                    .join(resolved.trim_start_matches('/'))
+                    .join("index.html");
+                problem(if as_directory.is_file() {
+                    format!("link {resolved} needs its trailing slash")
+                } else {
+                    format!("broken link {resolved}")
+                });
                 continue;
             }
             if let Some(fragment) = fragment {
-                if ids.get(&resolved).is_some_and(|known| !known.contains(&fragment)) {
+                if ids
+                    .get(&resolved)
+                    .is_some_and(|known| !known.contains(&fragment))
+                {
                     problem(format!("link {resolved}#{fragment} has no such anchor"));
                 }
             }
@@ -759,10 +945,16 @@ fn check(config: &Config) -> Result<(), String> {
         let description = meta(html, "name", "description").unwrap_or_default();
         let length = |text: &str| unescape(text).chars().count();
         if !(15..=60).contains(&length(&title)) {
-            problem(format!("title is {} characters, not 15 to 60: {title}", length(&title)));
+            problem(format!(
+                "title is {} characters, not 15 to 60: {title}",
+                length(&title)
+            ));
         }
         if !(120..=155).contains(&length(&description)) {
-            problem(format!("description is {} characters, not 120 to 155", length(&description)));
+            problem(format!(
+                "description is {} characters, not 120 to 155",
+                length(&description)
+            ));
         }
         if let Some(other) = titles.insert(title.clone(), page.url.clone()) {
             problem(format!("shares its title with {other}"));
@@ -776,12 +968,27 @@ fn check(config: &Config) -> Result<(), String> {
             ("<meta charset=\"utf-8\">".to_string(), "charset"),
             ("name=\"viewport\"".to_string(), "viewport"),
             ("rel=\"icon\"".to_string(), "favicon"),
-            (format!("<link rel=\"canonical\" href=\"{canonical}\">"), "canonical"),
-            (format!("<meta property=\"og:url\" content=\"{canonical}\">"), "og:url"),
-            (format!("<meta property=\"og:title\" content=\"{title}\">"), "og:title"),
-            (format!("<meta property=\"og:description\" content=\"{description}\">"), "og:description"),
+            (
+                format!("<link rel=\"canonical\" href=\"{canonical}\">"),
+                "canonical",
+            ),
+            (
+                format!("<meta property=\"og:url\" content=\"{canonical}\">"),
+                "og:url",
+            ),
+            (
+                format!("<meta property=\"og:title\" content=\"{title}\">"),
+                "og:title",
+            ),
+            (
+                format!("<meta property=\"og:description\" content=\"{description}\">"),
+                "og:description",
+            ),
             ("<meta property=\"og:type\"".to_string(), "og:type"),
-            ("<meta property=\"og:image\" content=\"https://".to_string(), "og:image"),
+            (
+                "<meta property=\"og:image\" content=\"https://".to_string(),
+                "og:image",
+            ),
             ("<meta name=\"twitter:card\"".to_string(), "twitter:card"),
         ];
         for (literal, name) in required {
@@ -790,7 +997,10 @@ fn check(config: &Config) -> Result<(), String> {
             }
         }
         if html.matches("<h1").count() != 1 {
-            problem(format!("has {} H1 headings, not one", html.matches("<h1").count()));
+            problem(format!(
+                "has {} H1 headings, not one",
+                html.matches("<h1").count()
+            ));
         }
         if page.schema != "-" && !html.contains(&format!("\"@type\":\"{}\"", page.schema)) {
             problem(format!("missing JSON-LD {}", page.schema));
@@ -803,8 +1013,17 @@ fn check(config: &Config) -> Result<(), String> {
         }
     }
     let sitemap = read(&public.join("sitemap.xml"))?;
-    let listed: BTreeSet<String> = sitemap.split("<loc>").skip(1).filter_map(|s| s.split("</loc>").next()).map(str::to_string).collect();
-    let expected: BTreeSet<String> = pages.iter().filter(|p| p.kind != Kind::NotFound).map(|p| format!("{SITE_URL}{}", p.url)).collect();
+    let listed: BTreeSet<String> = sitemap
+        .split("<loc>")
+        .skip(1)
+        .filter_map(|s| s.split("</loc>").next())
+        .map(str::to_string)
+        .collect();
+    let expected: BTreeSet<String> = pages
+        .iter()
+        .filter(|p| p.kind != Kind::NotFound)
+        .map(|p| format!("{SITE_URL}{}", p.url))
+        .collect();
     if listed != expected {
         problems.push("sitemap.xml doesn't list exactly the indexable pages".to_string());
     }
@@ -812,10 +1031,17 @@ fn check(config: &Config) -> Result<(), String> {
         problems.push("robots.txt doesn't name the sitemap".to_string());
     }
     if problems.is_empty() {
-        println!("rake-site: public/ is current, and its {} pages pass the search and link checks", pages.len());
+        println!(
+            "rake-site: public/ is current, and its {} pages pass the search and link checks",
+            pages.len()
+        );
         Ok(())
     } else {
-        Err(format!("{} problems:\n  {}", problems.len(), problems.join("\n  ")))
+        Err(format!(
+            "{} problems:\n  {}",
+            problems.len(),
+            problems.join("\n  ")
+        ))
     }
 }
 
@@ -824,12 +1050,18 @@ fn compare_trees(fresh: &Path, public: &Path) -> Result<(), String> {
         let mut found = BTreeMap::new();
         let mut stack = vec![root.to_path_buf()];
         while let Some(directory) = stack.pop() {
-            for entry in fs::read_dir(&directory).map_err(|e| format!("{}: {e}", directory.display()))? {
+            for entry in
+                fs::read_dir(&directory).map_err(|e| format!("{}: {e}", directory.display()))?
+            {
                 let path = entry.map_err(|e| e.to_string())?.path();
                 if path.is_dir() {
                     stack.push(path);
                 } else {
-                    let relative = path.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/");
+                    let relative = path
+                        .strip_prefix(root)
+                        .unwrap()
+                        .to_string_lossy()
+                        .replace('\\', "/");
                     found.insert(relative, fs::read(&path).map_err(|e| e.to_string())?);
                 }
             }
@@ -851,7 +1083,10 @@ fn compare_trees(fresh: &Path, public: &Path) -> Result<(), String> {
     if stale.is_empty() {
         Ok(())
     } else {
-        Err(format!("public/ doesn't match a fresh build; run tools/build.sh:\n  {}", stale.join("\n  ")))
+        Err(format!(
+            "public/ doesn't match a fresh build; run tools/build.sh:\n  {}",
+            stale.join("\n  ")
+        ))
     }
 }
 
@@ -895,5 +1130,8 @@ fn meta(html: &str, key: &str, name: &str) -> Option<String> {
 }
 
 fn unescape(text: &str) -> String {
-    text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
+    text.replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
 }

@@ -123,7 +123,7 @@ the C on wasm, and the system assembler or clang only encodes it.</p>
   -&gt; tier checker                  runs and slow code in tier IR; each pure rack
                                    expression in a run goes through the crunch
                                    pipeline above
-  -&gt; C emitter                     one C file with int main(void)
+  -&gt; C emitter                     one C file with a C entry point
   -&gt; clang for wasm32 with SIMD128
   -&gt; object verifier               crunches, rakes and runs in the object
 </code></pre>
@@ -137,13 +137,33 @@ expressions, which native lowering and wasm selection compile as they compile
 a crunch. <code>rakec --interpret</code> runs <code>main</code> in Rake's executable semantics,
 evaluating rack expressions in the same reference semantics as crunches, and
 <code>test/program_test.sh</code> compares it with the compiled program.</p>
-<p>The unreleased development compiler adds a second destination for the same
-tier IR: a native slow-only C unit. It rejects runs and vector definitions
-before emission, so no rack work enters a general-purpose C compiler.
+<p>The unreleased development compiler adds a native mixed destination for the
+same tier IR:</p>
+<pre class="code code-text"><code>register kernels -&gt; Rake selection and allocation -&gt; opaque GNU assembly ─┐
+explicit slow code -&gt; scalar C and C ABI declarations ────────────────────┤
+                                                                        v
+                                                              one native C unit
+                                                                        |
+                                                              platform C compiler
+                                                                        |
+                                                               one native object
+                                                                        |
+                                                              register-kernel verifier
+</code></pre>
+<p>This development path rejects native runs and packs. Slow callers can pass
+uniform <code>f32</code> arguments and receive <code>f32</code> results from register kernels.
 The platform compiler lowers explicit slow code and supplies the System V
-AMD64 or AAPCS64 C ABI. <code>test/native_slow_program_test.sh</code> compares scalar
-results with the interpreter and exercises header-backed struct layout and
-imports/exports with independent C on x86 and under AArch64 QEMU.</p>
+AMD64 or AAPCS64 C ABI. It cannot rewrite the opaque kernel assembly, which
+the final-object verifier checks using Rake's selected instruction contract.
+<code>test/native_program_test.sh</code> compares scalar and mixed results with the
+selected-profile interpreter. Independent C checks header-backed struct
+layout and imports/exports on x86 and under AArch64 QEMU; known lane counts
+also check the x86 reduction fixtures.</p>
+<p>A process entry with parameters gets a compiler-owned adapter for
+<code>int main(int argc, char **argv)</code>. The adapter copies the pointer array into
+typed byte-pointer storage without aliasing the runtime's <code>char **</code> object.
+The startup checks compare the interpreter with independently compiled C on
+every physical profile and through WASI's command startup.</p>
 <h2 id="profiles">Profiles</h2>
 <p>On x86, an <code>f32s</code> rack and its lane mask occupy one XMM register on SSE2,
 one YMM register on AVX2, or one ZMM register on AVX-512F. All three profiles
@@ -197,9 +217,10 @@ It owns register allocation and assembly on x86 and AArch64. For WebAssembly,
 clang encodes the selected virtual instructions and the runtime assigns
 physical registers. The system toolchain also owns object formats,
 relocations, linking and start-up. Debug information and exception unwinding
-aren't produced. The x86 and AArch64 backends compile crunches and rakes only.
-Runs and mixed whole programs compile on <code>wasm-simd128</code>; native slow-only
-programs use the unreleased C boundary described above. The <a href="/docs/packs-and-runs/#planned-x86-64-boundary">planned x86-64 run
+aren't produced. The x86 and AArch64 backends in 0.6.0-beta compile crunches
+and rakes only. The development compiler adds native mixed programs through
+the limited scalar C boundary above. Runs and packs still compile only on
+WebAssembly. The <a href="/docs/packs-and-runs/#planned-x86-64-boundary">planned x86-64 run
 boundary</a> is a design.</p>
 
     </main>

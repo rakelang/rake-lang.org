@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
   <link rel="stylesheet" href="/styles/components.css?v=3c180efb">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Playground and tutorial | Rake","name":"Playground and tutorial | Rake","description":"An interactive Rake tutorial in twelve lessons, with each concept demonstrated in the result, lane trace, compiler output or diagnostic message.","url":"https://rake-lang.org/docs/playground/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
-<script type="module" src="/scripts/playground.js?v=9d58f540"></script>
+<script type="module" src="/scripts/playground.js?v=a29f59db"></script>
 </head>
 <body class="layout-playground">
   <header class="site-header">
@@ -51,9 +51,9 @@
 <span id="lesson-12" hidden></span>
 <section class="playground-app" data-rake-playground
   data-worker="/scripts/playground-worker.js?v=185e0038"
-  data-compiler="/scripts/rake-compiler.js?v=8dbe6847"
+  data-compiler="/scripts/rake-compiler.js?v=b26054ec"
   data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
-  data-rake-language="/scripts/tree-sitter-rake.wasm?v=a28079fc"
+  data-rake-language="/scripts/tree-sitter-rake.wasm?v=18ddab27"
   data-rake-highlights="/scripts/rake-highlights.scm?v=39094d65">
   <header class="playground-heading">
     <div>
@@ -135,17 +135,21 @@ tabs under it:</p>
 <div class="table-scroll"><table><thead><tr><th>Tab</th><th>Shows</th></tr></thead><tbody>
 <tr><td>Result</td><td>what <code>main</code> returned, or the trap that stopped it, with its line</td></tr>
 <tr><td>Lanes</td><td>each rack the program computed as a row with one decimal value per lane, and each mask as a row of filled and empty cells</td></tr>
-<tr><td>Code</td><td>what the compiler made for the chosen target: C with one WebAssembly intrinsic for each instruction on <code>wasm-simd128</code>, and assembly on SSE2, AVX2, AVX-512 and NEON</td></tr>
+<tr><td>Code</td><td>the selected target's output: C with WebAssembly intrinsics, native kernel assembly, or native mixed C with opaque kernel assembly</td></tr>
 <tr><td>Messages</td><td>the compiler's errors, each also underlined in the editor at its line and column</td></tr>
 </tbody></table>
 </div>
 <p>Stepping through a program in the Lanes tab shows one instruction acting on
 all the lanes at once, the idea the whole tutorial builds on.</p>
 <p>The target menu offers WebAssembly, SSE2, AVX2, AVX-512 and NEON. The browser
-emitter supports whole programs on <code>wasm-simd128</code> only, so a lesson with runs
-or slow code disables the other profiles and says why. Every result and lane
-trace comes from Rake's interpreter. The browser displays the selected
-target's C or assembly; it does not execute that generated machine code.</p>
+development compiler supports native slow orchestration with uniform <code>f32</code>
+kernel calls too. Lessons start on WebAssembly when they contain a whole
+program. Memory runs still require WebAssembly; choosing a physical target
+for one gives the compiler's work-in-progress diagnostic. Every result and
+lane trace comes from Rake's interpreter, using the selected profile's <code>f32</code>
+rack width. The browser displays C or assembly without executing that
+generated machine code. Native object verification still requires <code>rakec</code>
+and the platform toolchain outside the browser.</p>
 <h2 id="how-it-works">How it works</h2>
 <p>The compiler runs in the page. <code>rakec</code> is OCaml, and <code>js_of_ocaml</code> compiles
 its front end, interpreter and emitters for the browser, so the playground
