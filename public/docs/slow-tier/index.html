@@ -210,8 +210,8 @@ development compiler also supports native slow functions and register kernels.</
 <tr><td><code>const name: T = constant</code></td><td>a compile-time constant</td></tr>
 </tbody></table>
 </div>
-<p><code>slow main() -&gt; i32</code> is the program's entry point. A slow function that
-returns a value must return on every path. Slow functions may call each other
+<p><code>slow main() -&gt; i32</code> is the program's entry point. A value-returning slow
+function requires a return on every path. Slow functions may call each other
 in any order and recurse.</p>
 <p>A record declared with a header is a C struct whose layout C owns: the unit
 includes the header, and each declared scalar, pointer or scalar-array field
