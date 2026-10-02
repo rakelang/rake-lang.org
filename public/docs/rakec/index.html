@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The rakec command | Rake","name":"The rakec command | Rake","description":"The rakec command line: its modes for checking, interpreting, emitting and verifying Rake programs, its options, its environment and its diagnostics.","url":"https://rake-lang.org/docs/rakec/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -29,6 +29,7 @@
     <nav class="site-nav" aria-label="Site">
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
+      <a href="/docs/vectors/">Vectors cheat sheet</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
       <a href="/docs/roadmap/">Roadmap</a>
     </nav>
@@ -47,13 +48,14 @@
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
 <li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
-<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></li>
 <li><a href="/docs/memory-operations/">Memory operations</a></li>
 <li><a href="/docs/slow-tier/">The slow tier</a></li>
 </ul>
 <p class="docs-nav-group">Learning</p>
 <ul>
 <li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/vectors/">Vectors cheat sheet</a></li>
 <li><a href="/docs/glossary/">Glossary</a></li>
 </ul>
 <p class="docs-nav-group">Compiler</p>
@@ -104,7 +106,8 @@ supports native slow orchestration with register kernels. Their <code>--emit-asm
 output is <code>.c</code>, with opaque Rake-selected assembly, and their <code>--emit-obj</code>
 output is a platform C object with verified kernels. <code>--verify-native</code> checks
 those kernels too. Native slow-only units have no vector function to verify,
-so they use <code>--emit-obj</code>. Native runs and packs remain work in progress. A
+so they use <code>--emit-obj</code>. AVX2 additionally supports the limited
+<a href="/docs/packs-and-runs/#native-avx2-streams">native stream traversal</a>. Other native runs remain work in progress. A
 native kernel called from slow code currently takes uniform <code>f32</code> parameters
 and returns <code>f32</code>.</p>
 <h2 id="options">Options</h2>
@@ -153,7 +156,7 @@ its required C libraries, including <code>libm</code> for scalar maths. Native r
 kernels remain opaque GNU assembly in that C unit, so the C compiler cannot
 replace their selected instructions.</p>
 <p>The emitted C reads two macros. <code>RAKE_WASM_LINKAGE</code> replaces <code>static inline</code>
-on each crunch and rake, and <code>RAKE_FRAME_BYTES</code> sets the size of a whole
+on each scratch and rake, and <code>RAKE_FRAME_BYTES</code> sets the size of a whole
 program's frame stack, 4 MiB by default, as <a href="/docs/slow-tier/#the-c-unit">the slow
 tier</a> describes.</p>
 <h2 id="diagnostics">Diagnostics</h2>

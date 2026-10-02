@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Language goals | Rake","name":"Language goals | Rake","description":"The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.","url":"https://rake-lang.org/docs/goals/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -29,6 +29,7 @@
     <nav class="site-nav" aria-label="Site">
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
+      <a href="/docs/vectors/">Vectors cheat sheet</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
       <a href="/docs/roadmap/">Roadmap</a>
     </nav>
@@ -47,13 +48,14 @@
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
 <li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
-<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></li>
 <li><a href="/docs/memory-operations/">Memory operations</a></li>
 <li><a href="/docs/slow-tier/">The slow tier</a></li>
 </ul>
 <p class="docs-nav-group">Learning</p>
 <ul>
 <li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/vectors/">Vectors cheat sheet</a></li>
 <li><a href="/docs/glossary/">Glossary</a></li>
 </ul>
 <p class="docs-nav-group">Compiler</p>
@@ -143,12 +145,13 @@ a native form of an operation rejects it before generating code.</li>
 profile compiles. Lane indices, interleaving, lane shifts and rotations,
 scatter, compression, expansion and single-record layouts are planned.</p>
 <h2 id="data-layout-is-explicit">Data layout is explicit</h2>
-<p>A <code>stack</code> declares columns of structure-of-arrays data, and a traversal visits
-a <code>pack</code> of them a rack at a time. Conversions between layouts and memory
+<p>A <code>pack</code> describes one record. A <code>stack</code> collects those records in
+structure-of-arrays storage, and a traversal visits its columns a rack at a
+time. Conversions between layouts and memory
 operations are written in the source or set by a documented calling
 convention. A traversal's tail never reads or writes past the count, and its
 inactive lanes raise no exception and have no effect.</p>
-<p>Today: runs, packs and traversals compile on <code>wasm-simd128</code>, with the
+<p>Today: runs, stacks and traversals compile on <code>wasm-simd128</code>, with the
 boundary in <a href="/docs/packs-and-runs/">packs and runs</a>.</p>
 <h2 id="scalar-code-stays-scalar">Scalar code stays scalar</h2>
 <p>A program's scalar work, its records, state, control flow and calls to C, is

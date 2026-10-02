@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Fused bindings | Rake","name":"Fused bindings | Rake","description":"Rake's fused bindings: stages of one pure computation that the compiler may rewrite as a whole, how fused multiply-adds form, and what fma guarantees.","url":"https://rake-lang.org/docs/fused-bindings/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -29,6 +29,7 @@
     <nav class="site-nav" aria-label="Site">
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
+      <a href="/docs/vectors/">Vectors cheat sheet</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
       <a href="/docs/roadmap/">Roadmap</a>
     </nav>
@@ -47,13 +48,14 @@
 <li><a href="/docs/fused-bindings/" aria-current="page">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
 <li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
-<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></li>
 <li><a href="/docs/memory-operations/">Memory operations</a></li>
 <li><a href="/docs/slow-tier/">The slow tier</a></li>
 </ul>
 <p class="docs-nav-group">Learning</p>
 <ul>
 <li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/vectors/">Vectors cheat sheet</a></li>
 <li><a href="/docs/glossary/">Glossary</a></li>
 </ul>
 <p class="docs-nav-group">Compiler</p>
@@ -82,7 +84,7 @@ can execute together. Rake's <code>| name &lt;| expression</code> binds one stag
 fused vector calculation. Read it from right to left: the expression flows
 into <code>name</code>. Consecutive stages line up on their leading bars, so we can
 follow the calculation down the page:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">scaled</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.5</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">scaled</span>
   <span class="tok-variable">moved</span>
@@ -106,12 +108,12 @@ dot narrow widen_low widen_high to_f32 to_i32
 bit_and bit_or bit_xor bit_andnot shift_bits_left shift_bits_right shift_bits_right_signed
 relaxed_madd relaxed_nmadd relaxed_min relaxed_max
 </code></pre>
-<p>It can't contain a call to a crunch, rake or other function, a reduction, a
+<p>It can't contain a call to a scratch, rake or other function, a reduction, a
 scan, <code>extract</code>, <code>insert</code>, <code>bitmask</code>, indexing or another memory access, a
 conversion such as <code>bitcast</code>, or a record or array. A function's effects
 aren't inferred yet, so a user-defined call can't enter a fused region even
 when it is pure. A rejection gives the binding and the reason:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">total</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-function">sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-variable">total</span>
 </code></pre>

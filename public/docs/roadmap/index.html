@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Compiler roadmap | Rake","name":"Compiler roadmap | Rake","description":"Rake's roadmap for native and WebAssembly coverage, language syntax, editor tooling, package releases and the release checks for each feature.","url":"https://rake-lang.org/docs/roadmap/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -29,6 +29,7 @@
     <nav class="site-nav" aria-label="Site">
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
+      <a href="/docs/vectors/">Vectors cheat sheet</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
       <a href="/docs/roadmap/">Roadmap</a>
     </nav>
@@ -47,13 +48,14 @@
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
 <li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
-<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></li>
 <li><a href="/docs/memory-operations/">Memory operations</a></li>
 <li><a href="/docs/slow-tier/">The slow tier</a></li>
 </ul>
 <p class="docs-nav-group">Learning</p>
 <ul>
 <li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/vectors/">Vectors cheat sheet</a></li>
 <li><a href="/docs/glossary/">Glossary</a></li>
 </ul>
 <p class="docs-nav-group">Compiler</p>
@@ -74,29 +76,34 @@
     <main class="content">
 <h1 id="roadmap">Roadmap</h1>
 <p>Rake's vector contract now has SSE2, AVX2, AVX-512F, NEON and WebAssembly
-implementations. Native runs and packs, a scalar fallback and operation parity
+implementations. General native runs, a scalar fallback and operation parity
 remain work in progress. This roadmap states what we intend to build next.
 <a href="/docs/changelog/">The changelog</a> records work once it has landed, while
 <a href="/docs/goals/">the goals</a> define the requirements for every change.</p>
 <h2 id="capabilities-and-coverage">Capabilities and coverage</h2>
-<h3 id="compile-runs-packs-and-whole-programs-for-physical-targets">Compile runs, packs and whole programs for physical targets</h3>
+<h3 id="compile-runs-stacks-and-whole-programs-for-physical-targets">Compile runs, stacks and whole programs for physical targets</h3>
 <p>The development compiler after 0.6.0-beta compiles slow orchestration and
 register kernels into one native object. Its C unit embeds Rake-selected
 assembly, and the final object's kernels pass the existing instruction
 verifier. Slow callers can use uniform <code>f32</code> parameters and <code>f32</code> results.
 Imported C structs use their header's layout, and public slow functions have
-the platform C ABI. Native runs, packs and the remaining scalar kernel
-boundaries are still work in progress.</p>
-<p>We will extend <code>run</code>, packs and whole programs from <code>wasm-simd128</code> to
+the platform C ABI. AVX2 stream traversals now process read-only <code>f32</code>
+columns with full racks and masked tails, with final-byte verification and
+independent C/guard-page checks. General native runs, the other physical
+traversal profiles and the remaining scalar kernel boundaries are still
+work in progress.</p>
+<p>We will extend <code>run</code>, stacks and whole programs from <code>wasm-simd128</code> to
 SSE2, AVX2, AVX-512 and NEON. That work includes native traversal, full-rack
 loads and stores, masked tails with benign operands, stable C boundaries and
 runtime tests over empty, short, exact and tail counts. The object verifier
 will confirm vector memory operations and reject scalar cleanup loops.</p>
 <p>The development compiler also accepts typed <code>argc</code>/<code>argv</code> entry, adapting the
 runtime's C pointer array without incompatible pointer aliasing. The C interface
-supports typed function pointers and noncapturing callbacks. Unions remain
-work in progress. We will check layouts, alignment, field offsets and
-imported/exported calls against independently compiled C headers on x86-64
+supports typed function pointers, noncapturing callbacks and header-backed C
+unions. Rake-owned union layouts and interpreted union storage remain work in
+progress. Pointer types now retain C's read-only pointee qualifiers,
+including in callback signatures. We will check layouts, alignment, field
+offsets and imported/exported calls against independently compiled C headers on x86-64
 and AArch64. Scalar lowering inside <code>slow</code> may use the platform C compiler;
 that permission will never apply to rack work outside the block.</p>
 <p>WebAssembly will continue to honour the virtual machine's abstraction. Rake
@@ -105,7 +112,7 @@ WebAssembly runtime. Rack work outside a <code>slow</code> block uses vector
 instructions or compilation fails. A run's explicit traversal also needs
 uniform address, bounds and loop work.</p>
 <h3 id="add-and-validate-target-profiles">Add and validate target profiles</h3>
-<p>SSE2 and AVX-512F now compile <code>f32s</code> crunches and rakes, alongside AVX2 and
+<p>SSE2 and AVX-512F now compile <code>f32s</code> scratches and rakes, alongside AVX2 and
 NEON. We will add the explicit scalar fallback and complete CPU operation and
 program coverage before beginning GPU targets. Each physical profile must
 have instruction selection, register allocation, a calling convention,
@@ -150,14 +157,17 @@ common-subexpression sharing and strength reduction within a fused region.
 Each profile will choose among legal rewrites using its operation costs, and
 tests will compare the emitted result with the verified optimised graph.</p>
 <h3 id="implement-the-unavailable-language-capabilities">Implement the unavailable language capabilities</h3>
-<p>We will work down the capability catalogue, which currently reports 89 checked
+<p>We will work down the capability catalogue, which currently reports 90 checked
 and 34 unavailable capabilities. The outstanding language areas
 include tuple types, closures, lambdas, pipelines, type aliases, spread
 parameters, record updates, inline tines, outer products and several masked
 operations.</p>
 <p>A capability becomes supported only when one compiler revision contains its
 syntax and semantics, source-located diagnostics, interpreter behaviour,
-compiled implementation, object-verifier rules, tests and documentation.</p>
+compiled implementation, object-verifier rules, tests and documentation.
+External C storage is checked through its independent compiled ABI oracle.
+The interpreter explicitly rejects storage whose platform layout it cannot
+represent, including C unions.</p>
 <h2 id="grammar-and-syntax">Grammar and syntax</h2>
 <h3 id="resolve-internal-forms-that-have-no-language-meaning">Resolve internal forms that have no language meaning</h3>
 <p>We will either give every internal AST form source syntax and defined semantics
@@ -182,7 +192,7 @@ together. Until then the website will continue to disable ligatures inside
 uniforms such as <code>&lt;-1.0&gt;</code>.</p>
 <h3 id="review-layout-and-delimiters-against-real-programs">Review layout and delimiters against real programs</h3>
 <p>We will test the current combination of indentation-sensitive bodies and
-braces for stacks and records against larger programs, formatter design and
+braces for packs and records against larger programs, formatter design and
 editor recovery. We will retain the hybrid only if it remains the clearest
 single rule set. Any syntax change will replace the old form across the
 compiler, grammar, examples and documentation in one release.</p>
@@ -193,7 +203,7 @@ rename and semantic navigation. It will use the compiler's parser, types and
 source locations rather than maintaining a second understanding of Rake.</p>
 <h3 id="add-a-canonical-formatter">Add a canonical formatter</h3>
 <p>We will build a formatter that produces one stable layout for declarations,
-indentation-sensitive bodies, records, stacks, fused bindings, tines and
+indentation-sensitive bodies, records, packs, fused bindings, tines and
 sweeps. Formatting will be idempotent and checked against every example in the
 documentation.</p>
 <h3 id="package-editor-integrations">Package editor integrations</h3>

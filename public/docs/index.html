@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","headline":"Rake documentation","name":"Rake documentation","description":"The Rake documentation: the language reference, a twelve-lesson interactive tutorial, the rakec compiler and its backend, the goals and roadmap.","url":"https://rake-lang.org/docs/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -29,6 +29,7 @@
     <nav class="site-nav" aria-label="Site">
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
+      <a href="/docs/vectors/">Vectors cheat sheet</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
       <a href="/docs/roadmap/">Roadmap</a>
     </nav>
@@ -47,13 +48,14 @@
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
 <li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
-<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></li>
 <li><a href="/docs/memory-operations/">Memory operations</a></li>
 <li><a href="/docs/slow-tier/">The slow tier</a></li>
 </ul>
 <p class="docs-nav-group">Learning</p>
 <ul>
 <li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/vectors/">Vectors cheat sheet</a></li>
 <li><a href="/docs/glossary/">Glossary</a></li>
 </ul>
 <p class="docs-nav-group">Compiler</p>
@@ -92,8 +94,8 @@ result. Proposed GPU profiles are designs, with no implementation yet.</p>
 <dd>Conditional expressions by mask or uniform, fixed-count repeat loops, counted loops and branches in runs, and the control flow of Rake's slow code.</dd>
 <dt><a href="/docs/reductions-and-scans/">Reductions and scans</a></dt>
 <dd>Rake's reductions and inclusive scans: their strict lane order, binary32 rounding, strict minimum and maximum, and the profiles that compile them.</dd>
-<dt><a href="/docs/packs-and-runs/">Packs and runs</a></dt>
-<dd>Rake's runs: stacks and packs of columns, traversals a rack at a time, safe tails, general loops over views, address forming, and the wasm32 C boundary.</dd>
+<dt><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></dt>
+<dd>Define one record as a pack, collect its fields into a stack of columns, then traverse target-sized racks with a run. Includes tails and the C ABI.</dd>
 <dt><a href="/docs/memory-operations/">Memory operations</a></dt>
 <dd>How Rake runs read and write memory: checked and unchecked accesses, masks, the WebAssembly gather, and designs for scatter, compression and expansion.</dd>
 <dt><a href="/docs/slow-tier/">The slow tier</a></dt>
@@ -103,8 +105,10 @@ result. Proposed GPU profiles are designs, with no implementation yet.</p>
 <dl class="docs-list">
 <dt><a href="/docs/playground/">Playground and tutorial</a></dt>
 <dd>An interactive Rake tutorial in twelve lessons, with each concept demonstrated in the result, lane trace, compiler output or diagnostic message.</dd>
+<dt><a href="/docs/vectors/">Vectors cheat sheet</a></dt>
+<dd>CPU and GPU vector terminology explained with diagrams: lanes, masks, gather, shuffle, splat, reductions, warps, memory access and execution costs.</dd>
 <dt><a href="/docs/glossary/">Glossary</a></dt>
-<dd>The terms the Rake documentation uses, from racks, lanes, tines and sweeps to SIMD, SSA, register allocation, calling conventions and GPU subgroups.</dd>
+<dd>Rake's language and compiler terms explained: racks, packs, stacks, uniforms, tines, sweeps, bindings, SSA, register allocation and calling conventions.</dd>
 </dl>
 <h2 id="compiler">Compiler</h2>
 <dl class="docs-list">

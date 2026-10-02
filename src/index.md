@@ -15,6 +15,46 @@
 
 ## A first look
 
+This demonstration processes a million floats in eight-lane racks, with
+vector lowering checked by the compiler. The comparison starts with an
+ordinary C loop:
+
+```c
+#include <math.h>
+#include <stddef.h>
+
+void safe_root_c(const float *values, float *roots, size_t count)
+{
+    for (size_t i = 0; i < count; ++i) {
+        if (values[i] >= 0.0f)
+            roots[i] = sqrtf(values[i]);
+        else
+            roots[i] = 0.0f;
+    }
+}
+```
+
+The equivalent operation on a Rake rack is:
+
+<!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 -->
+```rake
+rake safe_root(values: f32s) -> f32s:
+  tine #valid means values >= <0.0>
+  through #valid else <0.0> into rooted:
+    sqrt(values)
+  sweep:
+    | #valid => rooted
+    | _ => <0.0>
+```
+
+The native AVX2 demonstration puts this operation in a compiler-generated
+loop over a million entries. Both Rake and optimized C took about 0.14 ms on
+our Ryzen 7 5800X3D. C already vectorized the loop. Disabling C's vectorizer
+made its scalar loop about 26 times slower. Those are measured build/input
+comparisons, rather than a promise that Rake always beats C.
+[The benchmark source and commands](https://github.com/rakelang/rake/tree/main/demo/safe-root)
+include the flags and correctness checks, and generate both disassemblies.
+
 Rake's execution model can be pictured in a sentence: “`rake` data `through`
 `tine`s, then `sweep` them into the result.” We'll read those words in the
 order they appear in a program, starting with what vector processing means.
@@ -104,7 +144,8 @@ Rake calls the row of values held together a *rack*.
 
 ### rake
 
-Let's write an operation for a rack of numbers. Positive numbers take their
+Let's extend that first operation with a second case, so we can see how
+tines combine. Positive numbers take their
 square roots. Negative numbers take the square roots of their magnitudes,
 then keep their negative signs: 16 becomes 4, and −4 becomes −2. Here's that
 compound definition, which we'll read from top to bottom:
@@ -264,11 +305,11 @@ pass. Rake's fused bindings let it combine stages of a vector calculation.
 In `| name <| expression`, the expression flows from right to left into its
 name. This is still a binding. The leading `|` marks it as part of a fused
 calculation, whose stages the compiler must keep together as a contiguous
-sequence of vector instructions. Here a `crunch`, a function of racks that
+sequence of vector instructions. Here a `scratch`, a function of racks that
 doesn't need tines, calculates a new position in two stages:
 
 ```rake
-crunch advance(positions: f32s, velocities: f32s, <dt: f32>) -> f32s:
+scratch advance(positions: f32s, velocities: f32s, <dt: f32>) -> f32s:
   | step  <| velocities * <dt>
   | moved <| positions + step
   moved
@@ -286,16 +327,14 @@ target keeps the multiply and add separate.
 [LLVM's loop-fusion documentation](https://llvm.org/docs/LoopFusion.html)
 describes another use of the same compiler term.
 
-### From a rack to a pack
+### Packs, racks and stacks
 
-A crunch or rake operates on one rack. Real data can be much longer: imagine
-600 particles, each with a position, velocity and age. A *pack* stores them
-in columns, so all 600 positions sit together in memory, followed by the
-velocities and ages. A `stack` declares the type of one stored element in
-each column:
+A scratch or rake operates on one rack. To describe the data it will work
+on, we define a `pack`: one record, with its fields stored together. Here
+one particle has a position, velocity and age:
 
 ```rake
-stack Particles {
+pack Particles {
   f32: position, velocity;
   u8: age;
 }
@@ -306,24 +345,63 @@ Their rack counterparts, `f32s` and `u8s`, describe values during vector
 computation. Putting `f32s` in this declaration would confuse a stored
 element with a processor-sized row of elements.
 
-A `run` walks the pack and feeds each rack into a crunch or rake. That's its
+A `stack` is a collection of those packs transposed into columns. For 600
+particles, it holds 600 positions together, 600 velocities together and
+600 ages together. Each unsized column can be split into racks at the
+target's SIMD width. Remember the hierarchy as "define our pack, then rack
+'em and stack 'em".
+
+<figure class="diagram">
+<svg viewBox="0 0 680 250" role="img" aria-labelledby="data-layout-title data-layout-description">
+<title id="data-layout-title">One pack and a stack of columnar records</title>
+<desc id="data-layout-description">A particle pack has a position, velocity and age. A stack of 600 particles has a column of 600 positions, a column of 600 velocities and a column of 600 ages. A rack selects a SIMD-width slice of a column. The first eight positions form one AVX2 float rack.</desc>
+<text class="diagram-label" x="18" y="23">pack: one particle</text>
+<rect class="diagram-cell" x="18" y="37" width="202" height="39" rx="4"/>
+<rect class="diagram-cell" x="236" y="37" width="202" height="39" rx="4"/>
+<rect class="diagram-cell" x="454" y="37" width="202" height="39" rx="4"/>
+<text class="diagram-value" x="119" y="57">position: f32</text>
+<text class="diagram-value" x="337" y="57">velocity: f32</text>
+<text class="diagram-value" x="555" y="57">age: u8</text>
+<text class="diagram-label" x="18" y="111">stack: 600 particles, one column per field</text>
+<text class="diagram-label" x="18" y="151">positions</text>
+<rect class="diagram-cell diagram-cell-active" x="135" y="130" width="138" height="33" rx="4"/>
+<rect class="diagram-cell" x="281" y="130" width="375" height="33" rx="4"/>
+<text class="diagram-value" x="204" y="147">p₀ … p₇</text>
+<text class="diagram-value" x="468" y="147">p₈ … p₅₉₉</text>
+<text class="diagram-label" x="18" y="195">velocities</text>
+<rect class="diagram-cell" x="135" y="174" width="521" height="33" rx="4"/>
+<text class="diagram-value" x="395" y="191">v₀ … v₅₉₉</text>
+<text class="diagram-label" x="18" y="239">ages</text>
+<rect class="diagram-cell" x="135" y="218" width="521" height="27" rx="4"/>
+<text class="diagram-value" x="395" y="232">a₀ … a₅₉₉</text>
+</svg>
+<figcaption>The highlighted slice is one eight-lane AVX2 rack. The diagram shows the layout, not an automatic conversion from an array of records.</figcaption>
+</figure>
+
+A `run` walks the stack and feeds each rack into a scratch or rake. That's its
 job beyond those two constructs: it handles the memory traversal, including
 the final partial rack. This run feeds our 600 positions into `signed_root`:
 
-<!-- rake-check: verify wasm-simd128 with 1 -->
+<!-- rake-check: verify x86-avx2 wasm-simd128 with 2 -->
 ```rake
-stack Positions {
+pack Positions {
   f32: value;
 }
 
-run roots(positions: pack Positions, <count: i64>) -> f32:
+run roots(positions: stack Positions, <count: i64>) -> f32:
   for row in positions using f32s up to <count>:
     yield signed_root(row.value)
 ```
 
-`using f32s` selects the rack's element type. `<count>` is 600 for this pack.
+`using f32s` selects the rack's element type. `<count>` is 600 for this stack.
 It needn't be a power of two or a multiple of the rack width. The traversal
 loads and stores only existing records in its final rack.
+
+For the comparison at the top, `safe_root` replaces `signed_root` in this
+same traversal, and the count is 1,000,000. AVX2 splits that column into
+125,000 eight-lane racks. The benchmark also checks 1,000,003 entries, whose
+last rack has three active lanes. The stored column contains a million
+individual `f32` values, rather than a million-lane `f32s` value.
 
 <figure class="diagram">
 <svg viewBox="0 0 680 258" role="img" aria-labelledby="pack-width-title pack-width-description">
@@ -343,7 +421,7 @@ loads and stores only existing records in its final rack.
 <text class="diagram-value" x="396" y="203">150 full racks</text>
 <text class="diagram-label" x="18" y="247">Wider racks process more lanes per instruction.</text>
 </svg>
-<figcaption>The rack counts follow from register width. Native pack traversal is still WIP*. The current WebAssembly run uses the 128-bit row.</figcaption>
+<figcaption>The rack counts follow from register width. The current native AVX2 stream uses the 256-bit row, and WebAssembly uses the 128-bit row. Native stack traversal on the other profiles remains WIP*.</figcaption>
 </figure>
 
 512-bit SIMD handles twice as many `f32` lanes per instruction as AVX2, and
@@ -356,12 +434,12 @@ record in memory. `widen` brings the current rack's ages into 32-bit lanes
 before the calculation:
 
 ```rake
-stack Particles {
+pack Particles {
   f32: position, velocity;
   u8: age;
 }
 
-run advance(particles: pack Particles, <count: i64>, <dt: f32>) -> f32:
+run advance(particles: stack Particles, <count: i64>, <dt: f32>) -> f32:
   for particle in particles using f32s up to <count>:
     let age = to_f32(bitcast(i32s, widen(particle.age)))
     yield particle.position + particle.velocity * <dt> / (age + <1.0>)
@@ -414,9 +492,10 @@ Most of Rake reads like any expression language. These marks are its own:
 | `:=` and `<-` | `total := <0.0>`, `total <- total + x` | a mutable location, and assigning to it |
 | `~~` | `~~ a comment` | a comment to the end of the line |
 
-The double squiggle, `~~`, is Rake's line-comment marker. Its design draws
-on OCaml's visual punctuation and on furrows in raked sand, part of the
-language's desert theme. OCaml itself uses `(* ... *)` for comments.
+The double squiggle, `~~`, is Rake's own line-comment marker. It evokes
+furrows in raked sand, part of the language's desert theme. Lua's equivalent
+is `--`. Rake borrows `let` bindings, expression-based conditionals and nested
+`(* ... *)` block comments from OCaml.
 
 We're still condensing this visual language into something “uniquely
 comprehensible”. Function spellings such as `bit_and()` are temporary: they
@@ -438,10 +517,10 @@ readers who come from C or Python.
 
 | Profile | Rack | Compiles |
 | --- | --- | --- |
-| `x86-sse2` | one 128-bit register, 4 `f32` lanes | crunches and rakes over `f32s`, as assembly |
-| `x86-avx2` | one 256-bit register, 8 `f32` lanes | crunches and rakes over `f32s`, as assembly |
-| `x86-avx512` | one 512-bit register, 16 `f32` lanes | crunches and rakes over `f32s`, as assembly |
-| `aarch64-neon` | one 128-bit register, 4 `f32` lanes | crunches and rakes over `f32s`, as assembly |
+| `x86-sse2` | one 128-bit register, 4 `f32` lanes | scratches and rakes over `f32s`, as assembly |
+| `x86-avx2` | one 256-bit register, 8 `f32` lanes | scratches and rakes over `f32s`, as assembly |
+| `x86-avx512` | one 512-bit register, 16 `f32` lanes | scratches and rakes over `f32s`, as assembly |
+| `aarch64-neon` | one 128-bit register, 4 `f32` lanes | scratches and rakes over `f32s`, as assembly |
 | `wasm-simd128` | one `v128`, 4 `f32` lanes | float and integer racks, runs and whole programs, as C |
 
 [Primitives, operations, and targets](/docs/primitives-operations-and-targets/) lists what each profile
@@ -450,7 +529,8 @@ compiles, and [the roadmap](/docs/roadmap/) what comes next.
 The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
-and packs remain WIP*. [The backend](/docs/backend/#whole-programs) explains
+include the AVX2 read-only `f32` stream subset. General native runs and other
+profiles' traversal remain WIP*. [The backend](/docs/backend/#whole-programs) explains
 which parts Rake emits and which parts use a platform C compiler.
 
 ## GPU execution: the design

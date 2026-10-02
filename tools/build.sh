@@ -8,6 +8,7 @@
 set -euo pipefail
 
 site_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export RAKE_SITE_DIR="${site_root}"
 if test "${RAKE_SITE_SHELL:-}" != 1; then
   exec nix develop "${site_root}" --command env RAKE_SITE_SHELL=1 bash "$0" "$@"
 fi

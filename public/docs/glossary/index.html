@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Glossary | Rake</title>
-  <meta name="description" content="The terms the Rake documentation uses, from racks, lanes, tines and sweeps to SIMD, SSA, register allocation, calling conventions and GPU subgroups.">
+  <meta name="description" content="Rake's language and compiler terms explained: racks, packs, stacks, uniforms, tines, sweeps, bindings, SSA, register allocation and calling conventions.">
   <link rel="canonical" href="https://rake-lang.org/docs/glossary/">
   <meta property="og:title" content="Glossary | Rake">
-  <meta property="og:description" content="The terms the Rake documentation uses, from racks, lanes, tines and sweeps to SIMD, SSA, register allocation, calling conventions and GPU subgroups.">
+  <meta property="og:description" content="Rake's language and compiler terms explained: racks, packs, stacks, uniforms, tines, sweeps, bindings, SSA, register allocation and calling conventions.">
   <meta property="og:url" content="https://rake-lang.org/docs/glossary/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
@@ -19,8 +19,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Glossary | Rake","name":"Glossary | Rake","description":"The terms the Rake documentation uses, from racks, lanes, tines and sweeps to SIMD, SSA, register allocation, calling conventions and GPU subgroups.","url":"https://rake-lang.org/docs/glossary/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <link rel="stylesheet" href="/styles/components.css?v=615e6951">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Glossary | Rake","name":"Glossary | Rake","description":"Rake's language and compiler terms explained: racks, packs, stacks, uniforms, tines, sweeps, bindings, SSA, register allocation and calling conventions.","url":"https://rake-lang.org/docs/glossary/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
 <body class="layout-docs">
@@ -29,6 +29,7 @@
     <nav class="site-nav" aria-label="Site">
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
+      <a href="/docs/vectors/">Vectors cheat sheet</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
       <a href="/docs/roadmap/">Roadmap</a>
     </nav>
@@ -47,13 +48,14 @@
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
 <li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
-<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></li>
 <li><a href="/docs/memory-operations/">Memory operations</a></li>
 <li><a href="/docs/slow-tier/">The slow tier</a></li>
 </ul>
 <p class="docs-nav-group">Learning</p>
 <ul>
 <li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/vectors/">Vectors cheat sheet</a></li>
 <li><a href="/docs/glossary/" aria-current="page">Glossary</a></li>
 </ul>
 <p class="docs-nav-group">Compiler</p>
@@ -73,8 +75,8 @@
 </nav>
     <main class="content">
 <h1 id="glossary">Glossary</h1>
-<p>Terms from SIMD programming, from compilers and from Rake itself, as the
-documentation uses them.</p>
+<p>Rake's language and compiler terminology. The <a href="/docs/vectors/">vectors cheat sheet</a>
+explains CPU SIMD and GPU terms, with examples of lane and memory operations.</p>
 <h2 id="rakes-terms">Rake's terms</h2>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
 <tr><td>rack</td><td>one parallel value of the target profile, such as an <code>f32s</code>: one physical CPU vector register or WebAssembly <code>v128</code>. The GPU design maps it across a specified warp or subgroup</td></tr>
@@ -83,39 +85,18 @@ documentation uses them.</p>
 <tr><td>tine</td><td>a named mask of lanes, written <code>#name</code></td></tr>
 <tr><td>through block</td><td>code that computes under a tine, with a value for the other lanes</td></tr>
 <tr><td>sweep</td><td>the choice of each lane's result from tines in priority order, ending in <code>_</code></td></tr>
-<tr><td>crunch</td><td>a function of racks without masks</td></tr>
+<tr><td>scratch</td><td>a function of racks without a tine/through/sweep body</td></tr>
 <tr><td>rake</td><td>a function of racks with tines, through blocks and a sweep</td></tr>
-<tr><td>run</td><td>vector code over memory: views, packs and traversals</td></tr>
+<tr><td>run</td><td>vector code over memory: traverse stacks and apply rakes or scratches to racks from their columns</td></tr>
 <tr><td>slow code</td><td>scalar code, marked <code>slow</code>, that holds no racks</td></tr>
 <tr><td>slow block</td><td><code>slow { ... }</code>, a lexical scalar escape inside a run or slow function, optionally producing a scalar value</td></tr>
 <tr><td>fused binding</td><td><code>| name &lt;| e</code>, one stage of a pure fused computation</td></tr>
-<tr><td>stack</td><td>the declared columns of structure-of-arrays storage</td></tr>
-<tr><td>pack</td><td>the columns of a stack, supplied by the caller</td></tr>
-<tr><td>traversal</td><td><code>for chunk in pack using f32s up to &lt;n&gt;:</code>, a rack of records at a time</td></tr>
+<tr><td>pack</td><td>one record described by a <code>pack</code> declaration, with its fields stored together</td></tr>
+<tr><td>stack</td><td>a collection of packs transposed into one contiguous column for each field</td></tr>
+<tr><td>traversal</td><td><code>for chunk in input using f32s up to &lt;n&gt;:</code>, a rack-sized slice of a stack's columns at a time</td></tr>
 <tr><td>view</td><td><code>[]T</code>, elements with a count, borrowed from the caller</td></tr>
 <tr><td>profile</td><td>a named target, such as <code>x86-avx2</code>, that fixes the rack width and the rules</td></tr>
 <tr><td>widening</td><td>converting narrow stored elements, such as <code>u8</code>, to wider lanes without changing their values</td></tr>
-</tbody></table>
-</div><h2 id="simd-terms">SIMD terms</h2>
-<div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>SIMD</td><td>single instruction, multiple data: one instruction applies an operation to several values held in a vector register</td></tr>
-<tr><td>vector register</td><td>a register that holds several numbers for one instruction to process together</td></tr>
-<tr><td>SSE, AVX</td><td>families of x86 vector instructions, with 128-bit SSE2 registers, 256-bit AVX2 registers and 512-bit AVX-512 registers</td></tr>
-<tr><td>NEON</td><td>Arm's 128-bit vector instructions, called Advanced SIMD on 64-bit Arm</td></tr>
-<tr><td>WebAssembly SIMD128</td><td>WebAssembly's 128-bit vector type, <code>v128</code>, and its instructions</td></tr>
-<tr><td>YMM register</td><td>a 256-bit x86 register used by AVX and AVX2, which holds eight 32-bit floats</td></tr>
-<tr><td>mask, predication</td><td>a true or false choice for each lane, and execution that uses one to decide which lanes contribute</td></tr>
-<tr><td>broadcast</td><td>copying one scalar into every lane, such as turning 0.5 into eight copies for AVX2</td></tr>
-<tr><td>partial operation</td><td>an operation valid only for some inputs, such as the square root of a negative number</td></tr>
-<tr><td>reduction, scan</td><td>a reduction combines all the lanes into one value, and a scan gives every running partial result, such as all prefix sums</td></tr>
-<tr><td>gather, scatter</td><td>loading from or storing to addresses that aren't contiguous, one per lane</td></tr>
-<tr><td>structure of arrays</td><td>a layout that stores each field in its own contiguous column, where an array of structures stores each record's fields together</td></tr>
-<tr><td>intrinsic</td><td>a function a compiler provides to request a particular machine instruction without writing assembly</td></tr>
-<tr><td>autovectorisation</td><td>a compiler finding vector operations in an ordinary scalar loop</td></tr>
-<tr><td>spill</td><td>moving a value from a register to memory because there are too few registers to keep it</td></tr>
-<tr><td>scalarise</td><td>replacing one vector operation with separate operations on each value</td></tr>
-<tr><td>FMA</td><td>fused multiply-add: a multiplication and an addition with one rounding step</td></tr>
-<tr><td>f32</td><td>a 32-bit IEEE 754 floating-point number, a <code>float</code> in C</td></tr>
 </tbody></table>
 </div><h2 id="compiler-terms">Compiler terms</h2>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
@@ -128,29 +109,12 @@ documentation uses them.</p>
 <tr><td>register allocation</td><td>assigning each value to a physical register. Rake does this on its physical CPU targets. WebAssembly runtimes and the proposed NVIDIA toolchain own it on their virtual targets</td></tr>
 <tr><td>object code</td><td>encoded machine instructions and data, ready for a linker</td></tr>
 <tr><td>assembler</td><td>the tool that encodes textual assembly as object code</td></tr>
+<tr><td>LLVM</td><td>a compiler infrastructure with optimisation, instruction selection and register allocation for multiple targets</td></tr>
 <tr><td>ABI</td><td>application binary interface: the rules for passing arguments, returning values and laying out data</td></tr>
 <tr><td>System V ABI</td><td>the calling convention most Unix-like x86-64 systems use</td></tr>
 <tr><td>AAPCS64</td><td>the procedure call standard for 64-bit Arm</td></tr>
 <tr><td>conformance corpus</td><td>the accepted and rejected example programs that check the compiler against the language's rules</td></tr>
 <tr><td>OCaml, Dune, Nix</td><td>the language the compiler is written in, its build system, and the package manager that pins the tools in <code>nix develop</code></td></tr>
-</tbody></table>
-</div><h2 id="gpu-terms">GPU terms</h2>
-<p>These appear in <a href="/docs/gpu/">the GPU design</a>.</p>
-<div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>GPU compute</td><td>using a graphics processor for general parallel calculation</td></tr>
-<tr><td>PTX</td><td>NVIDIA's virtual instruction language, translated into a GPU-specific executable by its toolchain</td></tr>
-<tr><td>cubin, SASS</td><td>a compiled NVIDIA device artifact, and its physical instruction assembly</td></tr>
-<tr><td>SPIR-V</td><td>a standard binary format for GPU programs, which a driver translates into the device's instructions</td></tr>
-<tr><td>Vulkan</td><td>a cross-platform interface for submitting graphics and compute work to GPUs</td></tr>
-<tr><td>driver</td><td>the vendor's software that loads GPU programs and manages submission. It may translate portable programs into device instructions. Hardware schedules warps</td></tr>
-<tr><td>shader invocation</td><td>one execution of a GPU program, over one element of the data</td></tr>
-<tr><td>subgroup</td><td>a set of invocations that execute together and exchange values directly, called a warp or wave by vendors</td></tr>
-<tr><td>warp</td><td>NVIDIA's group of 32 thread lanes, scheduled by the hardware</td></tr>
-<tr><td>occupancy</td><td>the resident warps relative to the device's capacity. Resource limits affect it, while achieved utilisation also depends on work and inputs</td></tr>
-<tr><td>workgroup</td><td>a programmer-declared batch of invocations that may share local memory, containing one or more subgroups</td></tr>
-<tr><td>SPMD, SIMT</td><td>single program, multiple data: many instances of one program. GPUs call their hardware model single instruction, multiple threads</td></tr>
-<tr><td>ISPC</td><td>Intel's compiler for a C-like language that runs one program across a group of CPU SIMD lanes</td></tr>
-<tr><td>LLVM</td><td>a compiler infrastructure that provides optimisation, instruction selection and register allocation for many targets</td></tr>
 </tbody></table>
 </div>
     </main>
@@ -158,9 +122,7 @@ documentation uses them.</p>
 <p class="page-contents-title">On this page</p>
 <ul>
 <li><a href="#rakes-terms">Rake's terms</a></li>
-<li><a href="#simd-terms">SIMD terms</a></li>
 <li><a href="#compiler-terms">Compiler terms</a></li>
-<li><a href="#gpu-terms">GPU terms</a></li>
 </ul>
 </nav>
   </div>

@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Rake and other languages | Rake","name":"Rake and other languages | Rake","description":"Rake, ISPC and Bend 2 compared: SIMD lanes, GPU warps and parallel tasks, their lowering contracts, and the performance that needs measurement.","url":"https://rake-lang.org/docs/comparisons/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -29,6 +29,7 @@
     <nav class="site-nav" aria-label="Site">
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
+      <a href="/docs/vectors/">Vectors cheat sheet</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
       <a href="/docs/roadmap/">Roadmap</a>
     </nav>
@@ -47,13 +48,14 @@
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
 <li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
-<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></li>
 <li><a href="/docs/memory-operations/">Memory operations</a></li>
 <li><a href="/docs/slow-tier/">The slow tier</a></li>
 </ul>
 <p class="docs-nav-group">Learning</p>
 <ul>
 <li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/vectors/">Vectors cheat sheet</a></li>
 <li><a href="/docs/glossary/">Glossary</a></li>
 </ul>
 <p class="docs-nav-group">Compiler</p>
@@ -91,7 +93,7 @@ particles, written in Rake, strict C and Rust. Its sharpest case is a sine of
 every lane. None of the builds has a vector sine. The C and Rust builds
 compile anyway and call the scalar <code>sinf</code> once per value, under the
 harness's strict flags. The Rake build stops at native lowering with
-<code>call to 'sin' is not supported by native crunch lowering</code>. Other toolchains
+<code>call to 'sin' is not supported by native scratch lowering</code>. Other toolchains
 or flags may make other choices, and the harness records the ones it used.</p>
 <h2 id="rake-and-ispc">Rake and ISPC</h2>
 <p>ISPC is a C-like language for writing one program across a group of CPU
@@ -123,11 +125,11 @@ and Rake has CPU profiles and <a href="/docs/gpu/">a GPU design</a>.</li>
 }
 </code></pre>
 <p>and in Rake:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Particles</span> <span class="tok-punctuation-bracket">{</span>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Particles</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">position_x</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">velocity_x</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>
 
-<span class="tok-keyword">run</span> <span class="tok-function">advance_x</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">particles</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">pack</span> <span class="tok-type">Particles</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+<span class="tok-keyword">run</span> <span class="tok-function">advance_x</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">particles</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Particles</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">for</span> <span class="tok-variable">particle</span> <span class="tok-keyword">in</span> <span class="tok-variable">particles</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-keyword">yield</span> <span class="tok-variable">particle</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">position_x</span> <span class="tok-operator">+</span> <span class="tok-variable">particle</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">velocity_x</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">dt</span><span class="tok-operator">&gt;</span></span>
 </code></pre>
@@ -139,7 +141,7 @@ Its vector code favours pure expressions and bindings that are defined once.</p>
 <div class="table-scroll"><table><thead><tr><th></th><th>ISPC</th><th>Rake</th></tr></thead><tbody>
 <tr><td>Model</td><td>imperative C-family SPMD, with loops, assignments, pointers, functions and ordinary control flow</td><td>expression-oriented vector data flow, with marked uniforms, fused bindings, tines, through blocks and sweeps</td></tr>
 <tr><td>Parallel unit</td><td>a gang of program instances, which may be wider than one CPU vector</td><td>a rack: one physical CPU vector register or one WebAssembly <code>v128</code>. A proposed GPU rack spans a specified warp or subgroup</td></tr>
-<tr><td>Columns</td><td><code>soa&lt;n&gt;</code> makes an <code>n</code>-wide structure of arrays and supports layout conversion</td><td><code>stack</code> declares columns, <code>pack</code> supplies them with a count, and the profile chooses the width</td></tr>
+<tr><td>Columns</td><td><code>soa&lt;n&gt;</code> makes an <code>n</code>-wide structure of arrays and supports layout conversion</td><td><code>pack</code> describes a record, <code>stack</code> borrows its columns, and the profile chooses the rack width</td></tr>
 <tr><td>Divergence</td><td><code>if</code>, loops and calls become uniform or varying from their operands</td><td>tines name masks, through blocks compute under them, and a sweep picks each lane's result</td></tr>
 <tr><td>Machine rules</td><td>gang semantics are preserved, and LLVM selects instructions and allocates registers</td><td>the compiler also rejects split racks, scalar lane loops, spills and helper calls wherever the profile forbids them</td></tr>
 <tr><td>Back end</td><td>LLVM for CPUs, and documented Intel Xe GPU targets</td><td>Rake's own instruction selection and allocation for SSE2, AVX2, AVX-512F and NEON, and C intrinsics for WebAssembly</td></tr>

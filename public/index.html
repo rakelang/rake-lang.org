@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a language for SIMD kernels. Each rack is one vector value, and profiles require vector instructions or reject unsupported operations.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","version":"0.6.0-beta","license":"https://opensource.org/licenses/MIT","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -29,6 +29,7 @@
     <nav class="site-nav" aria-label="Site">
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
+      <a href="/docs/vectors/">Vectors cheat sheet</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
       <a href="/docs/roadmap/">Roadmap</a>
     </nav>
@@ -51,6 +52,38 @@
 </div>
 </div>
 <h2 id="a-first-look">A first look</h2>
+<p>This demonstration processes a million floats in eight-lane racks, with
+vector lowering checked by the compiler. The comparison starts with an
+ordinary C loop:</p>
+<pre class="code code-c"><code><span class="tok-keyword">#include</span> <span class="tok-string">&lt;math.h&gt;</span>
+<span class="tok-keyword">#include</span> <span class="tok-string">&lt;stddef.h&gt;</span>
+
+<span class="tok-type">void</span> <span class="tok-function">safe_root_c</span>(<span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">values</span>, <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">roots</span>, <span class="tok-type">size_t</span> <span class="tok-variable">count</span>)
+{
+    <span class="tok-keyword">for</span> (<span class="tok-type">size_t</span> <span class="tok-variable">i</span> <span class="tok-operator">=</span> <span class="tok-number">0</span><span class="tok-delimiter">;</span> <span class="tok-variable">i</span> <span class="tok-operator">&lt;</span> <span class="tok-variable">count</span><span class="tok-delimiter">;</span> <span class="tok-operator">++</span><span class="tok-variable">i</span>) {
+        <span class="tok-keyword">if</span> (<span class="tok-variable">values</span>[<span class="tok-variable">i</span>] &gt;= <span class="tok-number">0.0f</span>)
+            <span class="tok-variable">roots</span>[<span class="tok-variable">i</span>] <span class="tok-operator">=</span> <span class="tok-function">sqrtf</span>(<span class="tok-variable">values</span>[<span class="tok-variable">i</span>])<span class="tok-delimiter">;</span>
+        <span class="tok-keyword">else</span>
+            <span class="tok-variable">roots</span>[<span class="tok-variable">i</span>] <span class="tok-operator">=</span> <span class="tok-number">0.0f</span><span class="tok-delimiter">;</span>
+    }
+}
+</code></pre>
+<p>The equivalent operation on a Rake rack is:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+</code></pre>
+<p>The native AVX2 demonstration puts this operation in a compiler-generated
+loop over a million entries. Both Rake and optimized C took about 0.14 ms on
+our Ryzen 7 5800X3D. C already vectorized the loop. Disabling C's vectorizer
+made its scalar loop about 26 times slower. Those are measured build/input
+comparisons, rather than a promise that Rake always beats C.
+<a href="https://github.com/rakelang/rake/tree/main/demo/safe-root">The benchmark source and commands</a>
+include the flags and correctness checks, and generate both disassemblies.</p>
 <p>Rake's execution model can be pictured in a sentence: “<code>rake</code> data <code>through</code>
 <code>tine</code>s, then <code>sweep</code> them into the result.” We'll read those words in the
 order they appear in a program, starting with what vector processing means.</p>
@@ -132,7 +165,8 @@ how many numbers fit: a 128-bit register holds four 32-bit numbers, while a
 256-bit register holds eight. “32-bit” describes the space one number takes.
 Rake calls the row of values held together a <em>rack</em>.</p>
 <h3 id="rake">rake</h3>
-<p>Let's write an operation for a rack of numbers. Positive numbers take their
+<p>Let's extend that first operation with a second case, so we can see how
+tines combine. Positive numbers take their
 square roots. Negative numbers take the square roots of their magnitudes,
 then keep their negative signs: 16 becomes 4, and −4 becomes −2. Here's that
 compound definition, which we'll read from top to bottom:</p>
@@ -257,9 +291,9 @@ pass. Rake's fused bindings let it combine stages of a vector calculation.</p>
 <p>In <code>| name &lt;| expression</code>, the expression flows from right to left into its
 name. This is still a binding. The leading <code>|</code> marks it as part of a fused
 calculation, whose stages the compiler must keep together as a contiguous
-sequence of vector instructions. Here a <code>crunch</code>, a function of racks that
+sequence of vector instructions. Here a <code>scratch</code>, a function of racks that
 doesn't need tines, calculates a new position in two stages:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">step</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">dt</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">step</span>
   <span class="tok-variable">moved</span>
@@ -274,13 +308,11 @@ target keeps the multiply and add separate.</p>
 <p><a href="/docs/fused-bindings/">Fused bindings</a> defines which rewrites Rake permits.
 <a href="https://llvm.org/docs/LoopFusion.html">LLVM's loop-fusion documentation</a>
 describes another use of the same compiler term.</p>
-<h3 id="from-a-rack-to-a-pack">From a rack to a pack</h3>
-<p>A crunch or rake operates on one rack. Real data can be much longer: imagine
-600 particles, each with a position, velocity and age. A <em>pack</em> stores them
-in columns, so all 600 positions sit together in memory, followed by the
-velocities and ages. A <code>stack</code> declares the type of one stored element in
-each column:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Particles</span> <span class="tok-punctuation-bracket">{</span>
+<h3 id="packs-racks-and-stacks">Packs, racks and stacks</h3>
+<p>A scratch or rake operates on one rack. To describe the data it will work
+on, we define a <code>pack</code>: one record, with its fields stored together. Here
+one particle has a position, velocity and age:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Particles</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">position</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">velocity</span><span class="tok-punctuation-delimiter">;</span>
   <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">age</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>
@@ -289,20 +321,56 @@ each column:</p>
 Their rack counterparts, <code>f32s</code> and <code>u8s</code>, describe values during vector
 computation. Putting <code>f32s</code> in this declaration would confuse a stored
 element with a processor-sized row of elements.</p>
-<p>A <code>run</code> walks the pack and feeds each rack into a crunch or rake. That's its
+<p>A <code>stack</code> is a collection of those packs transposed into columns. For 600
+particles, it holds 600 positions together, 600 velocities together and
+600 ages together. Each unsized column can be split into racks at the
+target's SIMD width. Remember the hierarchy as "define our pack, then rack
+'em and stack 'em".</p>
+<figure class="diagram">
+<svg viewBox="0 0 680 250" role="img" aria-labelledby="data-layout-title data-layout-description">
+<title id="data-layout-title">One pack and a stack of columnar records</title>
+<desc id="data-layout-description">A particle pack has a position, velocity and age. A stack of 600 particles has a column of 600 positions, a column of 600 velocities and a column of 600 ages. A rack selects a SIMD-width slice of a column. The first eight positions form one AVX2 float rack.</desc>
+<text class="diagram-label" x="18" y="23">pack: one particle</text>
+<rect class="diagram-cell" x="18" y="37" width="202" height="39" rx="4"/>
+<rect class="diagram-cell" x="236" y="37" width="202" height="39" rx="4"/>
+<rect class="diagram-cell" x="454" y="37" width="202" height="39" rx="4"/>
+<text class="diagram-value" x="119" y="57">position: f32</text>
+<text class="diagram-value" x="337" y="57">velocity: f32</text>
+<text class="diagram-value" x="555" y="57">age: u8</text>
+<text class="diagram-label" x="18" y="111">stack: 600 particles, one column per field</text>
+<text class="diagram-label" x="18" y="151">positions</text>
+<rect class="diagram-cell diagram-cell-active" x="135" y="130" width="138" height="33" rx="4"/>
+<rect class="diagram-cell" x="281" y="130" width="375" height="33" rx="4"/>
+<text class="diagram-value" x="204" y="147">p₀ … p₇</text>
+<text class="diagram-value" x="468" y="147">p₈ … p₅₉₉</text>
+<text class="diagram-label" x="18" y="195">velocities</text>
+<rect class="diagram-cell" x="135" y="174" width="521" height="33" rx="4"/>
+<text class="diagram-value" x="395" y="191">v₀ … v₅₉₉</text>
+<text class="diagram-label" x="18" y="239">ages</text>
+<rect class="diagram-cell" x="135" y="218" width="521" height="27" rx="4"/>
+<text class="diagram-value" x="395" y="232">a₀ … a₅₉₉</text>
+</svg>
+<figcaption>The highlighted slice is one eight-lane AVX2 rack. The diagram shows the layout, not an automatic conversion from an array of records.</figcaption>
+</figure>
+<p>A <code>run</code> walks the stack and feeds each rack into a scratch or rake. That's its
 job beyond those two constructs: it handles the memory traversal, including
 the final partial rack. This run feeds our 600 positions into <code>signed_root</code>:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Positions</span> <span class="tok-punctuation-bracket">{</span>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Positions</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>
 
-<span class="tok-keyword">run</span> <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">pack</span> <span class="tok-type">Positions</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+<span class="tok-keyword">run</span> <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Positions</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">for</span> <span class="tok-variable">row</span> <span class="tok-keyword">in</span> <span class="tok-variable">positions</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-keyword">yield</span> <span class="tok-function">signed_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p><code>using f32s</code> selects the rack's element type. <code>&lt;count&gt;</code> is 600 for this pack.
+<p><code>using f32s</code> selects the rack's element type. <code>&lt;count&gt;</code> is 600 for this stack.
 It needn't be a power of two or a multiple of the rack width. The traversal
 loads and stores only existing records in its final rack.</p>
+<p>For the comparison at the top, <code>safe_root</code> replaces <code>signed_root</code> in this
+same traversal, and the count is 1,000,000. AVX2 splits that column into
+125,000 eight-lane racks. The benchmark also checks 1,000,003 entries, whose
+last rack has three active lanes. The stored column contains a million
+individual <code>f32</code> values, rather than a million-lane <code>f32s</code> value.</p>
 <figure class="diagram">
 <svg viewBox="0 0 680 258" role="img" aria-labelledby="pack-width-title pack-width-description">
 <title id="pack-width-title">600 float records divided into SIMD racks</title>
@@ -321,7 +389,7 @@ loads and stores only existing records in its final rack.</p>
 <text class="diagram-value" x="396" y="203">150 full racks</text>
 <text class="diagram-label" x="18" y="247">Wider racks process more lanes per instruction.</text>
 </svg>
-<figcaption>The rack counts follow from register width. Native pack traversal is still WIP*. The current WebAssembly run uses the 128-bit row.</figcaption>
+<figcaption>The rack counts follow from register width. The current native AVX2 stream uses the 256-bit row, and WebAssembly uses the 128-bit row. Native stack traversal on the other profiles remains WIP*.</figcaption>
 </figure>
 <p>512-bit SIMD handles twice as many <code>f32</code> lanes per instruction as AVX2, and
 four times as many as 128-bit SIMD. That describes the width of the work,
@@ -330,12 +398,12 @@ frequency also affect elapsed time. <em>WIP: work in progress.</em></p>
 <p>Our particle columns can use the same traversal. The age stays one byte per
 record in memory. <code>widen</code> brings the current rack's ages into 32-bit lanes
 before the calculation:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Particles</span> <span class="tok-punctuation-bracket">{</span>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Particles</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">position</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">velocity</span><span class="tok-punctuation-delimiter">;</span>
   <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">age</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>
 
-<span class="tok-keyword">run</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">particles</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">pack</span> <span class="tok-type">Particles</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+<span class="tok-keyword">run</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">particles</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Particles</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">for</span> <span class="tok-variable">particle</span> <span class="tok-keyword">in</span> <span class="tok-variable">particles</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-keyword">let</span> <span class="tok-variable">age</span> <span class="tok-operator">=</span> <span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">particle</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">age</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
     <span class="tok-keyword">yield</span> <span class="tok-variable">particle</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">position</span> <span class="tok-operator">+</span> <span class="tok-variable">particle</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">velocity</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">dt</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">/</span> <span class="tok-punctuation-bracket">(</span><span class="tok-variable">age</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
@@ -377,9 +445,10 @@ once per lane.</p>
 <tr><td><code>~~</code></td><td><code>~~ a comment</code></td><td>a comment to the end of the line</td></tr>
 </tbody></table>
 </div>
-<p>The double squiggle, <code>~~</code>, is Rake's line-comment marker. Its design draws
-on OCaml's visual punctuation and on furrows in raked sand, part of the
-language's desert theme. OCaml itself uses <code>(* ... *)</code> for comments.</p>
+<p>The double squiggle, <code>~~</code>, is Rake's own line-comment marker. It evokes
+furrows in raked sand, part of the language's desert theme. Lua's equivalent
+is <code>--</code>. Rake borrows <code>let</code> bindings, expression-based conditionals and nested
+<code>(* ... *)</code> block comments from OCaml.</p>
 <p>We're still condensing this visual language into something “uniquely
 comprehensible”. Function spellings such as <code>bit_and()</code> are temporary: they
 keep bitwise operations separate from other operators while the symbology
@@ -395,10 +464,10 @@ body. <a href="/docs/playground/#reading-rake">The tutorial</a> explains each ma
 readers who come from C or Python.</p>
 <h2 id="targets">Targets</h2>
 <div class="table-scroll"><table><thead><tr><th>Profile</th><th>Rack</th><th>Compiles</th></tr></thead><tbody>
-<tr><td><code>x86-sse2</code></td><td>one 128-bit register, 4 <code>f32</code> lanes</td><td>crunches and rakes over <code>f32s</code>, as assembly</td></tr>
-<tr><td><code>x86-avx2</code></td><td>one 256-bit register, 8 <code>f32</code> lanes</td><td>crunches and rakes over <code>f32s</code>, as assembly</td></tr>
-<tr><td><code>x86-avx512</code></td><td>one 512-bit register, 16 <code>f32</code> lanes</td><td>crunches and rakes over <code>f32s</code>, as assembly</td></tr>
-<tr><td><code>aarch64-neon</code></td><td>one 128-bit register, 4 <code>f32</code> lanes</td><td>crunches and rakes over <code>f32s</code>, as assembly</td></tr>
+<tr><td><code>x86-sse2</code></td><td>one 128-bit register, 4 <code>f32</code> lanes</td><td>scratches and rakes over <code>f32s</code>, as assembly</td></tr>
+<tr><td><code>x86-avx2</code></td><td>one 256-bit register, 8 <code>f32</code> lanes</td><td>scratches and rakes over <code>f32s</code>, as assembly</td></tr>
+<tr><td><code>x86-avx512</code></td><td>one 512-bit register, 16 <code>f32</code> lanes</td><td>scratches and rakes over <code>f32s</code>, as assembly</td></tr>
+<tr><td><code>aarch64-neon</code></td><td>one 128-bit register, 4 <code>f32</code> lanes</td><td>scratches and rakes over <code>f32s</code>, as assembly</td></tr>
 <tr><td><code>wasm-simd128</code></td><td>one <code>v128</code>, 4 <code>f32</code> lanes</td><td>float and integer racks, runs and whole programs, as C</td></tr>
 </tbody></table>
 </div>
@@ -407,7 +476,8 @@ compiles, and <a href="/docs/roadmap/">the roadmap</a> what comes next.</p>
 <p>The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
-and packs remain WIP*. <a href="/docs/backend/#whole-programs">The backend</a> explains
+include the AVX2 read-only <code>f32</code> stream subset. General native runs and other
+profiles' traversal remain WIP*. <a href="/docs/backend/#whole-programs">The backend</a> explains
 which parts Rake emits and which parts use a platform C compiler.</p>
 <h2 id="gpu-execution-the-design">GPU execution: the design</h2>
 <p>A CPU rack fits in one vector register. On an NVIDIA GPU, the planned rack

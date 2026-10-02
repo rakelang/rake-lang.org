@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Syntax reference | Rake","name":"Syntax reference | Rake","description":"Rake's syntax: layout, identifiers, literals, types, statements and expressions, with the marks for uniforms, tines and fused stages explained.","url":"https://rake-lang.org/docs/syntax/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -29,6 +29,7 @@
     <nav class="site-nav" aria-label="Site">
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
+      <a href="/docs/vectors/">Vectors cheat sheet</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
       <a href="/docs/roadmap/">Roadmap</a>
     </nav>
@@ -47,13 +48,14 @@
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
 <li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
-<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></li>
 <li><a href="/docs/memory-operations/">Memory operations</a></li>
 <li><a href="/docs/slow-tier/">The slow tier</a></li>
 </ul>
 <p class="docs-nav-group">Learning</p>
 <ul>
 <li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/vectors/">Vectors cheat sheet</a></li>
 <li><a href="/docs/glossary/">Glossary</a></li>
 </ul>
 <p class="docs-nav-group">Compiler</p>
@@ -84,7 +86,7 @@ all by the same amount. A body ends when a line returns to an outer
 indentation. Indentation uses spaces, and a tab in indentation is an error.</p>
 <p>Lines inside parentheses, brackets or data braces continue the line they
 started on, so a long parameter list can be spread over several lines. A
-multiline stack or record body is indented. A <code>slow { ... }</code> body restores
+multiline pack or record body is indented. A <code>slow { ... }</code> body restores
 statement layout, even inside a call: its statements are indented, and its
 closing brace returns to the opening line's indentation. Empty braces need
 no body. On one line, a slow block separates statements with semicolons.
@@ -94,13 +96,16 @@ a block comment, and block comments nest.</p>
 <h2 id="identifiers">Identifiers</h2>
 <p>An identifier starts with a lowercase letter or an underscore and continues
 with letters, digits and underscores. A name that starts with an uppercase
-letter is a type name, used for stacks and records, such as <code>Samples</code>. A lone
+letter is a type name, used for packs and records, such as <code>Samples</code>.
+Records and header-backed unions may also retain lowercase C typedef
+identifiers. Primitive type spellings such as <code>i32</code> may appear as member
+identifiers after a field type, in a literal or after <code>.</code>. A lone
 <code>_</code> is the default arm of a sweep, not an identifier. These words are reserved and can't be used as identifiers:</p>
-<pre class="code code-text"><code>and bool bools break by const continue crunch else embed extern f32 f32s f64
+<pre class="code code-text"><code>and bool bools break by const continue scratch else embed extern f32 f32s f64
 f64s false fma for from i16 i16s i32 i32s i64 i64s i8 i8s if in into lanes
 let mask mut not or pack ptr rake record repeat return rotate_left
 rotate_right run shift_left shift_right shuffle slow stack state sweep then
-through tine to true u16 u16s u32 u32s u64 u64s u8 u8s unchecked up using
+through tine to true u16 u16s u32 u32s u64 u64s u8 u8s unchecked union up using
 means while yield
 </code></pre>
 <p><code>wrap</code> and <code>bitcast</code> are conversions when a parenthesis follows them, as in
@@ -131,7 +136,7 @@ lines up consecutive stages.</li>
 </ul>
 <h2 id="definitions">Definitions</h2>
 <p>A file holds one or more definitions:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">scale</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">factor</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">scale</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">factor</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">values</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">factor</span><span class="tok-operator">&gt;</span></span>
 
 <span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
@@ -145,41 +150,44 @@ lines up consecutive stages.</li>
     <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>      <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 </code></pre>
 <div class="table-scroll"><table><thead><tr><th>Definition</th><th>Meaning</th><th>Defined in</th></tr></thead><tbody>
-<tr><td><code>crunch name(parameters) -&gt; T:</code></td><td>straight-line rack computation</td><td><a href="/docs/fused-bindings/">Fused bindings</a></td></tr>
+<tr><td><code>scratch name(parameters) -&gt; T:</code></td><td>straight-line rack computation</td><td><a href="/docs/fused-bindings/">Fused bindings</a></td></tr>
 <tr><td><code>rake name(parameters) -&gt; T:</code></td><td>rack computation with named lane masks</td><td><a href="/docs/tines-and-through/">Tines, through and sweeps</a></td></tr>
 <tr><td><code>run name(parameters) -&gt; T:</code></td><td>vector code over memory</td><td><a href="/docs/packs-and-runs/">Packs and runs</a></td></tr>
-<tr><td><code>stack Name { T: field, field; }</code></td><td>the columns of structure-of-arrays storage</td><td><a href="/docs/packs-and-runs/">Packs and runs</a></td></tr>
+<tr><td><code>pack Name { T: field, field; }</code></td><td>one record, also defining the fields of its columnar stack</td><td><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></td></tr>
 <tr><td><code>slow name(parameters) -&gt; T:</code></td><td>scalar code</td><td><a href="/docs/slow-tier/">The slow tier</a></td></tr>
 <tr><td><code>extern slow name(parameters) -&gt; T from "file.h"</code></td><td>a C function</td><td><a href="/docs/slow-tier/">The slow tier</a></td></tr>
-<tr><td><code>record Name { T: field; }</code></td><td>a record of fields</td><td><a href="/docs/slow-tier/">The slow tier</a></td></tr>
+<tr><td><code>record Name { T: field; }</code></td><td>a general scalar record</td><td><a href="/docs/slow-tier/">The slow tier</a></td></tr>
+<tr><td><code>union Name from "file.h" { T: field; }</code></td><td>a header-backed C union</td><td><a href="/docs/slow-tier/#c-unions">The slow tier</a></td></tr>
 <tr><td><code>state name: T := value</code>, <code>state name: T</code></td><td>module state</td><td><a href="/docs/slow-tier/">The slow tier</a></td></tr>
 <tr><td><code>embed name from "file"</code></td><td>a file's bytes</td><td><a href="/docs/slow-tier/">The slow tier</a></td></tr>
 <tr><td><code>const name: T = value</code></td><td>a compile-time constant</td><td><a href="/docs/slow-tier/">The slow tier</a></td></tr>
 </tbody></table>
 </div>
-<p>A stack or record groups its fields by type, with the type first:
-<code>f32: position, velocity;</code> gives two <code>f32</code> columns. A stack column is a
+<p>A pack or record groups its fields by type, with the type first:
+<code>f32: position, velocity;</code> gives two <code>f32</code> fields. A stack column is a
 scalar type, and a record field can be any type. A C struct is declared as
-<code>record Name from "file.h" { ... }</code>.</p>
+<code>record Name from "file.h" { ... }</code>. A header-backed union uses the same field
+groups, and its literal initialises exactly one field.</p>
 <h2 id="parameters-and-results">Parameters and results</h2>
 <p>Parameters are written <code>name: type</code> and separated by commas. A uniform scalar
-parameter is written <code>&lt;name: type&gt;</code>. A result type follows <code>-&gt;</code>. A crunch's
+parameter is written <code>&lt;name: type&gt;</code>. A result type follows <code>-&gt;</code>. A scratch's
 last expression supplies its result. A rake ends with its sweep. A run declared
 <code>-&gt; f32</code> yields racks from a traversal and writes their lanes to an <code>f32</code>
 output stream, and a run without a result type writes through its <code>mut</code>
 parameters instead. A slow function without a result type returns nothing.
-<code>return</code> is reserved for leaving a slow function, not for a crunch.</p>
-<p>A crunch, rake or run may call crunches and rakes. The call is inlined, so
+<code>return</code> is reserved for leaving a slow function, not for a scratch.</p>
+<p>A scratch, rake or run may call scratches and rakes. The call is inlined, so
 calls nest at most 32 deep and recursion is rejected.</p>
 <h2 id="types">Types</h2>
 <div class="table-scroll"><table><thead><tr><th>Type</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>f32</code> <code>f64</code> <code>i8</code> <code>i16</code> <code>i32</code> <code>i64</code> <code>u8</code> <code>u16</code> <code>u32</code> <code>u64</code> <code>bool</code></td><td>a scalar</td></tr>
 <tr><td><code>f32s</code> <code>u8s</code> <code>i16s</code> <code>i32s</code> <code>u32s</code> <code>i64s</code> <code>u64s</code></td><td>a rack: one vector value of lanes of that element</td></tr>
 <tr><td><code>mask</code></td><td>a lane mask</td></tr>
-<tr><td><code>pack Name</code>, <code>mut pack Name</code></td><td>the columns of a stack, read or written</td></tr>
+<tr><td><code>stack Name</code>, <code>mut stack Name</code></td><td>the columns of a stack, read or written</td></tr>
+<tr><td><code>Name</code>, <code>pack Name</code></td><td>one pack record</td></tr>
 <tr><td><code>[]T</code>, <code>mut []T</code></td><td>a view: elements with a runtime count</td></tr>
 <tr><td><code>[N]T</code></td><td>an array of <code>N</code> elements, or of <code>N</code> racks when <code>T</code> is a rack</td></tr>
-<tr><td><code>ptr T</code></td><td>a C pointer</td></tr>
+<tr><td><code>ptr T</code>, <code>ptr const T</code></td><td>a C pointer with writable or read-only pointed-to storage</td></tr>
 <tr><td><code>Name</code></td><td>a record</td></tr>
 <tr><td><code>mut T</code></td><td>a parameter the callee writes</td></tr>
 </tbody></table>
@@ -187,8 +195,7 @@ calls nest at most 32 deep and recursion is rejected.</p>
 <p><code>f32s</code> racks work on every production profile. The integer racks <code>u8s</code>,
 <code>i16s</code>, <code>i32s</code>, <code>u32s</code>, <code>i64s</code> and <code>u64s</code> are implemented for <code>wasm-simd128</code>
 only. The types <code>i8s</code>, <code>u16s</code>, <code>f64s</code> and <code>bools</code> parse but have no
-implementation yet, and neither does <code>stack Name</code> as a type: a stack is a
-column layout, used through <code>pack Name</code>.</p>
+implementation yet.</p>
 <h2 id="statements">Statements</h2>
 <div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>let name = e</code>, <code>let name: T = e</code></td><td>an immutable binding</td></tr>
@@ -203,10 +210,10 @@ column layout, used through <code>pack Name</code>.</p>
 <tr><td><code>while c:</code></td><td>a loop in slow code</td></tr>
 <tr><td><code>for i from a up to b:</code>, <code>for i from a up to b by s:</code></td><td>a counted loop, written <code>for &lt;i: T&gt; from &lt;a&gt; up to &lt;b&gt;:</code> in vector code</td></tr>
 <tr><td><code>repeat &lt;i: T&gt; from &lt;0&gt; up to &lt;4&gt;:</code></td><td>a vector loop with constant bounds, unrolled when it is small</td></tr>
-<tr><td><code>for chunk in p using f32s up to &lt;n&gt;:</code></td><td>a traversal of a pack</td></tr>
+<tr><td><code>for chunk in p using f32s up to &lt;n&gt;:</code></td><td>a traversal of a stack</td></tr>
 <tr><td><code>break</code>, <code>continue</code></td><td>inside a slow loop</td></tr>
 <tr><td><code>slow { statements; value }</code></td><td>a scoped scalar escape in a run or slow function, optionally producing a scalar</td></tr>
-<tr><td><code>e</code></td><td>a crunch's final result, or a call evaluated for its effect</td></tr>
+<tr><td><code>e</code></td><td>a scratch's final result, or a call evaluated for its effect</td></tr>
 </tbody></table>
 </div>
 <p>A name is bound once in its scope and can't shadow an enclosing name. A mutable location
@@ -258,7 +265,8 @@ code traps on overflow, and the wrapping forms <code>wrap_add</code>, <code>wrap
 does.</p>
 <p>Other primary forms are calls <code>f(a, b)</code>, conversions <code>i32(x)</code> (checked),
 <code>wrap(u8, x)</code> (the low bits) and <code>bitcast(u32, x)</code> (the same bits), record
-literals <code>Name { field: e }</code>, and array literals <code>[a, b, c]</code> and <code>[e; n]</code>.</p>
+literals <code>Name { field: e }</code>, stack constructors <code>stack Name { field: column }</code>,
+and array literals <code>[a, b, c]</code> and <code>[e; n]</code>.</p>
 <p>Rack operations use function-call syntax rather than operators:</p>
 <div class="table-scroll"><table><thead><tr><th>Operations</th><th>Page</th></tr></thead><tbody>
 <tr><td><code>sqrt</code> <code>abs</code> <code>floor</code> <code>ceil</code> <code>trunc</code> <code>nearest</code> <code>min</code> <code>max</code> <code>exp</code> <code>log</code> <code>log2</code> <code>tanh</code> <code>fma</code> <code>select</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
@@ -284,7 +292,7 @@ them and says which feature is missing.</p>
 <p><code>&lt;|</code>, <code>=&gt;</code>, <code>-&gt;</code>, <code>&lt;-</code>, <code>:=</code>, <code>&lt;=</code>, <code>&gt;=</code> and <code>!=</code> are single tokens. <code>&lt;-1.0&gt;</code>
 is a uniform literal, not <code>&lt;-</code> followed by <code>1.0&gt;</code>, because a mark around a
 literal is read as one token. Parentheses group and hold parameter lists and
-arguments, braces hold stack and record bodies and record literals, and
+arguments, braces hold pack and record bodies, aggregate literals, and
 brackets hold indices, array types and literals, and shuffle lane lists.
 <code>;</code> ends a field group, and <code>:</code> introduces a type or a body.</p>
 

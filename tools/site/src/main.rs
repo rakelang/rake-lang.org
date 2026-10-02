@@ -115,7 +115,10 @@ fn main() -> ExitCode {
 }
 
 fn configure() -> Result<Config, String> {
-    let site = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let site = match std::env::var_os("RAKE_SITE_DIR") {
+        Some(path) => PathBuf::from(path),
+        None => std::env::current_dir().map_err(|e| format!("site working directory: {e}"))?,
+    };
     let site = fs::canonicalize(&site).map_err(|e| format!("site root {}: {e}", site.display()))?;
     let rake = std::env::var("RAKE_DIR")
         .map(PathBuf::from)

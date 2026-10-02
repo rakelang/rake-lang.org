@@ -35,8 +35,11 @@ with the grammar's own `queries/highlights.scm`, and the build fails if any
 Rake block doesn't parse. Asset links carry a hash of the asset, so a changed
 stylesheet or image gets a new URL.
 
-For generator development, use `nix develop` and `cargo run --manifest-path
-tools/site/Cargo.toml -- build`. Use `--profile profiling` for profiling and
+For generator development, run `nix develop` and `cargo run --manifest-path
+tools/site/Cargo.toml -- build` from the site root. `RAKE_SITE_DIR` selects the
+root when invoking the generator from elsewhere. The build script sets it
+explicitly, so a cached generator always operates on the requested checkout.
+Use `--profile profiling` for profiling and
 `--release` for the published build. Cargo output uses the host's target root
 under `rake-lang-site`, or an explicitly announced cache-directory fallback.
 

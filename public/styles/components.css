@@ -282,12 +282,16 @@ strong {
   line-height: 1.5;
 }
 
-.diagram-gpu-rack .diagram-scroll {
+.diagram-scroll {
   overflow-x: auto;
 }
 
 .diagram-gpu-rack svg {
   min-width: 36rem;
+}
+
+.diagram-vector-ops svg {
+  min-width: 34rem;
 }
 
 @media (max-width: 40rem) {

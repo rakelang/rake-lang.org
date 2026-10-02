@@ -8,9 +8,10 @@
 ] @comment
 
 [
-  "stack"
+  "pack"
   "record"
-  "crunch"
+  "union"
+  "scratch"
   "rake"
   "run"
   "slow"
@@ -50,8 +51,8 @@
 (continue_statement) @keyword
 
 [
-  "pack"
   "stack"
+  "pack"
 ] @keyword
 
 (storage_type) @type.builtin
@@ -60,10 +61,12 @@
 (void_type) @type.builtin
 (type_identifier) @type
 (record_definition name: (type_identifier) @type)
+(union_definition name: (type_identifier) @type)
 (record_expression record: (type_identifier) @type)
+(stack_expression schema: (type_identifier) @type)
 
-(stack_definition name: (type_identifier) @type)
-(crunch_definition name: (identifier) @function)
+(pack_definition name: (type_identifier) @type)
+(scratch_definition name: (identifier) @function)
 (rake_definition name: (identifier) @function)
 (run_definition name: (identifier) @function)
 (slow_definition name: (identifier) @function)

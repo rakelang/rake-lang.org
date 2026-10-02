@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The slow tier | Rake","name":"The slow tier | Rake","description":"Rake's slow tier: the scalar code of a whole program, its records, state, embedded data and calls to C, and the rules that keep vector code's promises.","url":"https://rake-lang.org/docs/slow-tier/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -29,6 +29,7 @@
     <nav class="site-nav" aria-label="Site">
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
+      <a href="/docs/vectors/">Vectors cheat sheet</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
       <a href="/docs/roadmap/">Roadmap</a>
     </nav>
@@ -47,13 +48,14 @@
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
 <li><a href="/docs/reductions-and-scans/">Reductions and scans</a></li>
-<li><a href="/docs/packs-and-runs/">Packs and runs</a></li>
+<li><a href="/docs/packs-and-runs/">Packs, stacks and runs</a></li>
 <li><a href="/docs/memory-operations/">Memory operations</a></li>
 <li><a href="/docs/slow-tier/" aria-current="page">The slow tier</a></li>
 </ul>
 <p class="docs-nav-group">Learning</p>
 <ul>
 <li><a href="/docs/playground/">Playground and tutorial</a></li>
+<li><a href="/docs/vectors/">Vectors cheat sheet</a></li>
 <li><a href="/docs/glossary/">Glossary</a></li>
 </ul>
 <p class="docs-nav-group">Compiler</p>
@@ -81,14 +83,15 @@ block is a lexical escape inside a run, like Rust's explicit <code>unsafe { ... 
 boundary. The surrounding rack work retains its vector contract. A whole
 scalar function can instead be declared <code>slow name(...)</code>.</p>
 <p>Slow blocks are available in 0.5.0-beta and in the playground.</p>
-<p>A program with any slow, run, record, state, embed, const or extern
+<p>A program with any slow, run, record, union, state, embed, const or extern
 definition is a whole program. On <code>wasm-simd128</code> it compiles to one C
 translation unit with a C entry point, which is what a C-only judge takes.
 Whole programs are implemented for <code>wasm-simd128</code> and
 <code>wasm-simd128-relaxed</code> in the 0.6.0-beta tag. The unreleased development
 compiler also emits native C and objects combining slow orchestration and
-register kernels on x86-64 and AArch64. Native runs and packs remain work in
-progress.</p>
+register kernels on x86-64 and AArch64. AVX2 additionally supports the
+<a href="/docs/packs-and-runs/#native-avx2-streams">native stream subset</a>. General native
+runs remain work in progress.</p>
 <h3 id="native-kernel-calls">Native kernel calls</h3>
 <p>On the development compiler, a native register kernel called from slow code
 takes uniform <code>f32</code> parameters and returns <code>f32</code>. Rake selects and allocates
@@ -96,7 +99,7 @@ the kernel's instructions. The generated C contains its opaque assembly,
 and the final object is checked against the selected profile. The platform C
 compiler lowers the slow caller and supplies the scalar calling convention.
 Other native scalar kernel boundaries remain work in progress.</p>
-<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">carry</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">carry</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">value</span><span class="tok-operator">&gt;</span></span>
 
 <span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
@@ -127,12 +130,12 @@ this entry requires the platform C runtime, or WASI libc on WebAssembly.</p>
 <p>For the interpreter, pass arguments after <code>--</code>, as in <code>rakec --interpret program.rk -- alpha --flag</code>. Its <code>argv[0]</code> is the input file path. The browser
 interpreter supplies <code>program</code> at <code>argv[0]</code> and no additional arguments.</p>
 <h2 id="an-example">An example</h2>
-<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
   <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">quality</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>
 
-<span class="tok-keyword">run</span> <span class="tok-function">weigh</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">pack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+<span class="tok-keyword">run</span> <span class="tok-function">weigh</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">for</span> <span class="tok-variable">chunk</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-keyword">let</span> <span class="tok-variable">quality</span> <span class="tok-operator">=</span> <span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">quality</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
     <span class="tok-keyword">yield</span> <span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">scale</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-variable">quality</span>
@@ -149,7 +152,7 @@ interpreter supplies <code>program</code> at <code>argv[0]</code> and no additio
   <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">1.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">2.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">5.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">6.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">7.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">8.0</span><span class="tok-punctuation-bracket">]</span>
   <span class="tok-variable">qualities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">u8</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span>
   <span class="tok-variable">weighed</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span>
-  <span class="tok-function">weigh</span><span class="tok-punctuation-bracket">(</span><span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">quality</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">qualities</span> <span class="tok-punctuation-bracket">}</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.5</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">weighed</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-function">weigh</span><span class="tok-punctuation-bracket">(</span><span class="tok-keyword">stack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">quality</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">qualities</span> <span class="tok-punctuation-bracket">}</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.5</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">weighed</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span>
   <span class="tok-function">running_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">weighed</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-variable">calls</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">calls</span> <span class="tok-operator">+</span> <span class="tok-number">1</span>
@@ -157,7 +160,7 @@ interpreter supplies <code>program</code> at <code>argv[0]</code> and no additio
 </code></pre>
 <p><code>rakec --interpret program.rk</code> runs <code>main</code> in Rake's executable semantics and
 prints its result. <code>rakec --emit-asm --target wasm-simd128 -o program.c program.rk</code> writes the C unit, and <code>--verify-native</code> compiles it and checks
-every crunch, rake and run in the object (see <a href="#verification">Verification</a>).</p>
+every scratch, rake and run in the object (see <a href="#verification">Verification</a>).</p>
 <h2 id="slow-blocks">Slow blocks</h2>
 <p>Enter scalar code at <code>slow {</code>, and return to the enclosing mode at <code>}</code>. A
 block can contain scalar loops, calls, records, arrays and access to module
@@ -195,7 +198,7 @@ produces 3. Multiline bodies use the same indentation as other Rake bodies.
 that function, as in Rust. Runs have no early <code>return</code>: use the block's final
 expression to produce its result. In a run, <code>break</code> and <code>continue</code> inside a
 block refer only to scalar loops inside that block.</p>
-<p>Crunches, rakes and fused regions remain pure vector kernels and reject slow
+<p>Scratches, rakes and fused regions remain pure vector kernels and reject slow
 blocks. Put scalar orchestration in the run that calls them. Blocks and whole
 programs with memory runs currently compile for WebAssembly only. The
 development compiler also supports native slow functions and register kernels.</p>
@@ -205,6 +208,7 @@ development compiler also supports native slow functions and register kernels.</
 <tr><td><code>extern slow name(parameters) -&gt; T from "header.h"</code></td><td>a C function</td></tr>
 <tr><td><code>record Name { T: field, field; }</code></td><td>a record with Rake's layout</td></tr>
 <tr><td><code>record Name from "header.h" { T: field; }</code></td><td>a C struct</td></tr>
+<tr><td><code>union Name from "header.h" { T: field; }</code></td><td>a C union, available in the development compiler</td></tr>
 <tr><td><code>state name: T := constant</code>, <code>state name: T</code></td><td>module state</td></tr>
 <tr><td><code>embed name from "file"</code></td><td>a file's bytes</td></tr>
 <tr><td><code>const name: T = constant</code></td><td>a compile-time constant</td></tr>
@@ -218,6 +222,50 @@ includes the header, and each declared scalar, pointer or scalar-array field
 gets a <code>_Static_assert</code> that its C size matches. Function-pointer fields are
 also checked in the development compiler. Other records have Rake's
 layout. A record can't contain itself, directly or through other records.</p>
+<h3 id="opaque-c-pointer-types">Opaque C pointer types</h3>
+<p>An empty header-backed declaration preserves a C API's opaque typedef:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">record</span> <span class="tok-type">wasm_trap_t</span> <span class="tok-keyword">from</span> <span class="tok-string">&quot;wasmtime.h&quot;</span> <span class="tok-punctuation-bracket">{</span><span class="tok-punctuation-bracket">}</span>
+<span class="tok-keyword">record</span> <span class="tok-type">wasmtime_caller_t</span> <span class="tok-keyword">from</span> <span class="tok-string">&quot;wasmtime.h&quot;</span> <span class="tok-punctuation-bracket">{</span><span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">extern</span> <span class="tok-keyword">slow</span> <span class="tok-function">inspect</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">caller</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">ptr</span> <span class="tok-type">wasmtime_caller_t</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-keyword">ptr</span> <span class="tok-type">wasm_trap_t</span> <span class="tok-keyword">from</span> <span class="tok-string">&quot;wasmtime.h&quot;</span>
+</code></pre>
+<p>The header remains the only owner of the type's layout. Rake neither invents
+fields nor emits a replacement struct. These types are used through pointers,
+including exact pointee types in callback signatures. By-value use and record
+construction are rejected. Empty Rake-owned records are rejected too.</p>
+<h3 id="c-unions">C unions</h3>
+<p>The development compiler after 0.6.0-beta accepts header-backed unions. All
+their members overlap the same storage. C owns their size, alignment and ABI,
+including a union embedded in a struct, passed to an imported function or
+returned by value. An ordinary slow parameter borrows the union, just as it
+borrows a record. An imported C parameter passes it by value.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">union</span> <span class="tok-type">foreign_value_t</span> <span class="tok-keyword">from</span> <span class="tok-string">&quot;values.h&quot;</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">i32</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-type-builtin">i64</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">i64</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-type-builtin">f64</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">f64</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-punctuation-bracket">[</span><span class="tok-number">16</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">v128</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">integer_value</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type">foreign_value_t</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-type">foreign_value_t</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">i64</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">value</span> <span class="tok-punctuation-bracket">}</span>
+</code></pre>
+<p>The header supplies the C typedef <code>foreign_value_t</code>. A union literal selects
+exactly one member, and a field assignment changes the active member. Read
+the member selected by the C API's protocol, such as a neighbouring tag.
+Rake adds no hidden tag and does not define reinterpretation through an
+inactive member. Use a numeric <code>bitcast</code> for an equal-width bit conversion.
+Reading the wrong union member, or keeping a pointer after its storage ends,
+remains the caller's responsibility at this C boundary.</p>
+<p>Aggregate identifiers may retain a C typedef's lowercase spelling. Primitive
+spellings such as <code>i32</code> are also allowed for member declarations, literal
+fields and selections like <code>value.i32</code>. The generated C checks that the header
+actually declares a union, that its declared members overlap at offset zero,
+and that scalar, pointer and scalar-array member sizes agree.</p>
+<p>This is compiled C interoperation. The interpreter explicitly rejects C union
+storage because it has no platform C layout. The ABI checks compile an
+independent C header and exercise real calls on every CPU profile and
+WebAssembly. Rake-owned union layouts and interpreted union storage remain
+work in progress.</p>
 <p><code>state</code> is module state: a C static that holds its value for the life of the
 process, across turns of a judge's loop. Its initial value is a constant, or
 zero. <code>embed</code> makes a file's bytes a read-only <code>[]u8</code>, a 16-byte-aligned
@@ -232,10 +280,11 @@ accepts typed function pointers.</p>
 <tr><td><code>[N]T</code></td><td>an array of <code>N &gt;= 1</code> elements held by value</td></tr>
 <tr><td><code>[]T</code></td><td>a view: a borrowed run of elements with an <code>i32</code> count</td></tr>
 <tr><td><code>ptr T</code></td><td>a C pointer, for extern interoperation</td></tr>
+<tr><td><code>ptr const T</code></td><td>a C pointer through which the pointed-to object is read-only</td></tr>
 <tr><td><code>ptr ()</code></td><td>an opaque C <code>void *</code>, available in the development compiler</td></tr>
 <tr><td><code>slow(T, ...) -&gt; U</code></td><td>a typed C function pointer, available in the development compiler</td></tr>
 <tr><td><code>Name</code></td><td>a record</td></tr>
-<tr><td><code>mut T</code></td><td>in a parameter list: a view, pack, array or record the callee writes</td></tr>
+<tr><td><code>mut T</code></td><td>in a parameter list: a view, stack, array or record the callee writes</td></tr>
 </tbody></table>
 </div>
 <p>Arrays and records are values: binding or assigning one copies it. Views and
@@ -243,9 +292,9 @@ pointers alias the storage they name. A slow parameter of array or record type
 is passed by reference and is read-only. <code>mut</code> makes it writable, and the
 argument must then be a location the caller may write. A view parameter is
 passed by value and is writable through when declared <code>mut []T</code>.</p>
-<p>Slow code has no rack, mask or pack values. A pack exists only as the argument
-of a run call, written as a record literal of the stack whose fields are
-views: <code>Samples { value: values, quality: qualities }</code>.</p>
+<p>Slow code holds individual packs as ordinary records. It has no rack or mask
+values. A stack is currently constructed at a run call by supplying views
+for the pack's fields: <code>stack Samples { value: values, quality: qualities }</code>.</p>
 <h2 id="statements">Statements</h2>
 <div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>let name = e</code>, <code>let name: T = e</code></td><td>immutable binding</td></tr>
@@ -283,7 +332,7 @@ operand's precision.</p>
 <tr><td><code>r.field</code>, <code>p.field</code></td><td>a record's field, directly or through a pointer</td></tr>
 <tr><td><code>Name { field: e, ... }</code></td><td>a record literal naming every field</td></tr>
 <tr><td><code>[a, b, c]</code>, <code>[e; n]</code></td><td>array literals</td></tr>
-<tr><td><code>"text"</code></td><td>a string literal, only as an extern's <code>ptr u8</code> or <code>ptr i8</code> argument</td></tr>
+<tr><td><code>"text"</code></td><td>a string literal, only as an extern's <code>ptr const u8</code> or <code>ptr const i8</code> argument</td></tr>
 </tbody></table>
 </div>
 <p>Slow code's built-in functions:</p>
@@ -306,16 +355,44 @@ operand's precision.</p>
 the interpreter, so every target agrees bit for bit. Float <code>min</code> and <code>max</code> of
 a NaN give a NaN. Of two zeros, <code>min</code> gives negative zero if either is, and
 <code>max</code> positive zero if either is.</p>
+<h3 id="read-only-pointers">Read-only pointers</h3>
+<p>The development compiler after 0.6.0-beta preserves C pointer qualifiers.
+<code>ptr const T</code> corresponds to <code>const T *</code>: it prevents writes through that
+pointer. Another writable alias may still change the same object. An immutable
+<code>let</code> binding prevents replacement of the pointer itself, which is a separate
+restriction.</p>
+<p><code>addr(place)</code> produces a writable pointer when the location is writable and
+a read-only pointer otherwise. Taking the address of a checked element also
+checks its bounds, even before the pointer is dereferenced. A writable pointer
+may be borrowed as <code>ptr const T</code>. Nested pointer types must match exactly at every deeper level.
+For example, a pointer to writable pointers cannot become a pointer to
+read-only pointers implicitly.</p>
+<p><code>unchecked_view</code> preserves its pointer's access. A view formed from
+<code>ptr const T</code> is <code>[]T</code>, and a writable view may be borrowed as <code>[]T</code> without
+copying its elements. Erasing and restoring a pointer through <code>ptr ()</code> or
+<code>ptr const ()</code> must preserve read-only access. These checks do not establish
+the pointer's lifetime, bounds or alignment.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">slow</span> <span class="tok-function">read</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">ptr</span> <span class="tok-keyword">const</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">return</span> <span class="tok-variable">value</span><span class="tok-punctuation-bracket">[</span><span class="tok-keyword">unchecked</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span> <span class="tok-operator">:=</span> <span class="tok-number">7</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">borrowed</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">ptr</span> <span class="tok-keyword">const</span> <span class="tok-type-builtin">i32</span> <span class="tok-operator">=</span> <span class="tok-function">addr</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">value</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-variable">value</span> <span class="tok-operator">&lt;-</span> <span class="tok-number">11</span>
+  <span class="tok-keyword">return</span> <span class="tok-function">read</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">borrowed</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
 <h2 id="function-pointers-and-callbacks">Function pointers and callbacks</h2>
 <p>The development compiler after 0.6.0-beta supports C function pointers in
 slow code. Write <code>slow(i32) -&gt; i32</code> for a pointer to a function taking an
 <code>i32</code> and returning an <code>i32</code>. Write <code>-&gt; ()</code> for a callback returning C
 <code>void</code>. Function-pointer arguments and results use the platform C ABI.
-They may be scalars, data pointers, other function pointers or C structs
+They may be scalars, data pointers, other function pointers or C aggregates
 passed by value.</p>
 <p><code>addr(function)</code> takes the address of a slow function or an imported C
 function. A callback carries no captured variables, so pass its context
 explicitly. For an opaque C context, <code>ptr ()</code> corresponds to <code>void *</code>.
+Use <code>ptr const ()</code> for a read-only <code>const void *</code> context. Callback signatures
+retain these qualifiers in both imported and exported C declarations.
 <code>bitcast(ptr (), pointer)</code> erases a data pointer's type, and
 <code>bitcast(ptr Context, opaque)</code> restores it. The context must still be alive
 and have the restored type and alignment when it is accessed.</p>
@@ -351,8 +428,8 @@ WebAssembly's indirect-call table. The interpreter invokes local callbacks
 by their function identity. Imported C callbacks need the same external
 implementation as a direct C call.</p>
 <h2 id="calling-vector-code">Calling vector code</h2>
-<p>Slow code calls a run as a statement and a crunch or rake as an expression:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">score</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">y</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+<p>Slow code calls a run as a statement and a scratch or rake as an expression:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">score</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">y</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">extract</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">x</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">y</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">)</span>
 
 <span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
@@ -362,21 +439,21 @@ implementation as a direct C call.</p>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">best</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>The run call in <a href="#an-example">the example</a> above,
-<code>weigh(Samples { value: values, quality: qualities }, &lt;8&gt;, &lt;0.5&gt;, weighed)</code>,
-passes a pack, two uniforms and its output view.</p>
-<p>Memory arguments, views and packs, are passed bare. An array passed where a
+<code>weigh(stack Samples { value: values, quality: qualities }, &lt;8&gt;, &lt;0.5&gt;, weighed)</code>,
+passes a stack, two uniforms and its output view.</p>
+<p>Memory arguments, views and stacks, are passed bare. An array passed where a
 view is expected lends all its elements. Every scalar argument is marked
 <code>&lt;...&gt;</code>, as in <code>&lt;name&gt;</code>, <code>&lt;3&gt;</code>, <code>&lt;record.field&gt;</code> or <code>&lt;view[index]&gt;</code>, because it
 becomes a rack in the callee. A run declared <code>-&gt; T</code> takes its output view as a last argument. A
-crunch or rake is callable from slow code only when all its parameters are
+scratch or rake is callable from slow code only when all its parameters are
 uniform and its result is a scalar. Slow code can't pass or receive a rack.</p>
-<p>At a run call, every column of a traversed pack, of a pack the traversal
+<p>At a run call, every column of a traversed stack, of a stack the traversal
 stores into, and the output view must hold the traversal's count, or the call
 traps before the run starts.</p>
 <h2 id="the-explicitness-rules">The explicitness rules</h2>
 <ul>
 <li>Slow code can't name, hold, pass or return a rack, mask or rack array.</li>
-<li>Slow code reaches vector work only by calling a run, or a crunch or rake
+<li>Slow code reaches vector work only by calling a run, or a scratch or rake
 with uniform parameters, and every scalar that becomes a rack is marked
 <code>&lt;...&gt;</code> at the call. A <code>&lt;...&gt;</code> mark anywhere else in slow code is an error.</li>
 <li>Outside a slow block, vector code can't call slow code or an extern, and
@@ -397,10 +474,10 @@ vector calls. It never selects lanes. Lane selection remains a tine, a
 <code>through</code>, a sweep or a mask <code>if</code>.</li>
 <li>Scalars and broadcasts stay explicit. A scalar returned by a slow block
 meets a rack only at an explicit <code>&lt;...&gt;</code> broadcast.</li>
-<li>Properties are proved or rejected. Every crunch, rake and run in a whole
+<li>Properties are proved or rejected. Every scratch, rake and run in a whole
 program goes through the same checks and object verification as before, and
 slow code has its own checked semantics.</li>
-<li>Existing lowering is unchanged. Crunches and rakes are emitted by the same
+<li>Existing lowering is unchanged. Scratches and rakes are emitted by the same
 selection and C emission. A run's pure rack expressions become always-inline
 functions lowered through that same pipeline. Slow code is plain C beside
 them.</li>
@@ -411,7 +488,7 @@ C. It runs slow code over values, copying records and arrays and aliasing
 views and pointers. It traps where the C traps: checked arithmetic,
 conversions, indexing, slices and the counts at run calls. Only the frame
 stack's limit is the C's alone. It evaluates a run's rack expressions in the
-same reference semantics as crunches. An extern has no implementation there,
+same reference semantics as scratches. An extern has no implementation there,
 so programs that call C are tested through C (<code>test/abi/interop.rk</code>).</p>
 <p><code>test/program_test.sh</code> runs every <code>test/program/*.rk</code> in the interpreter and,
 compiled from the emitted C in both addressings, under wasmtime, and requires
@@ -437,7 +514,8 @@ and record results return by value. Header-backed records retain their C
 layout, including native pointer widths and padding. Rake emits checked
 scalar C; the platform compiler owns its register allocation and calling
 convention. This does not delegate vector kernel compilation to C.</p>
-<p>Unions remain work in progress. Native slow frames are
+<p>Header-backed unions use the same C boundary, with the access contract above.
+Native slow frames are
 thread-local, while module state remains process-wide and needs the caller's
 normal synchronization when several threads use it.</p>
 <p>A slow block in scalar code becomes a GNU C statement expression, preserving
@@ -457,7 +535,7 @@ that data and overwrite it without a trap.</p>
 embedded register kernel in the final object. The ordinary slow functions
 retain the platform compiler's C semantics and are outside that vector
 instruction contract. A slow-only unit uses <code>--emit-obj</code>.</p>
-<p>On WebAssembly, <code>rakec --verify-native</code> compiles the unit and disassembles it. Every crunch
+<p>On WebAssembly, <code>rakec --verify-native</code> compiles the unit and disassembles it. Every scratch
 and rake must be locals, constants and register SIMD only. A run may call only
 the scalar helpers emitted for its explicit slow blocks. The verifier checks
 each direct call's relocation against those helper symbols. It rejects every
