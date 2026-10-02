@@ -42,8 +42,8 @@
 <div>
 <h1>Rake</h1>
 <p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
-<p>Rust's type system and borrow checker enforce memory safety in safe code, with <code>unsafe</code> marking operations whose safety the programmer must establish. Rake's compiler enforces SIMD lowering for rack work: vector kernels compile to the selected target's vector instructions, or compilation fails. Enter <code>slow { ... }</code> for scalar work, then return to vector mode at the closing brace.</p>
-<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Each rack is one vector register on a physical target, or one vector value in the WebAssembly virtual machine.</p>
+<p>Rust's type system and borrow checker enforce memory safety in safe code. An <code>unsafe</code> block marks operations whose safety the programmer must establish. Rake's compiler checks that vector calculations become vector instructions. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
+<p>Rake is a SIMD, or vector, programming language. It's built for calculations that apply the same operation to many numbers at once.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
 <li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
@@ -53,34 +53,29 @@
 </div>
 <h2 id="a-first-look">A first look</h2>
 <p>Rake's execution model can be pictured in a sentence: “<code>rake</code> data <code>through</code>
-<code>tine</code>s, then <code>sweep</code> them into the result.” The words describe how values
-move through a vector computation.</p>
+<code>tine</code>s, then <code>sweep</code> them into the result.” We'll read those words in the
+order they appear in a program, starting with what vector processing means.</p>
 <h3 id="one-instruction-several-numbers">One instruction, several numbers</h3>
-<p>Imagine a person at a desk with a long tape passing over it. In scalar code,
-they read one number, add 1, then advance the tape to the next number. A vector
-operation gives them a wider desk with several numbers side by side. They
-still issue one instruction, but linked pens apply it to every number at once:</p>
+<p>Imagine a person at a desk with a long tape passing over it. They can modify
+the number in front of them, perhaps by adding 1. In a scalar loop, they
+advance the tape and repeat that operation for the next number.</p>
+<p>A vector operation gives them a wider desk with several numbers side by
+side. There's still one person issuing the instruction, but linked pens
+apply it to every number at once:</p>
 <pre class="code code-text"><code>scalar add 1:   [4]             → [5]
 vector add 1:   [4, 7, 2, 9]    → [5, 8, 3, 10]
 </code></pre>
-<p>Each position is a <em>lane</em>. A 32-bit number occupies 32 bits, not 32 lanes.
-A 128-bit vector can hold four 32-bit numbers, while a 256-bit vector can
-hold eight. There is one instruction stream, rather than a separate program
-running at each seat.</p>
-<p>Rake calls one vector's worth of values a <em>rack</em>. A <em>pack</em> holds columns of
-records, and a traversal visits those columns a rack at a time. The selected
-target profile fixes the rack's width. The pack's length needn't be a power
-of two or a multiple of that width: the traversal handles its last partial
-rack without reading or writing beyond the records that exist.</p>
-<h3 id="rake-data-through-tines">Rake data through tines</h3>
-<p>This program takes <code>sqrt(x)</code> when <code>x</code> is non-negative and gives zero
-elsewhere. <code>safe_root</code> describes the operation on a rack. <code>roots</code> applies it
-to a pack of seven numbers, including a partial rack on WebAssembly:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
-  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
-<span class="tok-punctuation-bracket">}</span>
-
-<span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+<p>This is SIMD: <em>single instruction, multiple data</em>. Each position is called a
+<em>lane</em>. The instruction “add 1” acts on all the lanes together.</p>
+<p>A processor holds these values in a vector register. Its width determines
+how many numbers fit: a 128-bit register holds four 32-bit numbers, while a
+256-bit register holds eight. “32-bit” describes the space one number takes.
+Rake calls the row of values held together a <em>rack</em>.</p>
+<h3 id="rake">rake</h3>
+<p>Let's write an operation for a rack of numbers. We want to take each number's
+square root, but negative numbers need a different result, so we'll give
+those lanes zero. Here's the definition, which we'll read from top to bottom:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">when</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 
   <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
@@ -89,35 +84,59 @@ to a pack of seven numbers, including a partial rack on WebAssembly:</p>
   <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
     <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>      <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
-
-<span class="tok-keyword">run</span> <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">pack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">for</span> <span class="tok-variable">rack</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
-    <span class="tok-keyword">yield</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">rack</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span><span class="tok-punctuation-bracket">)</span>
-
-<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">7</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">16.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">-</span><span class="tok-number">4.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">9.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">25.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">-</span><span class="tok-number">1.0</span><span class="tok-punctuation-bracket">]</span>
-  <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">7</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">7</span><span class="tok-punctuation-bracket">]</span>
-  <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">values</span> <span class="tok-punctuation-bracket">}</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">7</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">)</span>
-  <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">5</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p><code>rakec --interpret</code> prints 12, which is 4 + 3 + 5. Read <code>safe_root</code> in
-three parts:</p>
-<ol>
-<li><code>tine #valid</code> names a mask, like the prongs of a rake catching selected
-values. Its comparison computes one true-or-false result per lane. <code>#valid</code>
-is the name we use to refer to that mask.</li>
-<li><code>through #valid</code> computes square roots in the selected lanes and binds the
-intermediate rack as <code>rooted</code>. Its <code>else &lt;0.0&gt;</code> fills the other lanes of
-that rack. Names declared inside the block stay inside it; <code>rooted</code> is
-available to subsequent blocks and the sweep.</li>
-<li><code>sweep:</code> gives the function's result. Each lane takes the first matching
-arm, with <code>_</code> supplying the value for any lane left over. Values keep
-their lane positions.</li>
-</ol>
-<h3 id="why-are-there-two-zeros">Why are there two zeros?</h3>
-<p>The <code>through</code> fallback belongs to the intermediate rack. The sweep's fallback
-belongs to the final result. They can differ. Change only the sweep's last
-arm to <code>| _ =&gt; &lt;-1.0&gt;</code> and the first rack looks like this:</p>
+<p>The first line resembles a function declaration. <code>safe_root</code> is the name,
+<code>values</code> is its input, and <code>f32s</code> means a rack of 32-bit floating-point
+numbers. The arrow says the result is another rack of the same type.</p>
+<p>The <code>rake</code> keyword tells the compiler that this definition will choose work
+for individual lanes. Its body supplies that work. The next line tells us
+which lanes to select.</p>
+<h3 id="tine">tine</h3>
+<p>A tine is a prong on a garden rake. In the language, a <code>tine</code> is a named
+<em>mask</em>: a true-or-false choice for each lane. Read
+<code>tine #valid when values &gt;= &lt;0.0&gt;</code> as “the valid tine catches numbers that
+are greater than or equal to zero”.</p>
+<p><code>&lt;0.0&gt;</code> is a <em>uniform</em>, one scalar value shared by every lane. The comparison
+checks each input number against that same zero:</p>
+<pre class="code code-text"><code>values:   [16,   -4,    9,    1]
+#valid:   [true, false, true, true]
+</code></pre>
+<p><code>tine #valid</code> declares the mask's name, and <code>when values &gt;= &lt;0.0&gt;</code> defines how
+to calculate it. That follows the familiar distinction between a declaration,
+which introduces a name, and a definition, which supplies its meaning. Here
+both are on one line. The comparison computes the mask when the rake runs,
+and the <code>#</code> marks the name we'll use to refer to it.</p>
+<h3 id="through">through</h3>
+<p>Now that we've selected the valid lanes, we can pass them through a
+calculation. Read <code>through #valid else &lt;0.0&gt; into rooted:</code> as “calculate the
+valid lanes using the body below, give the other lanes zero, and call the
+result <code>rooted</code>”. The body is <code>sqrt(values)</code>, so those valid lanes take
+their square roots:</p>
+<pre class="code code-text"><code>values:   [16, -4, 9, 1]
+rooted:   [ 4,  0, 3, 1]
+</code></pre>
+<p>Giving the result the name <code>rooted</code> is called <em>binding</em> a name to a value.
+Binding is general programming terminology, used in languages such as
+<a href="https://ocaml.org/docs/values-and-functions">OCaml</a>. It's the association
+between a name and what that name means. Here <code>into rooted</code> introduces the
+name, and the block defines its value through the calculation and the fallback.</p>
+<p>We can now use <code>rooted</code> in a later block or in the sweep. A binding doesn't
+require the compiler to store a temporary array: this value can stay in a
+vector register. Any names introduced inside the through body are local to
+that body, while <code>rooted</code> is available to the rest of the rake.</p>
+<h3 id="sweep">sweep</h3>
+<p>We've calculated an intermediate rack. A <code>sweep</code> chooses the values that
+leave the function. Read its arms in order: <code>| #valid =&gt; rooted</code> takes a
+value from <code>rooted</code> wherever <code>#valid</code> holds. The final arm, <code>| _ =&gt; &lt;0.0&gt;</code>,
+gives zero to any lane left over. The <code>_</code> means “everything else”.</p>
+<p>The result is <code>[4, 0, 3, 1]</code>. Each value stays in its original lane, so a
+sweep doesn't shuffle or compact the rack. <code>sweep:</code> is itself the rake's
+result form, which is why it doesn't need a <code>return</code> keyword.</p>
+<h3 id="intermediate-and-final-results">Intermediate and final results</h3>
+<p>The example has zero in two places because it produces two results along
+the way. The through block fills the inactive lanes of <code>rooted</code> with zero.
+Then the sweep chooses the values to return. Its fallback is a separate
+choice: change its last arm to <code>| _ =&gt; &lt;-1.0&gt;</code> and the final rack changes:</p>
 <div class="table-scroll"><table><thead><tr><th>Stage</th><th class="align-right">Lane 0</th><th class="align-right">Lane 1</th><th class="align-right">Lane 2</th><th class="align-right">Lane 3</th></tr></thead><tbody>
 <tr><td>Input</td><td class="align-right">16</td><td class="align-right">−4</td><td class="align-right">9</td><td class="align-right">1</td></tr>
 <tr><td><code>#valid</code></td><td class="align-right">true</td><td class="align-right">false</td><td class="align-right">true</td><td class="align-right">true</td></tr>
@@ -125,15 +144,16 @@ arm to <code>| _ =&gt; &lt;-1.0&gt;</code> and the first rack looks like this:</
 <tr><td>Result</td><td class="align-right">4</td><td class="align-right">−1</td><td class="align-right">3</td><td class="align-right">1</td></tr>
 </tbody></table>
 </div>
-<p>In the original version, the sweep reads <code>rooted</code> only where <code>#valid</code> holds.
-Its other lanes are unused, so the two zero selections are redundant in
-this example. The compiler folds them into one. Another sweep can read the
-whole intermediate rack, making the <code>through</code> fallback matter.</p>
-<p>These are pure computations, with no side effects. They aren't lazy steps
-waiting for a sweep to trigger execution. The compiler sees their data flow
-together and chooses the instructions that implement it. On WebAssembly,
-<code>safe_root</code> becomes a vector comparison, square root and select. A sweep
-selects values in place; it doesn't scatter, compact or rearrange lanes.</p>
+<p>The intermediate zero is still there, but the sweep never uses it. It takes
+−1 for that lane instead. In the original version, choosing zero again is
+redundant, so the compiler can remove the duplicate selection. If a sweep
+uses the whole intermediate rack, the through fallback contributes to the
+final result too.</p>
+<p>Reading the definition in stages explains how the calculation depends on
+its inputs. It doesn't specify a delayed execution model: the sweep isn't
+a trigger for earlier work. The compiler can optimise these pure
+calculations together. On WebAssembly this rake becomes a vector comparison,
+a square root and a selection of results.</p>
 <p><a href="/docs/playground/#lesson-8">Lesson 8</a> lets you change each fallback separately
 and inspect the result. <a href="/docs/tines-and-through/">Tines, through and sweeps</a>
 defines the scope and masking rules.</p>
@@ -156,15 +176,31 @@ lanes, a <code>through</code> block computes under it, and a sweep picks each la
 result by priority, ending in <code>_</code> so that every lane gets one. Lanes outside a
 mask can't fail or raise a floating-point exception.</p>
 <h3 id="stages-fuse">Stages fuse</h3>
-<p><code>| name &lt;| expression</code> is a stage of one fused computation, read from right
-to left. The names are for the reader. The compiler sees one graph and may
-compile it as the cheapest instructions it finds, such as a fused multiply-add:</p>
+<p>Once we've given an intermediate value a name, it can look as though we've
+asked the processor to perform and store that step separately. <em>Fusion</em> is
+the general compiler term for combining pieces of work so they can execute
+together. Compilers may fuse loops, for example, to do their work in one
+pass. Rake's fused bindings let it combine stages of a vector calculation.</p>
+<p>In <code>| name &lt;| expression</code>, the expression flows from right to left into its
+name. This is still a binding. The leading <code>|</code> marks it as part of a fused
+calculation, whose stages the compiler must keep together as a contiguous
+sequence of vector instructions. Here a <code>crunch</code>, a function of racks that
+doesn't need tines, calculates a new position in two stages:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">step</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">dt</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">step</span>
   <span class="tok-keyword">return</span> <span class="tok-variable">moved</span>
 </code></pre>
-<p>On AVX2 that is one <code>vbroadcastss</code> and one <code>vfmadd231ps</code>.</p>
+<p><code>step</code> is the velocity multiplied by the time interval. <code>moved</code> adds that
+step to the position. The bindings make the calculation legible, while
+allowing the compiler to combine the multiply and add into one instruction.
+On AVX2 the code becomes one <code>vbroadcastss</code> to share <code>dt</code> across the lanes,
+then one <code>vfmadd231ps</code>, a fused multiply-add. It rounds the combined
+calculation once. Strict WebAssembly SIMD has no such instruction, so that
+target keeps the multiply and add separate.</p>
+<p><a href="/docs/fused-bindings/">Fused bindings</a> defines which rewrites Rake permits.
+<a href="https://llvm.org/docs/LoopFusion.html">LLVM's loop-fusion documentation</a>
+describes another use of the same compiler term.</p>
 <h3 id="data-lives-in-columns">Data lives in columns</h3>
 <p>A <code>stack</code> declares the columns of a structure of arrays, grouped by stored
 type, and a traversal visits a <code>pack</code> of them a rack at a time. A column of

@@ -3,8 +3,8 @@
 <div>
 <h1>Rake</h1>
 <p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
-<p>Rust's type system and borrow checker enforce memory safety in safe code, with <code>unsafe</code> marking operations whose safety the programmer must establish. Rake's compiler enforces SIMD lowering for rack work: vector kernels compile to the selected target's vector instructions, or compilation fails. Enter <code>slow { ... }</code> for scalar work, then return to vector mode at the closing brace.</p>
-<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Each rack is one vector register on a physical target, or one vector value in the WebAssembly virtual machine.</p>
+<p>Rust's type system and borrow checker enforce memory safety in safe code. An <code>unsafe</code> block marks operations whose safety the programmer must establish. Rake's compiler checks that vector calculations become vector instructions. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
+<p>Rake is a SIMD, or vector, programming language. It's built for calculations that apply the same operation to many numbers at once.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
 <li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
@@ -16,44 +16,40 @@
 ## A first look
 
 Rake's execution model can be pictured in a sentence: “`rake` data `through`
-`tine`s, then `sweep` them into the result.” The words describe how values
-move through a vector computation.
+`tine`s, then `sweep` them into the result.” We'll read those words in the
+order they appear in a program, starting with what vector processing means.
 
 ### One instruction, several numbers
 
-Imagine a person at a desk with a long tape passing over it. In scalar code,
-they read one number, add 1, then advance the tape to the next number. A vector
-operation gives them a wider desk with several numbers side by side. They
-still issue one instruction, but linked pens apply it to every number at once:
+Imagine a person at a desk with a long tape passing over it. They can modify
+the number in front of them, perhaps by adding 1. In a scalar loop, they
+advance the tape and repeat that operation for the next number.
+
+A vector operation gives them a wider desk with several numbers side by
+side. There's still one person issuing the instruction, but linked pens
+apply it to every number at once:
 
 ```text
 scalar add 1:   [4]             → [5]
 vector add 1:   [4, 7, 2, 9]    → [5, 8, 3, 10]
 ```
 
-Each position is a *lane*. A 32-bit number occupies 32 bits, not 32 lanes.
-A 128-bit vector can hold four 32-bit numbers, while a 256-bit vector can
-hold eight. There is one instruction stream, rather than a separate program
-running at each seat.
+This is SIMD: *single instruction, multiple data*. Each position is called a
+*lane*. The instruction “add 1” acts on all the lanes together.
 
-Rake calls one vector's worth of values a *rack*. A *pack* holds columns of
-records, and a traversal visits those columns a rack at a time. The selected
-target profile fixes the rack's width. The pack's length needn't be a power
-of two or a multiple of that width: the traversal handles its last partial
-rack without reading or writing beyond the records that exist.
+A processor holds these values in a vector register. Its width determines
+how many numbers fit: a 128-bit register holds four 32-bit numbers, while a
+256-bit register holds eight. “32-bit” describes the space one number takes.
+Rake calls the row of values held together a *rack*.
 
-### Rake data through tines
+### rake
 
-This program takes `sqrt(x)` when `x` is non-negative and gives zero
-elsewhere. `safe_root` describes the operation on a rack. `roots` applies it
-to a pack of seven numbers, including a partial rack on WebAssembly:
+Let's write an operation for a rack of numbers. We want to take each number's
+square root, but negative numbers need a different result, so we'll give
+those lanes zero. Here's the definition, which we'll read from top to bottom:
 
-<!-- rake-check: run 12 -->
+<!-- rake-check: verify x86-avx2 aarch64-neon wasm-simd128 -->
 ```rake
-stack Samples {
-  f32: value;
-}
-
 rake safe_root(values: f32s) -> f32s:
   tine #valid when values >= <0.0>
 
@@ -63,37 +59,78 @@ rake safe_root(values: f32s) -> f32s:
   sweep:
     | #valid => rooted
     | _      => <0.0>
-
-run roots(input: pack Samples, <count: i64>) -> f32:
-  for rack in input using f32s up to <count>:
-    yield safe_root(rack.value)
-
-slow main() -> i32:
-  values: [7]f32 := [16.0, -4.0, 9.0, 1.0, 0.0, 25.0, -1.0]
-  rooted: [7]f32 := [0.0; 7]
-  roots(Samples { value: values }, <7>, rooted)
-  return i32(rooted[0] + rooted[2] + rooted[5])
 ```
 
-`rakec --interpret` prints 12, which is 4 + 3 + 5. Read `safe_root` in
-three parts:
+The first line resembles a function declaration. `safe_root` is the name,
+`values` is its input, and `f32s` means a rack of 32-bit floating-point
+numbers. The arrow says the result is another rack of the same type.
 
-1. `tine #valid` names a mask, like the prongs of a rake catching selected
-   values. Its comparison computes one true-or-false result per lane. `#valid`
-   is the name we use to refer to that mask.
-2. `through #valid` computes square roots in the selected lanes and binds the
-   intermediate rack as `rooted`. Its `else <0.0>` fills the other lanes of
-   that rack. Names declared inside the block stay inside it; `rooted` is
-   available to subsequent blocks and the sweep.
-3. `sweep:` gives the function's result. Each lane takes the first matching
-   arm, with `_` supplying the value for any lane left over. Values keep
-   their lane positions.
+The `rake` keyword tells the compiler that this definition will choose work
+for individual lanes. Its body supplies that work. The next line tells us
+which lanes to select.
 
-### Why are there two zeros?
+### tine
 
-The `through` fallback belongs to the intermediate rack. The sweep's fallback
-belongs to the final result. They can differ. Change only the sweep's last
-arm to `| _ => <-1.0>` and the first rack looks like this:
+A tine is a prong on a garden rake. In the language, a `tine` is a named
+*mask*: a true-or-false choice for each lane. Read
+`tine #valid when values >= <0.0>` as “the valid tine catches numbers that
+are greater than or equal to zero”.
+
+`<0.0>` is a *uniform*, one scalar value shared by every lane. The comparison
+checks each input number against that same zero:
+
+```text
+values:   [16,   -4,    9,    1]
+#valid:   [true, false, true, true]
+```
+
+`tine #valid` declares the mask's name, and `when values >= <0.0>` defines how
+to calculate it. That follows the familiar distinction between a declaration,
+which introduces a name, and a definition, which supplies its meaning. Here
+both are on one line. The comparison computes the mask when the rake runs,
+and the `#` marks the name we'll use to refer to it.
+
+### through
+
+Now that we've selected the valid lanes, we can pass them through a
+calculation. Read `through #valid else <0.0> into rooted:` as “calculate the
+valid lanes using the body below, give the other lanes zero, and call the
+result `rooted`”. The body is `sqrt(values)`, so those valid lanes take
+their square roots:
+
+```text
+values:   [16, -4, 9, 1]
+rooted:   [ 4,  0, 3, 1]
+```
+
+Giving the result the name `rooted` is called *binding* a name to a value.
+Binding is general programming terminology, used in languages such as
+[OCaml](https://ocaml.org/docs/values-and-functions). It's the association
+between a name and what that name means. Here `into rooted` introduces the
+name, and the block defines its value through the calculation and the fallback.
+
+We can now use `rooted` in a later block or in the sweep. A binding doesn't
+require the compiler to store a temporary array: this value can stay in a
+vector register. Any names introduced inside the through body are local to
+that body, while `rooted` is available to the rest of the rake.
+
+### sweep
+
+We've calculated an intermediate rack. A `sweep` chooses the values that
+leave the function. Read its arms in order: `| #valid => rooted` takes a
+value from `rooted` wherever `#valid` holds. The final arm, `| _ => <0.0>`,
+gives zero to any lane left over. The `_` means “everything else”.
+
+The result is `[4, 0, 3, 1]`. Each value stays in its original lane, so a
+sweep doesn't shuffle or compact the rack. `sweep:` is itself the rake's
+result form, which is why it doesn't need a `return` keyword.
+
+### Intermediate and final results
+
+The example has zero in two places because it produces two results along
+the way. The through block fills the inactive lanes of `rooted` with zero.
+Then the sweep chooses the values to return. Its fallback is a separate
+choice: change its last arm to `| _ => <-1.0>` and the final rack changes:
 
 | Stage | Lane 0 | Lane 1 | Lane 2 | Lane 3 |
 | --- | ---: | ---: | ---: | ---: |
@@ -102,16 +139,17 @@ arm to `| _ => <-1.0>` and the first rack looks like this:
 | `rooted` | 4 | 0 | 3 | 1 |
 | Result | 4 | −1 | 3 | 1 |
 
-In the original version, the sweep reads `rooted` only where `#valid` holds.
-Its other lanes are unused, so the two zero selections are redundant in
-this example. The compiler folds them into one. Another sweep can read the
-whole intermediate rack, making the `through` fallback matter.
+The intermediate zero is still there, but the sweep never uses it. It takes
+−1 for that lane instead. In the original version, choosing zero again is
+redundant, so the compiler can remove the duplicate selection. If a sweep
+uses the whole intermediate rack, the through fallback contributes to the
+final result too.
 
-These are pure computations, with no side effects. They aren't lazy steps
-waiting for a sweep to trigger execution. The compiler sees their data flow
-together and chooses the instructions that implement it. On WebAssembly,
-`safe_root` becomes a vector comparison, square root and select. A sweep
-selects values in place; it doesn't scatter, compact or rearrange lanes.
+Reading the definition in stages explains how the calculation depends on
+its inputs. It doesn't specify a delayed execution model: the sweep isn't
+a trigger for earlier work. The compiler can optimise these pure
+calculations together. On WebAssembly this rake becomes a vector comparison,
+a square root and a selection of results.
 
 [Lesson 8](/docs/playground/#lesson-8) lets you change each fallback separately
 and inspect the result. [Tines, through and sweeps](/docs/tines-and-through/)
@@ -144,9 +182,17 @@ mask can't fail or raise a floating-point exception.
 
 ### Stages fuse
 
-`| name <| expression` is a stage of one fused computation, read from right
-to left. The names are for the reader. The compiler sees one graph and may
-compile it as the cheapest instructions it finds, such as a fused multiply-add:
+Once we've given an intermediate value a name, it can look as though we've
+asked the processor to perform and store that step separately. *Fusion* is
+the general compiler term for combining pieces of work so they can execute
+together. Compilers may fuse loops, for example, to do their work in one
+pass. Rake's fused bindings let it combine stages of a vector calculation.
+
+In `| name <| expression`, the expression flows from right to left into its
+name. This is still a binding. The leading `|` marks it as part of a fused
+calculation, whose stages the compiler must keep together as a contiguous
+sequence of vector instructions. Here a `crunch`, a function of racks that
+doesn't need tines, calculates a new position in two stages:
 
 ```rake
 crunch advance(positions: f32s, velocities: f32s, <dt: f32>) -> f32s:
@@ -155,7 +201,17 @@ crunch advance(positions: f32s, velocities: f32s, <dt: f32>) -> f32s:
   return moved
 ```
 
-On AVX2 that is one `vbroadcastss` and one `vfmadd231ps`.
+`step` is the velocity multiplied by the time interval. `moved` adds that
+step to the position. The bindings make the calculation legible, while
+allowing the compiler to combine the multiply and add into one instruction.
+On AVX2 the code becomes one `vbroadcastss` to share `dt` across the lanes,
+then one `vfmadd231ps`, a fused multiply-add. It rounds the combined
+calculation once. Strict WebAssembly SIMD has no such instruction, so that
+target keeps the multiply and add separate.
+
+[Fused bindings](/docs/fused-bindings/) defines which rewrites Rake permits.
+[LLVM's loop-fusion documentation](https://llvm.org/docs/LoopFusion.html)
+describes another use of the same compiler term.
 
 ### Data lives in columns
 

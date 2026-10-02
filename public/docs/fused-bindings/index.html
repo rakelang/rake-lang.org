@@ -74,9 +74,15 @@
 </nav>
     <main class="content">
 <h1 id="fused-bindings">Fused bindings</h1>
-<p><code>| name &lt;| expression</code> binds one stage of a fused computation. Read it from
-right to left: the expression flows into <code>name</code>. Consecutive stages line up on
-their leading bars, so a data path reads down the page:</p>
+<p><em>Binding</em> is general programming terminology for associating a name with a
+value. A declaration introduces the name, and a definition supplies its
+meaning. Rake's <code>let name = expression</code> does both: it gives the expression's
+value a name that later code can use.</p>
+<p><em>Fusion</em> is a compiler term for combining separate pieces of work so they
+can execute together. Rake's <code>| name &lt;| expression</code> binds one stage of a
+fused vector calculation. Read it from right to left: the expression flows
+into <code>name</code>. Consecutive stages line up on their leading bars, so we can
+follow the calculation down the page:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">scaled</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.5</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">scaled</span>
