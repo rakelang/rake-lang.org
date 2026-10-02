@@ -80,8 +80,7 @@ marked <code>slow</code> so that nobody mistakes it for vector code. A <code>slo
 block is a lexical escape inside a run, like Rust's explicit <code>unsafe { ... }</code>
 boundary. The surrounding rack work retains its vector contract. A whole
 scalar function can instead be declared <code>slow name(...)</code>.</p>
-<p>Slow blocks are available in the current compiler source and playground. They
-were added after the 0.4.0-beta tag and will be included in the next release.</p>
+<p>Slow blocks are available in 0.5.0-beta and in the playground.</p>
 <p>A program with any slow, run, record, state, embed, const or extern
 definition is a whole program. On <code>wasm-simd128</code> it compiles to one C
 translation unit with <code>int main(void)</code>, which is what a C-only judge takes.
@@ -388,7 +387,7 @@ aggregates.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

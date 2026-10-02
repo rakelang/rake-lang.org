@@ -53,7 +53,7 @@
   data-worker="/scripts/playground-worker.js?v=185e0038"
   data-compiler="/scripts/rake-compiler.js?v=307db61d"
   data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
-  data-rake-language="/scripts/tree-sitter-rake.wasm?v=d2cf6b76"
+  data-rake-language="/scripts/tree-sitter-rake.wasm?v=904131ba"
   data-rake-highlights="/scripts/rake-highlights.scm?v=e38bfe67">
   <header class="playground-heading">
     <div>
@@ -416,8 +416,8 @@ fields, <code>state games: i32 := 0</code> keeps a value for the life of the pro
 and a <code>mut</code> parameter is one the function writes.
 Inside a run, <code>slow { ... }</code> explicitly enters scalar mode. This is the
 performance boundary corresponding to Rust's <code>unsafe { ... }</code> safety boundary.
-At <code>}</code> the run resumes vector mode. This syntax is available in the current
-source and playground, ahead of the next tagged release.</p>
+At <code>}</code> the run resumes vector mode. This syntax is available in 0.5.0-beta
+and in the playground.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">record</span> <span class="tok-type">Score</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">best</span><span class="tok-punctuation-delimiter">;</span>
@@ -599,7 +599,7 @@ draws them differently.</p>
 
   </div>
   <footer class="site-footer">
-    <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

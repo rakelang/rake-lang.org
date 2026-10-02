@@ -390,6 +390,5 @@ nix develop --command dune exec rakec -- --interpret program.rk
 released under the MIT licence. This is a beta: the language and its binary
 boundaries may still change between versions.
 
-Slow blocks are available on `main` and in the playground, ahead of the next
-tagged release. Rakes on `main` also end with `sweep:`, without `return`.
-The changelog separates these changes from 0.4.0-beta.
+Rake 0.5.0-beta includes `slow { ... }` blocks and rakes that end with
+`sweep:`, without `return`. The playground runs the same release.
