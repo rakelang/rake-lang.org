@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/" aria-current="page">Control flow</a></li>
@@ -90,7 +90,7 @@ exceptions. On WebAssembly, the expression below is two subtractions, a
 comparison and one <code>v128.bitselect</code>. A mask conditional compiles on
 <code>x86-avx2</code>, <code>aarch64-neon</code> and <code>wasm-simd128</code>:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">distance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">v</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">w</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">return</span> <span class="tok-keyword">if</span> <span class="tok-variable">v</span> <span class="tok-operator">&gt;</span> <span class="tok-variable">w</span> <span class="tok-keyword">then</span> <span class="tok-variable">v</span> <span class="tok-operator">-</span> <span class="tok-variable">w</span> <span class="tok-keyword">else</span> <span class="tok-variable">w</span> <span class="tok-operator">-</span> <span class="tok-variable">v</span>
+  <span class="tok-keyword">if</span> <span class="tok-variable">v</span> <span class="tok-operator">&gt;</span> <span class="tok-variable">w</span> <span class="tok-keyword">then</span> <span class="tok-variable">v</span> <span class="tok-operator">-</span> <span class="tok-variable">w</span> <span class="tok-keyword">else</span> <span class="tok-variable">w</span> <span class="tok-operator">-</span> <span class="tok-variable">v</span>
 </code></pre>
 <p>A uniform condition chooses one whole rack. In vector code both branches are
 rack expressions that the target computes before selecting one, so computing
@@ -98,7 +98,7 @@ the branch not taken has no effect. In slow code, only the chosen branch is
 evaluated. A uniform conditional in vector code compiles on <code>wasm-simd128</code>
 only:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">pick</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">near</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">far</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">late</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">return</span> <span class="tok-keyword">if</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">late</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">then</span> <span class="tok-variable">near</span> <span class="tok-keyword">else</span> <span class="tok-variable">far</span>
+  <span class="tok-keyword">if</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">late</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">then</span> <span class="tok-variable">near</span> <span class="tok-keyword">else</span> <span class="tok-variable">far</span>
 </code></pre>
 <p>In vector code, a branch can't read memory. A load, gather or element read is
 bound with <code>let</code> before the conditional, so it visibly happens whichever way
@@ -119,7 +119,7 @@ every production profile:</p>
   <span class="tok-variable">power</span> <span class="tok-operator">:=</span> <span class="tok-variable">a</span>
   <span class="tok-keyword">repeat</span> <span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-keyword">from</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-variable">power</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">power</span> <span class="tok-operator">*</span> <span class="tok-variable">a</span>
-  <span class="tok-keyword">return</span> <span class="tok-variable">power</span>
+  <span class="tok-variable">power</span>
 </code></pre>
 <p>In a run, <code>repeat</code> unrolls while its trips times its body's statements stay
 within 4096, and otherwise it stays a loop with the same meaning. Either way
@@ -180,7 +180,7 @@ slow loop does whole-rack work once each iteration.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

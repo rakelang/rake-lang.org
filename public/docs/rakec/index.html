@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -101,17 +101,17 @@ code, runs, records, state, embedded files, constants or externs, compiles for
 the wasm profiles only.</p>
 <h2 id="options">Options</h2>
 <div class="table-scroll"><table><thead><tr><th>Option</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>--target p</code></td><td>the profile: <code>native</code> (the default), <code>x86-avx2</code>, <code>aarch64-neon</code>, <code>wasm-simd128</code>, <code>wasm-simd128-relaxed</code>, or the planned <code>x86-sse2</code>, <code>x86-avx512</code> and <code>scalar</code></td></tr>
+<tr><td><code>--target p</code></td><td>the profile: <code>native</code> (the default), <code>x86-sse2</code>, <code>x86-avx2</code>, <code>x86-avx512</code>, <code>aarch64-neon</code>, <code>wasm-simd128</code>, <code>wasm-simd128-relaxed</code>, or the WIP scalar fallback</td></tr>
 <tr><td><code>--width n</code></td><td>asserts that the profile's <code>f32</code> rack has <code>n</code> lanes</td></tr>
 <tr><td><code>--wasm-addressing a</code></td><td><code>barrier</code>, the default, keeps a run's pointers opaque to clang's loop strength reduction so constant offsets fold into loads and stores, and <code>plain</code> emits intrinsics alone</td></tr>
 <tr><td><code>-o path</code>, <code>--output path</code></td><td>the output file</td></tr>
 </tbody></table>
 </div>
-<p><a href="/docs/racks-and-targets/#profiles">Racks and targets</a> explains how
+<p><a href="/docs/primitives-operations-and-targets/#profiles">Primitives, operations, and targets</a> explains how
 <code>native</code> chooses a profile and what <code>--width</code> checks, and <a href="/docs/packs-and-runs/#addressing">packs and
 runs</a> explains the addressing modes.</p>
 <h2 id="tools-and-environment">Tools and environment</h2>
-<p>On <code>x86-avx2</code> the assembler is <code>as --64</code>, and on <code>aarch64-neon</code> it is
+<p>On every x86 profile the assembler is <code>as --64</code>, and on <code>aarch64-neon</code> it is
 <code>aarch64-unknown-linux-gnu-as</code>. Verification disassembles with the matching
 <code>objdump</code>. The wasm profiles use these variables:</p>
 <div class="table-scroll"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
@@ -147,7 +147,7 @@ failed. A trap from <code>--interpret</code> gives the location and the reason, 
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

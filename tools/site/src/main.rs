@@ -585,7 +585,9 @@ fn playground(assets: &BTreeMap<String, String>) -> Result<String, String> {
         <label>Target
           <select data-target>
             <option value="wasm-simd128">wasm-simd128</option>
+            <option value="x86-sse2">x86-sse2</option>
             <option value="x86-avx2">x86-avx2</option>
+            <option value="x86-avx512">x86-avx512</option>
             <option value="aarch64-neon">aarch64-neon</option>
           </select>
         </label>

@@ -4046,7 +4046,7 @@ async function start2(root2) {
       option.disabled = wholeProgram && option.value !== "wasm-simd128";
     }
     if (wholeProgram) target.value = "wasm-simd128";
-    required(root2, "[data-target-note]").textContent = wholeProgram ? "Whole programs run on wasm-simd128." : "Vector definitions compile for all three targets.";
+    required(root2, "[data-target-note]").textContent = wholeProgram ? "Whole programs run on wasm-simd128." : "Inspect vector definitions for SSE2, AVX2, AVX-512, NEON or WebAssembly. Browser execution uses WebAssembly.";
     history.replaceState(null, "", `#lesson-${lessonIndex + 1}`);
     highlight();
     if (ready) void compile();

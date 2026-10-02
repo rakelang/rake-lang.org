@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -100,6 +100,12 @@ differential, the whole-program differential and the C boundary of runs:</p>
 (<code>dune runtest</code>), the AArch64 differential under QEMU, the capability
 evidence in <code>capability_evidence.tsv</code>, the parser differential and the
 website.</p>
+<p><code>test/x86_profiles_test.sh</code> checks SSE2, AVX2 and AVX-512 against independent
+scalar results, including ordered reductions, masked partial operations and
+NaNs. SSE2 and AVX2 execute on the test host. AVX-512 executes on hardware with
+AVX-512F, or through Intel SDE supplied as <code>RAKE_SDE=/absolute/path/to/sde64</code>.
+The suite fails if neither is available, rather than treating object
+verification as runtime agreement.</p>
 <p><code>tools/check_documentation_examples.sh</code> compiles every <code>```rake</code> block in
 the README, the documentation and the website's pages. The pages own their
 examples, so a change to the language that breaks one fails here until the
@@ -115,7 +121,7 @@ two parsers must accept and reject the same sources:</p>
 
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

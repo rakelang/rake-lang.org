@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -81,9 +81,11 @@ stage checks each promise from <a href="/docs/goals/">the goals</a>.</p>
   -&gt; type checker                                        types and capabilities
   -&gt; native lowering                                     typed native IR
   -&gt; native IR verifier
-  -&gt; optimiser                                           names substituted, fused multiply-adds formed, dead code removed
+  -&gt; optimiser                                           identifiers substituted, fused multiply-adds formed, dead code removed
   -&gt; instruction selection for the profile
-       x86-avx2      machine IR -&gt; no-spill YMM allocation -&gt; GNU assembly -&gt; as
+       x86-sse2      shared x86 IR -&gt; no-spill XMM allocation -&gt; GNU assembly -&gt; as
+       x86-avx2      shared x86 IR -&gt; no-spill YMM allocation -&gt; GNU assembly -&gt; as
+       x86-avx512    shared x86 IR -&gt; no-spill ZMM allocation -&gt; GNU assembly -&gt; as
        aarch64-neon  machine IR -&gt; no-spill vector allocation -&gt; GNU assembly -&gt; as
        wasm-simd128  WebAssembly instructions -&gt; C with one intrinsic each -&gt; clang
   -&gt; object verifier                                     the disassembled object
@@ -136,9 +138,17 @@ a crunch. <code>rakec --interpret</code> runs <code>main</code> in Rake's execut
 evaluating rack expressions in the same reference semantics as crunches, and
 <code>test/program_test.sh</code> compares it with the compiled program.</p>
 <h2 id="profiles">Profiles</h2>
+<p>On x86, an <code>f32s</code> rack and its lane mask occupy one XMM register on SSE2,
+one YMM register on AVX2, or one ZMM register on AVX-512F. All three profiles
+share one instruction-selection and no-spill allocation pipeline. The
+emitter chooses two-address SSE2 instructions or three-address AVX
+instructions, and each object verifier checks only its profile's ISA.
+SSE2 reserves <code>xmm15</code> for instruction-local temporaries. AVX-512 uses <code>k1</code>
+while materialising or selecting a vector mask, and needs no AVX-512DQ,
+BW or VL instructions.</p>
 <p>On <code>x86-avx2</code>, an <code>f32s</code> rack is one YMM register and a mask is a YMM value.
 Arguments follow the System V convention in eight SSE-class registers, and a
-uniform <code>f32</code> arrives in an XMM register, whose YMM name is the same physical
+uniform <code>f32</code> arrives in an XMM register, whose YMM identifier denotes the same physical
 register, so the allocator tracks the pair as one. A uniform's use is a
 <code>vbroadcastss</code>. The profile needs AVX2 and FMA3.</p>
 <p>On <code>aarch64-neon</code>, an <code>f32s</code> rack is one 128-bit vector register. Arguments
@@ -161,7 +171,7 @@ written in its source. It never replaces rack work with scalar lane loops.</p>
 <p><code>--verify-native</code> disassembles the object and checks each function against
 its profile's list of instructions:</p>
 <ul>
-<li>On <code>x86-avx2</code> and <code>aarch64-neon</code>: no calls, no stack, every rack in one
+<li>On SSE2, AVX2, AVX-512 and NEON: no calls, no stack, every rack in one
 whole register, no scalar arithmetic on rack lanes, cross-lane instructions
 only in reductions and scans, and exactly the fused multiply-adds that the
 compiler selected.</li>
@@ -172,7 +182,7 @@ slow blocks, verified by their object relocations, no C stack, only the vector
 instructions its source selected or their documented equivalents, and no
 more lane operations or loops than its source states.</li>
 </ul>
-<p><a href="/docs/racks-and-targets/#verification">Racks and targets</a> and <a href="/docs/slow-tier/#verification">the
+<p><a href="/docs/primitives-operations-and-targets/#verification">Primitives, operations, and targets</a> and <a href="/docs/slow-tier/#verification">the
 slow tier</a> give the details.</p>
 <h2 id="ownership">Ownership</h2>
 <p>Rake owns the IR, its rewrites and instruction selection on every profile.
@@ -197,7 +207,7 @@ boundary</a> is a design.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

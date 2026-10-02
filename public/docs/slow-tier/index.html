@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -264,7 +264,7 @@ a NaN give a NaN. Of two zeros, <code>min</code> gives negative zero if either i
 <h2 id="calling-vector-code">Calling vector code</h2>
 <p>Slow code calls a run as a statement and a crunch or rake as an expression:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">score</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">y</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">return</span> <span class="tok-function">extract</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">x</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">y</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-function">extract</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">x</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">y</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">)</span>
 
 <span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">let</span> <span class="tok-variable">a</span> <span class="tok-operator">=</span> <span class="tok-number">2.0</span>
@@ -387,7 +387,7 @@ aggregates.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

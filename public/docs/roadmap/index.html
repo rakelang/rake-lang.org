@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -73,14 +73,15 @@
 </nav>
     <main class="content">
 <h1 id="roadmap">Roadmap</h1>
-<p>Rake 0.5.0-beta establishes the language's vector contract and proves it on
-three target profiles. This roadmap states what we intend to build next.
+<p>Rake's vector contract now has SSE2, AVX2, AVX-512F, NEON and WebAssembly
+implementations. Native runs and packs, a scalar fallback and operation parity
+remain work in progress. This roadmap states what we intend to build next.
 <a href="/docs/changelog/">The changelog</a> records work once it has landed, while
 <a href="/docs/goals/">the goals</a> describe the principles that each change must preserve.</p>
 <h2 id="capabilities-and-coverage">Capabilities and coverage</h2>
 <h3 id="compile-runs-packs-and-whole-programs-for-physical-targets">Compile runs, packs and whole programs for physical targets</h3>
 <p>We will extend <code>run</code>, packs and whole programs from <code>wasm-simd128</code> to
-<code>x86-avx2</code> and <code>aarch64-neon</code>. That work includes native traversal, full-rack
+SSE2, AVX2, AVX-512 and NEON. That work includes native traversal, full-rack
 loads and stores, masked tails with benign operands, stable C boundaries and
 runtime tests over empty, short, exact and tail counts. The object verifier
 will confirm vector memory operations and reject scalar cleanup loops.</p>
@@ -89,17 +90,18 @@ selects vector instructions, but leaves physical register allocation to the
 WebAssembly runtime. Its promise is the same on every target: code outside a
 <code>slow</code> block uses vector instructions throughout or compilation fails.</p>
 <h3 id="add-and-validate-target-profiles">Add and validate target profiles</h3>
-<p>We will implement <code>x86-sse2</code>, <code>x86-avx512</code>, a scalar fallback and, after the
-CPU profiles are complete, GPU targets. Each physical profile will own its
-instruction selection, register allocation, calling convention, object
-verification and differential runtime tests.</p>
+<p>SSE2 and AVX-512F now compile <code>f32s</code> crunches and rakes, alongside AVX2 and
+NEON. We will add the explicit scalar fallback and complete CPU operation and
+program coverage before beginning GPU targets. Each physical profile must
+have instruction selection, register allocation, a calling convention,
+object verification and differential runtime checks.</p>
 <p>We will validate relaxed WebAssembly SIMD on the competition runtime before
 considering it a default. Until then it remains explicitly opt-in.</p>
-<h3 id="complete-avx2-and-neon-operation-coverage">Complete AVX2 and NEON operation coverage</h3>
+<h3 id="complete-physical-cpu-operation-coverage">Complete physical CPU operation coverage</h3>
 <p>We will bring the physical profiles up to the language's published operation
 set. The next work covers substantial maths, integer racks, shuffles, lane
 extraction and insertion, reductions and scans, uniform conditionals and
-gather. AVX2 and NEON will gain an operation only when their compiled result
+gather. A CPU profile will gain an operation only when its compiled result
 matches the interpreter and their object verifier proves the selected vector
 sequence.</p>
 <h3 id="complete-cross-profile-operation-coverage">Complete cross-profile operation coverage</h3>
@@ -118,8 +120,8 @@ common-subexpression sharing and strength reduction within a fused region.
 Each profile will choose among legal rewrites using its operation costs, and
 tests will compare the emitted result with the verified optimised graph.</p>
 <h3 id="implement-the-unavailable-language-capabilities">Implement the unavailable language capabilities</h3>
-<p>We will work down the capability catalogue from its 0.4.0-beta baseline of 86
-checked and 36 unavailable capabilities. The outstanding language areas
+<p>We will work down the capability catalogue, which currently reports 88 checked
+and 35 unavailable capabilities. The outstanding language areas
 include tuple and function types, lambdas, pipelines, type aliases, spread
 parameters, record updates, inline tines, outer products and several masked
 operations.</p>
@@ -185,10 +187,10 @@ shareable links, multiple files and explicit compiler-version selection. The
 interactive lessons will remain reproducible examples rather than becoming a
 separate dialect of the language.</p>
 <h3 id="publish-and-verify-every-tree-sitter-package">Publish and verify every Tree-sitter package</h3>
-<p>We will publish the generated Tree-sitter bindings to the relevant package
-registries and test installation from those registries. SwiftPM will run in an
-official Swift environment with Foundation available, alongside the npm,
-Python, Rust and Go package checks. Generated bindings, comments, queries and
+<p>The grammar is published on npm, PyPI and crates.io. SwiftPM builds in CI
+with Foundation available, alongside the npm, Python, Rust and Go package
+checks. We will keep testing installation from each registry and publish
+syntax changes together with the compiler. Generated bindings, comments, queries and
 version metadata will continue to come from the same current grammar revision.</p>
 <h2 id="release-gates">Release gates</h2>
 <p>A capability moves from unavailable to supported when one compiler revision
@@ -217,7 +219,7 @@ input size, machine and baseline.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

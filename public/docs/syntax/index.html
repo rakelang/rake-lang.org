@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Syntax reference | Rake</title>
-  <meta name="description" content="Rake's syntax: layout, names, literals, definitions, types, statements and expressions, with the marks for uniforms, tines and fused stages explained.">
+  <meta name="description" content="Rake's syntax: layout, identifiers, literals, types, statements and expressions, with the marks for uniforms, tines and fused stages explained.">
   <link rel="canonical" href="https://rake-lang.org/docs/syntax/">
   <meta property="og:title" content="Syntax reference | Rake">
-  <meta property="og:description" content="Rake's syntax: layout, names, literals, definitions, types, statements and expressions, with the marks for uniforms, tines and fused stages explained.">
+  <meta property="og:description" content="Rake's syntax: layout, identifiers, literals, types, statements and expressions, with the marks for uniforms, tines and fused stages explained.">
   <meta property="og:url" content="https://rake-lang.org/docs/syntax/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
   <link rel="stylesheet" href="/styles/components.css?v=3c180efb">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Syntax reference | Rake","name":"Syntax reference | Rake","description":"Rake's syntax: layout, names, literals, definitions, types, statements and expressions, with the marks for uniforms, tines and fused stages explained.","url":"https://rake-lang.org/docs/syntax/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Syntax reference | Rake","name":"Syntax reference | Rake","description":"Rake's syntax: layout, identifiers, literals, types, statements and expressions, with the marks for uniforms, tines and fused stages explained.","url":"https://rake-lang.org/docs/syntax/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
 <body class="layout-docs">
@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/" aria-current="page">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -73,7 +73,7 @@
 </nav>
     <main class="content">
 <h1 id="syntax">Syntax</h1>
-<p>This page is the reference for Rake's source syntax: its layout, names,
+<p>This page is the reference for Rake's source syntax: its layout, identifiers,
 literals, definitions, types, statements and expressions. The other pages
 define what each form means. A form that parses can still be unavailable on a
 target, and the compiler reports that separately from a syntax error.</p>
@@ -91,26 +91,26 @@ no body. On one line, a slow block separates statements with semicolons.
 Blank lines and comment-only lines don't affect indentation.</p>
 <p><code>~~</code> starts a comment that runs to the end of the line. <code>(*</code> and <code>*)</code> enclose
 a block comment, and block comments nest.</p>
-<h2 id="names">Names</h2>
+<h2 id="identifiers">Identifiers</h2>
 <p>An identifier starts with a lowercase letter or an underscore and continues
 with letters, digits and underscores. A name that starts with an uppercase
 letter is a type name, used for stacks and records, such as <code>Samples</code>. A lone
-<code>_</code> is the default arm of a sweep, not a name. These words are reserved and can't be used as names:</p>
+<code>_</code> is the default arm of a sweep, not an identifier. These words are reserved and can't be used as identifiers:</p>
 <pre class="code code-text"><code>and bool bools break by const continue crunch else embed extern f32 f32s f64
 f64s false fma for from i16 i16s i32 i32s i64 i64s i8 i8s if in into lanes
 let mask mut not or pack ptr rake record repeat return rotate_left
 rotate_right run shift_left shift_right shuffle slow stack state sweep then
 through tine to true u16 u16s u32 u32s u64 u64s u8 u8s unchecked up using
-when while yield
+means while yield
 </code></pre>
 <p><code>wrap</code> and <code>bitcast</code> are conversions when a parenthesis follows them, as in
-<code>wrap(u8, x)</code>, and ordinary names otherwise.</p>
+<code>wrap(u8, x)</code>, and ordinary identifiers otherwise.</p>
 <h2 id="literals">Literals</h2>
 <p>Integers are written in decimal or in hexadecimal with <code>0x</code>. A decimal
 literal up to 2^64 - 1 is accepted, and one above 2^63 - 1 is read as the bit
 pattern of a <code>u64</code>. Floats need a decimal point or an exponent: <code>1.0</code>, <code>2.</code>
 and <code>1e-3</code>. <code>true</code> and <code>false</code> are the Boolean literals. A string literal in
-double quotes names a file after <code>from</code>, or passes text to a C function. Its
+double quotes specifies a file after <code>from</code>, or passes text to a C function. Its
 escapes are kept as written, for C to read.</p>
 <p>A minus sign before a literal makes it negative, and a minus sign between two
 operands subtracts, so <code>n-1</code> and <code>n - 1</code> mean the same. A literal's type comes
@@ -132,10 +132,10 @@ lines up consecutive stages.</li>
 <h2 id="definitions">Definitions</h2>
 <p>A file holds one or more definitions:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">scale</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">factor</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">return</span> <span class="tok-variable">values</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">factor</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-variable">values</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">factor</span><span class="tok-operator">&gt;</span></span>
 
 <span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">when</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 
   <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
@@ -163,12 +163,12 @@ scalar type, and a record field can be any type. A C struct is declared as
 <code>record Name from "file.h" { ... }</code>.</p>
 <h2 id="parameters-and-results">Parameters and results</h2>
 <p>Parameters are written <code>name: type</code> and separated by commas. A uniform scalar
-parameter is written <code>&lt;name: type&gt;</code>. A result type follows <code>-&gt;</code>. A crunch or
-rake returns the value of its <code>return</code> statement or sweep. A run declared
+parameter is written <code>&lt;name: type&gt;</code>. A result type follows <code>-&gt;</code>. A crunch's
+last expression supplies its result. A rake ends with its sweep. A run declared
 <code>-&gt; f32</code> yields racks from a traversal and writes their lanes to an <code>f32</code>
 output stream, and a run without a result type writes through its <code>mut</code>
 parameters instead. A slow function without a result type returns nothing.
-A crunch's body ends with its <code>return</code>.</p>
+<code>return</code> is reserved for leaving a slow function, not for a crunch.</p>
 <p>A crunch, rake or run may call crunches and rakes. The call is inlined, so
 calls nest at most 32 deep and recursion is rejected.</p>
 <h2 id="types">Types</h2>
@@ -196,7 +196,7 @@ column layout, used through <code>pack Name</code>.</p>
 <tr><td><code>name := e</code>, <code>name: T := e</code>, <code>(name: T) := e</code></td><td>a mutable location</td></tr>
 <tr><td><code>place &lt;- e</code></td><td>assignment to a location, field, element or memory</td></tr>
 <tr><td><code>| name &lt;| e</code>, <code>| name: T &lt;| e</code></td><td>a fused binding</td></tr>
-<tr><td><code>return e</code>, <code>return</code></td><td>the result of a crunch, or leaving a slow function</td></tr>
+<tr><td><code>return e</code>, <code>return</code></td><td>leaving a slow function</td></tr>
 <tr><td><code>sweep:</code> with arms</td><td>the final, lane-by-lane result of a rake</td></tr>
 <tr><td><code>yield e</code></td><td>the rack a traversal produces for its chunk</td></tr>
 <tr><td><code>if c:</code> … <code>else if c:</code> … <code>else:</code></td><td>a conditional statement</td></tr>
@@ -206,7 +206,7 @@ column layout, used through <code>pack Name</code>.</p>
 <tr><td><code>for chunk in p using f32s up to &lt;n&gt;:</code></td><td>a traversal of a pack</td></tr>
 <tr><td><code>break</code>, <code>continue</code></td><td>inside a slow loop</td></tr>
 <tr><td><code>slow { statements; value }</code></td><td>a scoped scalar escape in a run or slow function, optionally producing a scalar</td></tr>
-<tr><td><code>e</code></td><td>a call evaluated for its effect</td></tr>
+<tr><td><code>e</code></td><td>a crunch's final result, or a call evaluated for its effect</td></tr>
 </tbody></table>
 </div>
 <p>A name is bound once in its scope and can't shadow an enclosing name. A mutable location
@@ -214,12 +214,12 @@ changes with <code>&lt;-</code>. <a href="/docs/control-flow/">Control flow</a> 
 conditionals and loops, <a href="/docs/packs-and-runs/">Packs and runs</a> the traversal,
 and <a href="/docs/slow-tier/">the slow tier</a> the scalar statements.</p>
 <h2 id="tines-through-and-sweeps">Tines, through and sweeps</h2>
-<p>A rake names its lane masks with tines, computes values under them with
+<p>A rake defines its lane masks with tines, computes values under them with
 <code>through</code>, and combines the results with a sweep. A rake's body is, in order,
 any <code>let</code> bindings, its tines, its through blocks and the sweep:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">clamp_band</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">low</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">high</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">above</span> <span class="tok-keyword">when</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">low</span><span class="tok-operator">&gt;</span></span>
-  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">over</span> <span class="tok-keyword">when</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">high</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">above</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">low</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">over</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">high</span><span class="tok-operator">&gt;</span></span>
 
   <span class="tok-keyword">through</span> <span class="tok-punctuation-bracket">(</span><span class="tok-tag">#</span><span class="tok-tag">above</span> <span class="tok-operator">and</span> <span class="tok-operator">not</span> <span class="tok-tag">#</span><span class="tok-tag">over</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-variable">values</span> <span class="tok-operator">-</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">low</span><span class="tok-operator">&gt;</span></span>
@@ -230,9 +230,9 @@ any <code>let</code> bindings, its tines, its through blocks and the sweep:</p>
 </code></pre>
 <p>A tine's predicate uses comparisons, other tines, parentheses, <code>not</code>, <code>and</code>
 and <code>or</code>, and arithmetic and fields on its operands. It contains no calls.
-A through block names one tine, as in <code>through #active</code>, or a predicate in
+A through block selects one tine, as in <code>through #active</code>, or a predicate in
 parentheses, as in <code>through (#active and not #edge)</code>. <code>else</code> gives the value
-of the lanes outside the tine, a uniform or a literal, and <code>into</code> names the
+of the lanes outside the tine, a uniform or a literal, and <code>into</code> specifies the
 result. A sweep
 takes the first arm whose tine holds for each lane and ends with one <code>_</code> arm
 for the remaining lanes. <a href="/docs/tines-and-through/">Tines, through and sweeps</a>
@@ -248,7 +248,7 @@ defines them.</p>
 <tr><td><code>a * b</code>, <code>a / b</code>, <code>a % b</code></td><td><code>%</code> is integer remainder</td></tr>
 <tr><td><code>-a</code>, <code>not a</code></td><td></td></tr>
 <tr><td><code>a.field</code>, <code>a[i]</code>, <code>a[unchecked i]</code></td><td>fields and indexing</td></tr>
-<tr><td>literals, names, marks, calls, <code>(e)</code></td><td></td></tr>
+<tr><td>literals, identifiers, marks, calls, <code>(e)</code></td><td></td></tr>
 </tbody></table>
 </div>
 <p>A comparison of floats is false when either operand is NaN, and that includes
@@ -259,13 +259,13 @@ does.</p>
 <p>Other primary forms are calls <code>f(a, b)</code>, conversions <code>i32(x)</code> (checked),
 <code>wrap(u8, x)</code> (the low bits) and <code>bitcast(u32, x)</code> (the same bits), record
 literals <code>Name { field: e }</code>, and array literals <code>[a, b, c]</code> and <code>[e; n]</code>.</p>
-<p>Rack operations have names rather than operators:</p>
+<p>Rack operations use function-call syntax rather than operators:</p>
 <div class="table-scroll"><table><thead><tr><th>Operations</th><th>Page</th></tr></thead><tbody>
-<tr><td><code>sqrt</code> <code>abs</code> <code>floor</code> <code>ceil</code> <code>trunc</code> <code>nearest</code> <code>min</code> <code>max</code> <code>exp</code> <code>log</code> <code>log2</code> <code>tanh</code> <code>fma</code> <code>select</code></td><td><a href="/docs/racks-and-targets/">Racks and targets</a></td></tr>
-<tr><td><code>relaxed_madd</code> <code>relaxed_nmadd</code> <code>relaxed_min</code> <code>relaxed_max</code></td><td><a href="/docs/racks-and-targets/">Racks and targets</a></td></tr>
-<tr><td><code>dot</code> <code>narrow</code> <code>widen_low</code> <code>widen_high</code> <code>to_f32</code> <code>to_i32</code> <code>bitmask</code></td><td><a href="/docs/racks-and-targets/">Racks and targets</a></td></tr>
-<tr><td><code>bit_and</code> <code>bit_or</code> <code>bit_xor</code> <code>bit_andnot</code> <code>shift_bits_left</code> <code>shift_bits_right</code> <code>shift_bits_right_signed</code></td><td><a href="/docs/racks-and-targets/">Racks and targets</a></td></tr>
-<tr><td><code>shuffle(a, [3, 2, 1, 0])</code>, <code>shuffle(a, b, [0, 4, 1, 5])</code></td><td><a href="/docs/racks-and-targets/">Racks and targets</a></td></tr>
+<tr><td><code>sqrt</code> <code>abs</code> <code>floor</code> <code>ceil</code> <code>trunc</code> <code>nearest</code> <code>min</code> <code>max</code> <code>exp</code> <code>log</code> <code>log2</code> <code>tanh</code> <code>fma</code> <code>select</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
+<tr><td><code>relaxed_madd</code> <code>relaxed_nmadd</code> <code>relaxed_min</code> <code>relaxed_max</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
+<tr><td><code>dot</code> <code>narrow</code> <code>widen_low</code> <code>widen_high</code> <code>to_f32</code> <code>to_i32</code> <code>bitmask</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
+<tr><td><code>bit_and</code> <code>bit_or</code> <code>bit_xor</code> <code>bit_andnot</code> <code>shift_bits_left</code> <code>shift_bits_right</code> <code>shift_bits_right_signed</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
+<tr><td><code>shuffle(a, [3, 2, 1, 0])</code>, <code>shuffle(a, b, [0, 4, 1, 5])</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
 <tr><td><code>extract(rack, 2)</code>, <code>insert(rack, 2, &lt;x&gt;)</code></td><td><a href="/docs/reductions-and-scans/">Reductions and scans</a></td></tr>
 <tr><td><code>sum</code> <code>product</code> <code>minimum</code> <code>maximum</code> <code>all</code> <code>any</code></td><td><a href="/docs/reductions-and-scans/">Reductions and scans</a></td></tr>
 <tr><td><code>scan_sum</code> <code>scan_product</code> <code>scan_minimum</code> <code>scan_maximum</code></td><td><a href="/docs/reductions-and-scans/">Reductions and scans</a></td></tr>
@@ -293,7 +293,7 @@ brackets hold indices, array types and literals, and shuffle lane lists.
 <p class="page-contents-title">On this page</p>
 <ul>
 <li><a href="#layout">Layout</a></li>
-<li><a href="#names">Names</a></li>
+<li><a href="#identifiers">Identifiers</a></li>
 <li><a href="#literals">Literals</a></li>
 <li><a href="#definitions">Definitions</a></li>
 <li><a href="#parameters-and-results">Parameters and results</a></li>
@@ -306,7 +306,7 @@ brackets hold indices, array types and literals, and shuffle lane lists.
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

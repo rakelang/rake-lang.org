@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/" aria-current="page">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -85,7 +85,7 @@ follow the calculation down the page:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">scaled</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.5</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">scaled</span>
-  <span class="tok-keyword">return</span> <span class="tok-variable">moved</span>
+  <span class="tok-variable">moved</span>
 </code></pre>
 <p>The type annotation, as in <code>scaled: f32s</code>, is optional, and when present it
 must match the expression's type. A fused name is a value, like a <code>let</code> name:
@@ -113,30 +113,31 @@ aren't inferred yet, so a user-defined call can't enter a fused region even
 when it is pure. A rejection gives the binding and the reason:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">total</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-function">sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
-  <span class="tok-keyword">return</span> <span class="tok-variable">total</span>
+  <span class="tok-variable">total</span>
 </code></pre>
 <h2 id="rewrites-and-fused-multiply-add">Rewrites and fused multiply-add</h2>
 <p>Inside a fused region, arithmetic describes data flow rather than instruction
 order or intermediate rounding. The language allows the compiler to
-substitute names, reassociate, factor, distribute, share common
+substitute identifiers, reassociate, factor, distribute, share common
 subexpressions and form fused instructions, choosing the cheapest graph for
 the profile. Different profiles may therefore round one floating-point
 expression differently.</p>
-<p>The compiler implements part of that. It substitutes fused names, and on
-<code>x86-avx2</code> and <code>aarch64-neon</code> it contracts a multiply feeding an add in the
+<p>The compiler implements part of that. It substitutes fused identifiers, and on
+<code>x86-avx2</code>, <code>x86-avx512</code> and <code>aarch64-neon</code> it contracts a multiply feeding an add in the
 same fused region into one fused multiply-add, removing the multiply when
 nothing else uses it. <code>advance</code> above compiles to one <code>vfmadd231ps</code> on AVX2
-and one <code>fmla</code> on NEON. A multiply and an add outside a fused region, or in
+and AVX-512, and one <code>fmla</code> on NEON. A multiply and an add outside a fused region, or in
 two different regions, stay separate. <code>wasm-simd128</code> contracts nothing,
-because WebAssembly SIMD128 has no fused multiply-add. Reassociation,
+because WebAssembly SIMD128 has no fused multiply-add. SSE2 also keeps the
+multiply and add separate, because its ISA has no fused instruction. Reassociation,
 factoring, distribution and the sharing of subexpressions aren't implemented.</p>
 <p><code>fma(a, b, c)</code> says the program needs <code>a * b + c</code> rounded once. It is for
 correctness, not speed: the compiler forms fused multiply-adds by itself
-where it may. On <code>x86-avx2</code> and <code>aarch64-neon</code> it is one fused instruction,
+where it may. On AVX2, AVX-512 and NEON it is one fused instruction,
 and <code>--verify-native</code> checks that the object holds exactly the fused
 multiply-adds the compiler selected, both contracted and explicit.
-<code>wasm-simd128</code> rejects <code>fma</code>. Rake has no slower, stricter arithmetic mode: a
-program that depends on an exact operation names it.</p>
+SSE2 and <code>wasm-simd128</code> reject <code>fma</code>. Rake has no slower, stricter arithmetic mode: a
+program that depends on an exact operation specifies it explicitly.</p>
 <p>Reductions and scans have a defined lane order. That order is part of their
 result, and fusion never reassociates it, even when their input comes from a
 fused region.</p>
@@ -151,7 +152,7 @@ fused region.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

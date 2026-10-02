@@ -25,7 +25,7 @@
 
 [
   "tine"
-  "when"
+  "means"
   "through"
   "else"
   "into"

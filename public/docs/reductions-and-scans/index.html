@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -74,7 +74,7 @@
     <main class="content">
 <h1 id="reductions-and-scans">Reductions and scans</h1>
 <p>A reduction combines every lane of a rack into one scalar. A scan returns a
-rack whose lane <code>i</code> holds the reduction of lanes 0 to <code>i</code>. Both have names
+rack whose lane <code>i</code> holds the reduction of lanes 0 to <code>i</code>. Both have identifiers
 rather than operators, so they are easy to find in code and to read aloud.</p>
 <div class="table-scroll"><table><thead><tr><th>Form</th><th>Operand</th><th>Result</th><th>Each step</th></tr></thead><tbody>
 <tr><td><code>sum(x)</code></td><td><code>f32s</code></td><td><code>f32</code></td><td>binary32 addition</td></tr>
@@ -91,12 +91,12 @@ rather than operators, so they are easy to find in code and to read aloud.</p>
 </div>
 <p>Nothing converts an operand to fit: the arithmetic forms reject masks and
 integer racks, and <code>all</code> and <code>any</code> reject racks. <code>extract(x, lane)</code> and
-<code>bitmask(m)</code>, defined in <a href="/docs/racks-and-targets/">racks and targets</a>,
+<code>bitmask(m)</code>, defined in <a href="/docs/primitives-operations-and-targets/">primitives, operations, and targets</a>,
 also turn a rack into a scalar.</p>
 <p>A crunch can return a reduction's scalar. In a run, <code>let &lt;x: T&gt; = ...</code> binds
 one as a uniform, and arithmetic on reductions there is scalar work:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">top</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">return</span> <span class="tok-function">maximum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-function">maximum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 
 <span class="tok-keyword">run</span> <span class="tok-function">prefix_sums</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-function">scan_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
@@ -141,12 +141,16 @@ under a mask. They are rejected in a <code>through</code> block and in a travers
 where the tail's mask would apply. They are also outside fused bindings: a
 reduction leaves the rack, and a scan orders its lanes.</p>
 <div class="table-scroll"><table><thead><tr><th>Profile</th><th class="align-center">Reductions and scans</th><th class="align-center"><code>all</code>, <code>any</code></th></tr></thead><tbody>
-<tr><td><code>x86-avx2</code></td><td class="align-center">yes</td><td class="align-center">no</td></tr>
-<tr><td><code>aarch64-neon</code></td><td class="align-center">no</td><td class="align-center">no</td></tr>
+<tr><td><code>x86-sse2</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<tr><td><code>x86-avx2</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<tr><td><code>x86-avx512</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<tr><td><code>aarch64-neon</code></td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
 <tr><td><code>wasm-simd128</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 </tbody></table>
 </div>
-<p>On AVX2, an eight-lane fold takes seven ordered steps of shuffles,
+<p><em>WIP: work in progress. The compiler rejects these operations on these profiles.</em></p>
+<p>On SSE2, AVX2 and AVX-512, a fold takes three, seven or fifteen ordered
+steps respectively. The steps use shuffles,
 permutations, blends and packed arithmetic, and a reduction's scalar returns
 in <code>xmm0</code>. On <code>wasm-simd128</code>, each of a reduction's three steps moves lane <code>i</code>
 to lane 0 with one <code>i8x16.shuffle</code> and combines it with the running value. A
@@ -170,7 +174,7 @@ canonical NaN, because WebAssembly leaves a NaN result's payload unspecified.
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

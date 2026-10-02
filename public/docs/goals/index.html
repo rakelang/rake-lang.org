@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -113,13 +113,13 @@ can't compile under both this rule and the one-register rule is rejected.</p>
 <p>Today: rakes compile on <code>x86-avx2</code>, <code>aarch64-neon</code> and <code>wasm-simd128</code>.</p>
 <h2 id="fused-regions-are-pure-data-flow">Fused regions are pure data flow</h2>
 <p>Consecutive <code>| name &lt;| expression</code> bindings describe one pure graph of vector
-operations, with no calls, spills or reloads. Its names are aliases. They
+operations, with no calls, spills or reloads. Its identifiers are aliases. They
 impose no evaluation order, storage, instruction or rounding boundary, so the
 backend may rewrite the whole region to the cheapest graph for the profile,
 and different profiles may round its intermediates differently. <code>fma(a, b, c)</code>
 means one rounding, and is for programs whose correctness needs it. Rake has
 no mode that keeps a slower sequence of ordinary operations.</p>
-<p>Today: the compiler substitutes names and forms fused multiply-adds on
+<p>Today: the compiler substitutes identifiers and forms fused multiply-adds on
 <code>x86-avx2</code> and <code>aarch64-neon</code>. Other rewrites are planned, as <a href="/docs/fused-bindings/">fused
 bindings</a> describe.</p>
 <h2 id="a-complete-vector-vocabulary">A complete vector vocabulary</h2>
@@ -136,7 +136,7 @@ Each operation has a type rule, a rule for inactive lanes,
 a set of profiles that support it and a verified lowering. A profile without
 a native form of an operation rejects it before generating code.</li>
 </ul>
-<p>Today: <a href="/docs/racks-and-targets/">racks and targets</a> lists what each
+<p>Today: <a href="/docs/primitives-operations-and-targets/">primitives, operations, and targets</a> lists what each
 profile compiles. Lane indices, interleaving, lane shifts and rotations,
 scatter, compression, expansion and single-record layouts are planned.</p>
 <h2 id="data-layout-is-explicit">Data layout is explicit</h2>
@@ -190,7 +190,7 @@ which <code>--verify-native</code> checks.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

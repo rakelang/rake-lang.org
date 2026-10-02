@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
   <link rel="stylesheet" href="/styles/components.css?v=3c180efb">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a language for SIMD kernels. Each rack is one vector value, and profiles require vector instructions or reject unsupported operations.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","version":"0.5.0-beta","license":"https://opensource.org/licenses/MIT","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a language for SIMD kernels. Each rack is one vector value, and profiles require vector instructions or reject unsupported operations.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","version":"0.6.0-beta","license":"https://opensource.org/licenses/MIT","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
 <body class="layout-home">
@@ -41,7 +41,7 @@
 <div>
 <h1>Rake</h1>
 <p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
-<p>Rust's type system and borrow checker enforce memory safety in safe code. An <code>unsafe</code> block marks operations whose safety the programmer must establish. Rake's compiler checks that vector calculations become vector instructions. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
+<p>Rust's type system and borrow checker enforce memory safety in safe code. An <code>unsafe</code> block marks operations whose safety the programmer must establish. Rake's compiler checks that vector calculations become vector instructions. You get that guarantee without needing to manually review the assembly that the compiler generated, because it does that for you. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
 <p>Rake is a SIMD, or vector, programming language. It's built for calculations that apply the same operation to many numbers at once.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
@@ -132,88 +132,101 @@ how many numbers fit: a 128-bit register holds four 32-bit numbers, while a
 256-bit register holds eight. “32-bit” describes the space one number takes.
 Rake calls the row of values held together a <em>rack</em>.</p>
 <h3 id="rake">rake</h3>
-<p>Let's write an operation for a rack of numbers. We want to take each number's
-square root, but negative numbers need a different result, so we'll give
-those lanes zero. Here's the definition, which we'll read from top to bottom:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">when</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+<p>Let's write an operation for a rack of numbers. Positive numbers take their
+square roots. Negative numbers take the square roots of their magnitudes,
+then keep their negative signs: 16 becomes 4, and −4 becomes −2. Here's that
+compound definition, which we'll read from top to bottom:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">signed_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">nonnegative</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">negative</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&lt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 
-  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">nonnegative</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">positive_roots</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">negative</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">negative_roots</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-operator">-</span><span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">-</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+
   <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
-    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
-    <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>      <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">nonnegative</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">positive_roots</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">negative</span>    <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">negative_roots</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>            <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 </code></pre>
-<p>The first line resembles a function declaration. <code>safe_root</code> is the name,
+<p>The first line resembles a function declaration. <code>signed_root</code> is the name,
 <code>values</code> is its input, and <code>f32s</code> means a rack of 32-bit floating-point
 numbers. The arrow says the result is another rack of the same type.</p>
 <p>The <code>rake</code> keyword tells the compiler that this definition will choose work
 for individual lanes. Its body supplies that work. The next line tells us
 which lanes to select.</p>
 <h3 id="tine">tine</h3>
-<p>A tine is a prong on a garden rake. In the language, a <code>tine</code> is a named
-<em>mask</em>: a true-or-false choice for each lane. Read
-<code>tine #valid when values &gt;= &lt;0.0&gt;</code> as “the valid tine catches numbers that
-are greater than or equal to zero”.</p>
-<p><code>&lt;0.0&gt;</code> is a <em>uniform</em>, one scalar value shared by every lane. The comparison
-checks each input number against that same zero:</p>
-<pre class="code code-text"><code>values:   [16,   -4,    9,    1]
-#valid:   [true, false, true, true]
+<p>A tine is a prong on a garden rake. In the language, a <code>tine</code> is a labelled
+<em>mask</em>: a true-or-false choice for each lane. The hash, <code>#</code>, resembles the
+crossing lines and prongs of a rake. It also marks a label, another way to
+think about referring to a mask. Read
+<code>tine #nonnegative means values &gt;= &lt;0.0&gt;</code> as “the nonnegative tine catches
+numbers that are greater than or equal to zero”. The second tine catches
+the negative numbers.</p>
+<p><code>&lt;0.0&gt;</code> is a <em>uniform</em>, one scalar value shared by every lane. The angle
+brackets visually stretch that value across the whole rack. Each comparison
+checks every input number against the same zero:</p>
+<pre class="code code-text"><code>values:        [16,    -4,     9,    -1]
+#nonnegative: [true, false,  true, false]
+#negative:    [false, true, false,  true]
 </code></pre>
-<p><code>tine #valid</code> declares the mask's name, and <code>when values &gt;= &lt;0.0&gt;</code> defines how
+<p><code>tine #nonnegative</code> declares the mask's label, and <code>means values &gt;= &lt;0.0&gt;</code> defines how
 to calculate it. That follows the familiar distinction between a declaration,
 which introduces a name, and a definition, which supplies its meaning. Here
 both are on one line. The comparison computes the mask when the rake runs,
 and the <code>#</code> marks the name we'll use to refer to it.</p>
 <h3 id="through">through</h3>
 <p>Now that we've selected the valid lanes, we can pass them through a
-calculation. Read <code>through #valid else &lt;0.0&gt; into rooted:</code> as “calculate the
-valid lanes using the body below, give the other lanes zero, and call the
-result <code>rooted</code>”. The body is <code>sqrt(values)</code>, so those valid lanes take
-their square roots:</p>
-<pre class="code code-text"><code>values:   [16, -4, 9, 1]
-rooted:   [ 4,  0, 3, 1]
+calculation. Read <code>through #nonnegative else &lt;0.0&gt; into positive_roots:</code> as
+“calculate the nonnegative lanes using the body below, give the other lanes
+zero, and call the result <code>positive_roots</code>”. The body is <code>sqrt(values)</code>.
+The second block calculates <code>-sqrt(-values)</code> under <code>#negative</code>:</p>
+<pre class="code code-text"><code>values:         [16, -4, 9, -1]
+positive_roots: [ 4,  0, 3,  0]
+negative_roots: [ 0, -2, 0, -1]
 </code></pre>
-<p>Giving the result the name <code>rooted</code> is called <em>binding</em> a name to a value.
+<p>Giving the result the name <code>positive_roots</code> is called <em>binding</em> a name to a value.
 Binding is general programming terminology, used in languages such as
 <a href="https://ocaml.org/docs/values-and-functions">OCaml</a>. It's the association
-between a name and what that name means. Here <code>into rooted</code> introduces the
+between a name and what that name means. Here <code>into positive_roots</code> introduces the
 name, and the block defines its value through the calculation and the fallback.</p>
-<p>We can now use <code>rooted</code> in a later block or in the sweep. A binding doesn't
+<p>We can now use <code>positive_roots</code> in a later block or in the sweep. A binding doesn't
 require the compiler to store a temporary array: this value can stay in a
-vector register. Any names introduced inside the through body are local to
-that body, while <code>rooted</code> is available to the rest of the rake.</p>
+vector register. Identifiers introduced inside a through body are local to
+that body. Its result binding is available to the rest of the rake.</p>
 <h3 id="sweep">sweep</h3>
 <p>We've calculated an intermediate rack. A <code>sweep</code> chooses the values that
-leave the function. Read its arms in order: <code>| #valid =&gt; rooted</code> takes a
-value from <code>rooted</code> wherever <code>#valid</code> holds. The final arm, <code>| _ =&gt; &lt;0.0&gt;</code>,
-gives zero to any lane left over. The <code>_</code> means “everything else”.</p>
-<p>The result is <code>[4, 0, 3, 1]</code>. Each value stays in its original lane, so a
+leave the function. Read its arms in order: <code>| #nonnegative =&gt; positive_roots</code>
+takes the positive roots in the nonnegative lanes. The next arm takes the
+negative roots in the negative lanes. The final arm, <code>| _ =&gt; &lt;0.0&gt;</code>, gives
+zero to any lane left over, such as a NaN that passed neither comparison.
+The <code>_</code> means “everything else”.</p>
+<p>The result is <code>[4, -2, 3, -1]</code>. Each value stays in its original lane, so a
 sweep doesn't shuffle or compact the rack. <code>sweep:</code> is itself the rake's
 result form, which is why it doesn't need a <code>return</code> keyword.</p>
 <h3 id="intermediate-and-final-results">Intermediate and final results</h3>
-<p>The example has zero in two places because it produces two results along
-the way. The through block fills the inactive lanes of <code>rooted</code> with zero.
-Then the sweep chooses the values to return. Its fallback is a separate
-choice: change its last arm to <code>| _ =&gt; &lt;-1.0&gt;</code> and the final rack changes:</p>
+<p>The two through blocks fill their inactive lanes with zero. The sweep then
+chooses between their results. These fallbacks have separate scopes:</p>
 <div class="table-scroll"><table><thead><tr><th>Stage</th><th class="align-right">Lane 0</th><th class="align-right">Lane 1</th><th class="align-right">Lane 2</th><th class="align-right">Lane 3</th></tr></thead><tbody>
-<tr><td>Input</td><td class="align-right">16</td><td class="align-right">−4</td><td class="align-right">9</td><td class="align-right">1</td></tr>
-<tr><td><code>#valid</code></td><td class="align-right">true</td><td class="align-right">false</td><td class="align-right">true</td><td class="align-right">true</td></tr>
-<tr><td><code>rooted</code></td><td class="align-right">4</td><td class="align-right">0</td><td class="align-right">3</td><td class="align-right">1</td></tr>
-<tr><td>Result</td><td class="align-right">4</td><td class="align-right">−1</td><td class="align-right">3</td><td class="align-right">1</td></tr>
+<tr><td>Input</td><td class="align-right">16</td><td class="align-right">−4</td><td class="align-right">9</td><td class="align-right">−1</td></tr>
+<tr><td><code>positive_roots</code></td><td class="align-right">4</td><td class="align-right">0</td><td class="align-right">3</td><td class="align-right">0</td></tr>
+<tr><td><code>negative_roots</code></td><td class="align-right">0</td><td class="align-right">−2</td><td class="align-right">0</td><td class="align-right">−1</td></tr>
+<tr><td>Sweep result</td><td class="align-right">4</td><td class="align-right">−2</td><td class="align-right">3</td><td class="align-right">−1</td></tr>
 </tbody></table>
 </div>
-<p>The intermediate zero is still there, but the sweep never uses it. It takes
-−1 for that lane instead. In the original version, choosing zero again is
-redundant, so the compiler can remove the duplicate selection. If a sweep
-uses the whole intermediate rack, the through fallback contributes to the
-final result too.</p>
+<p>For a negative input, the zero in <code>positive_roots</code> never reaches the result.
+The sweep takes that lane from <code>negative_roots</code> instead. Changing only the
+sweep's last arm changes unmatched lanes, not these intermediate values.
+If a later calculation uses an entire intermediate rack, its through
+fallback matters there. The compiler removes redundant selections when the
+intermediate fallback cannot affect the result.</p>
 <p>Reading the definition in stages explains how the calculation depends on
 its inputs. It doesn't specify a delayed execution model: the sweep isn't
 a trigger for earlier work. The compiler can optimise these pure
-calculations together. On WebAssembly this rake becomes a vector comparison,
-a square root and a selection of results.</p>
+calculations together. Both square roots become vector instructions, with
+benign operands in their inactive lanes.</p>
 <p><a href="/docs/playground/#lesson-8">Lesson 8</a> lets you change each fallback separately
 and inspect the result. <a href="/docs/tines-and-through/">Tines, through and sweeps</a>
 defines the scope and masking rules.</p>
@@ -231,7 +244,7 @@ it is declared and where it is used: <code>&lt;dt: f32&gt;</code> and <code>&lt;
 a scalar becomes a rack is visible on the page, which makes the cost of
 broadcasting easy to see.</p>
 <h3 id="masks-choose-lanes">Masks choose lanes</h3>
-<p>There are no branches inside a rack. A tine such as <code>#valid</code> names a mask of
+<p>There are no branches inside a rack. A tine such as <code>#nonnegative</code> identifies a mask of
 lanes, a <code>through</code> block computes under it, and a sweep picks each lane's
 result by priority, ending in <code>_</code> so that every lane gets one. Lanes outside a
 mask can't fail or raise a floating-point exception.</p>
@@ -249,7 +262,7 @@ doesn't need tines, calculates a new position in two stages:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">crunch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">step</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">dt</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">step</span>
-  <span class="tok-keyword">return</span> <span class="tok-variable">moved</span>
+  <span class="tok-variable">moved</span>
 </code></pre>
 <p><code>step</code> is the velocity multiplied by the time interval. <code>moved</code> adds that
 step to the position. The bindings make the calculation legible, while
@@ -261,11 +274,62 @@ target keeps the multiply and add separate.</p>
 <p><a href="/docs/fused-bindings/">Fused bindings</a> defines which rewrites Rake permits.
 <a href="https://llvm.org/docs/LoopFusion.html">LLVM's loop-fusion documentation</a>
 describes another use of the same compiler term.</p>
-<h3 id="data-lives-in-columns">Data lives in columns</h3>
-<p>A <code>stack</code> declares the columns of a structure of arrays, grouped by stored
-type, and a traversal visits a <code>pack</code> of them a rack at a time. A column of
-bytes stays one byte per record in memory and is widened only when the code
-computes with it:</p>
+<h3 id="from-a-rack-to-a-pack">From a rack to a pack</h3>
+<p>A crunch or rake operates on one rack. Real data can be much longer: imagine
+600 particles, each with a position, velocity and age. A <em>pack</em> stores them
+in columns, so all 600 positions sit together in memory, followed by the
+velocities and ages. A <code>stack</code> declares the type of one stored element in
+each column:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Particles</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">position</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">velocity</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">age</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+</code></pre>
+<p>These fields use <code>f32</code> and <code>u8</code>, because each record stores one float or byte.
+Their rack counterparts, <code>f32s</code> and <code>u8s</code>, describe values during vector
+computation. Putting <code>f32s</code> in this declaration would confuse a stored
+element with a processor-sized row of elements.</p>
+<p>A <code>run</code> walks the pack and feeds each rack into a crunch or rake. That's its
+job beyond those two constructs: it handles the memory traversal, including
+the final partial rack. This run feeds our 600 positions into <code>signed_root</code>:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Positions</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">pack</span> <span class="tok-type">Positions</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">row</span> <span class="tok-keyword">in</span> <span class="tok-variable">positions</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">yield</span> <span class="tok-function">signed_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p><code>using f32s</code> selects the rack's element type. <code>&lt;count&gt;</code> is 600 for this pack.
+It needn't be a power of two or a multiple of the rack width. The traversal
+loads and stores only existing records in its final rack.</p>
+<figure class="diagram">
+<svg viewBox="0 0 680 258" role="img" aria-labelledby="pack-width-title pack-width-description">
+<title id="pack-width-title">600 float records divided into SIMD racks</title>
+<desc id="pack-width-description">512-bit racks hold 16 floats, requiring 37 full racks and one half-full rack. AVX2 racks hold 8 floats, requiring 75 full racks. 128-bit racks hold 4 floats, requiring 150 full racks.</desc>
+<text class="diagram-label" x="18" y="24">One column: 600 f32 records</text>
+<rect class="diagram-cell diagram-cell-active" x="18" y="38" width="644" height="30" rx="4"/>
+<text class="diagram-value" x="340" y="53">600 values in memory</text>
+<text class="diagram-label" x="18" y="106">512-bit: 16 per rack</text>
+<rect class="diagram-cell diagram-cell-active" x="246" y="84" width="300" height="34" rx="4"/>
+<text class="diagram-value" x="396" y="101">37 full + 1 half rack</text>
+<text class="diagram-label" x="18" y="157">AVX2: 8 per rack</text>
+<rect class="diagram-cell diagram-cell-active" x="246" y="135" width="300" height="34" rx="4"/>
+<text class="diagram-value" x="396" y="152">75 full racks</text>
+<text class="diagram-label" x="18" y="208">128-bit: 4 per rack</text>
+<rect class="diagram-cell diagram-cell-active" x="246" y="186" width="300" height="34" rx="4"/>
+<text class="diagram-value" x="396" y="203">150 full racks</text>
+<text class="diagram-label" x="18" y="247">Wider racks process more lanes per instruction.</text>
+</svg>
+<figcaption>The rack counts follow from register width. Native pack traversal is still WIP*. The current WebAssembly run uses the 128-bit row.</figcaption>
+</figure>
+<p>512-bit SIMD handles twice as many <code>f32</code> lanes per instruction as AVX2, and
+four times as many as 128-bit SIMD. That describes the width of the work,
+not a guaranteed speedup: memory bandwidth, instruction costs and processor
+frequency also affect elapsed time. <em>WIP: work in progress.</em></p>
+<p>Our particle columns can use the same traversal. The age stays one byte per
+record in memory. <code>widen</code> brings the current rack's ages into 32-bit lanes
+before the calculation:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">stack</span> <span class="tok-type">Particles</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">position</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">velocity</span><span class="tok-punctuation-delimiter">;</span>
   <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">age</span><span class="tok-punctuation-delimiter">;</span>
@@ -313,6 +377,14 @@ once per lane.</p>
 <tr><td><code>~~</code></td><td><code>~~ a comment</code></td><td>a comment to the end of the line</td></tr>
 </tbody></table>
 </div>
+<p>The double squiggle, <code>~~</code>, is Rake's line-comment marker. Its design draws
+on OCaml's visual punctuation and on furrows in raked sand, part of the
+language's desert theme. OCaml itself uses <code>(* ... *)</code> for comments.</p>
+<p>We're still condensing this visual language into something “uniquely
+comprehensible”. Function spellings such as <code>bit_and()</code> are temporary: they
+keep bitwise operations separate from other operators while the symbology
+settles. Any replacement will change the compiler, grammar and examples
+together.</p>
 <p>If you know <a href="https://tour.gleam.run/everything/">Gleam's pipe operator</a>,
 the flow marks may look familiar. In Rake, <code>&lt;|</code> binds a stage from right to
 left, while <code>&lt;-</code> assigns to a mutable location. Neither creates a lazy
@@ -323,19 +395,21 @@ body. <a href="/docs/playground/#reading-rake">The tutorial</a> explains each ma
 readers who come from C or Python.</p>
 <h2 id="targets">Targets</h2>
 <div class="table-scroll"><table><thead><tr><th>Profile</th><th>Rack</th><th>Compiles</th></tr></thead><tbody>
+<tr><td><code>x86-sse2</code></td><td>one 128-bit register, 4 <code>f32</code> lanes</td><td>crunches and rakes over <code>f32s</code>, as assembly</td></tr>
 <tr><td><code>x86-avx2</code></td><td>one 256-bit register, 8 <code>f32</code> lanes</td><td>crunches and rakes over <code>f32s</code>, as assembly</td></tr>
+<tr><td><code>x86-avx512</code></td><td>one 512-bit register, 16 <code>f32</code> lanes</td><td>crunches and rakes over <code>f32s</code>, as assembly</td></tr>
 <tr><td><code>aarch64-neon</code></td><td>one 128-bit register, 4 <code>f32</code> lanes</td><td>crunches and rakes over <code>f32s</code>, as assembly</td></tr>
 <tr><td><code>wasm-simd128</code></td><td>one <code>v128</code>, 4 <code>f32</code> lanes</td><td>float and integer racks, runs and whole programs, as C</td></tr>
 </tbody></table>
 </div>
-<p><a href="/docs/racks-and-targets/">Racks and targets</a> lists what each profile
+<p><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a> lists what each profile
 compiles, and <a href="/docs/roadmap/">the roadmap</a> what comes next.</p>
 <h2 id="projects-using-rake">Projects using Rake</h2>
 <div class="project">
 <img src="/images/the-loong-game.svg" alt="" width="1440" height="960" loading="lazy">
 <div>
 <h3>The Loong Game</h3>
-<p>An open source bot and toolkit for the 2026 UNSW Battlecode tournament. A Rake profile for WebAssembly writes its room-count masks as C the tournament's judge accepts, at 437 points a turn against 435 for hand-written intrinsics.</p>
+<p>An open source bot and toolkit for the 2026 UNSW Battlecode tournament. The Loong Game uses Rake to compile room-counting kernels to WebAssembly through C, at 437 points a turn against 435 for hand-written intrinsics.</p>
 <ul>
 <li><a href="https://over-yonder.tech/games/loong/the-choice/#rake-for-vector-kernels">The choice: Rake for vector kernels</a></li>
 <li><a href="https://over-yonder.tech/games/loong/counting-room-faster/#keeping-it-vectorised">Counting room faster: keeping it vectorised</a></li>
@@ -353,14 +427,21 @@ tool it uses:</p>
 <p><a href="/docs/rakec/">The rakec command</a> lists its modes and options. Rake is
 released under the MIT licence. This is a beta: the language and its binary
 boundaries may still change between versions.</p>
-<p>Rake 0.5.0-beta includes <code>slow { ... }</code> blocks and rakes that end with
-<code>sweep:</code>, without <code>return</code>. The playground runs the same release.</p>
+<h3 id="syntax-highlighting">Syntax highlighting</h3>
+<p>The Tree-sitter grammar is available through these package managers. These
+packages provide parsing and highlighting for editor integrations, rather
+than the Rake compiler:</p>
+<ul class="link-row">
+<li><a class="link-button" href="https://pypi.org/project/tree-sitter-rake/">PyPI · tree-sitter-rake</a></li>
+<li><a class="link-button" href="https://www.npmjs.com/package/tree-sitter-rake">npm · tree-sitter-rake</a></li>
+<li><a class="link-button" href="https://crates.io/crates/tree-sitter-rake">Cargo · tree-sitter-rake</a></li>
+</ul>
 
     </main>
 
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

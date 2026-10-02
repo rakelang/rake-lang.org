@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -102,7 +102,7 @@ computes on registers.</p>
 <h2 id="traversals">Traversals</h2>
 <p><code>for chunk in input using f32s up to &lt;count&gt;:</code> visits the first <code>count</code>
 records of <code>input</code>, one rack of records at a time: four at once for <code>f32s</code> on
-<code>wasm-simd128</code>. <code>using</code> names the compute domain. <code>chunk.value</code> is the rack of
+<code>wasm-simd128</code>. <code>using</code> specifies the compute domain. <code>chunk.value</code> is the rack of
 the current records' <code>value</code> column, loaded once for the chunk.</p>
 <p>A traversal of a run declared <code>-&gt; f32</code> ends each chunk with <code>yield</code>, and the
 yielded rack's lanes go to the run's output column of <code>f32</code>. A traversal in a
@@ -276,7 +276,7 @@ object has no calls, spills, stack frame or scalar cleanup loop.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

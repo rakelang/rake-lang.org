@@ -42,7 +42,7 @@
 <p class="docs-nav-group">Language</p>
 <ul>
 <li><a href="/docs/syntax/">Syntax reference</a></li>
-<li><a href="/docs/racks-and-targets/">Racks and targets</a></li>
+<li><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></li>
 <li><a href="/docs/tines-and-through/">Tines, through and sweeps</a></li>
 <li><a href="/docs/fused-bindings/">Fused bindings</a></li>
 <li><a href="/docs/control-flow/">Control flow</a></li>
@@ -73,10 +73,29 @@
 </nav>
     <main class="content">
 <h1 id="changelog">Changelog</h1>
-<p>A Rake version names one compiler, Tree-sitter grammar, documentation set and
+<p>A Rake version identifies one compiler, Tree-sitter grammar, documentation set and
 website. Beta releases may still change the source language and the binary
 boundaries between versions. A design in the documentation gets a version
 only when the compiler implements it and the tests cover it.</p>
+<h2 id="060-beta">0.6.0-beta</h2>
+<ul>
+<li>SSE2 and AVX-512F compile float crunches and rakes to verified vector
+kernels alongside AVX2 and NEON. Rack widths are four, sixteen, eight and
+four binary32 lanes respectively. Native pack traversal and whole programs
+remain work in progress.</li>
+<li>Native target detection selects AVX-512F, AVX2 with FMA, or SSE2 on x86.
+SSE2 rejects explicit single-rounded <code>fma</code> because that instruction is
+absent from its ISA. The AVX-512 profile requires AVX-512F only.</li>
+<li>Crunches end with their result expression, without <code>return</code>. Tines use
+<code>means</code> instead of <code>when</code>. These are breaking source-language changes.</li>
+<li>The browser tutorial offers all five implemented vector profiles for
+kernel inspection. Execution and whole-program lessons use WebAssembly.</li>
+<li>Tree-sitter preserves a function body across comment-only lines, including
+comments beginning at the left margin.</li>
+<li>The introduction explains the notation in sequence, with compound masks
+and a diagram of a 600-record pack. The reference page is now titled
+Primitives, operations, and targets.</li>
+</ul>
 <h2 id="050-beta">0.5.0-beta</h2>
 <ul>
 <li>Rakes end with <code>sweep:</code>, without <code>return</code>. This is the rake's result form.
@@ -104,7 +123,7 @@ missing operation.</li>
 and AArch64, and none needed on WebAssembly, which has no floating-point
 exception state. A sweep needs one final <code>_</code> arm, and its arms' order is
 its priority.</li>
-<li>Fused bindings are pure contiguous data flow. Their names are substituted
+<li>Fused bindings are pure contiguous data flow. Their identifiers are substituted
 before fused multiply-adds are formed on AVX2 and NEON, and <code>fma</code> keeps its
 single rounding. A fused stage may now introduce a constant or choose by a
 mask, and fused bindings inside a through block form regions of their own.</li>
@@ -129,7 +148,7 @@ uniform on <code>wasm-simd128</code>.</li>
 <li>A uniform must be marked where it meets a rack: <code>values * &lt;factor&gt;</code>, not
 <code>values * factor</code>. The type checker reports the unmarked name.</li>
 <li><code>wrap</code> and <code>bitcast</code> are conversions only before a parenthesis, so they
-remain usable as names. A crunch, rake or run can't be named after a C
+remain usable as identifiers. A crunch, rake or run can't be named after a C
 keyword, since each becomes a C function of its own name.</li>
 <li>A rake's through block and its sweep compile to one select, since a select
 whose arm selects on the same mask takes that arm directly.</li>
@@ -199,13 +218,14 @@ and displays generated C or assembly beside source diagnostics.</li>
 <nav class="page-contents" aria-label="On this page">
 <p class="page-contents-title">On this page</p>
 <ul>
+<li><a href="#060-beta">0.6.0-beta</a></li>
 <li><a href="#050-beta">0.5.0-beta</a></li>
 <li><a href="#040-beta">0.4.0-beta</a></li>
 </ul>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.5.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>
