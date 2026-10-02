@@ -184,6 +184,110 @@ strong {
   color: var(--colour-sand-light);
 }
 
+/* Diagrams */
+
+.diagram {
+  margin: 0 0 var(--space-4);
+}
+
+.diagram-panels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.diagram-panel {
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--colour-rule);
+  border-radius: var(--radius);
+  background: var(--colour-ground-raised);
+}
+
+.diagram-panel h4 {
+  margin: 0 0 var(--space-2);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.diagram-desk {
+  fill: none;
+  stroke: var(--colour-sand-dim);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.diagram-cell {
+  fill: var(--colour-ground);
+  stroke: var(--colour-sand-dim);
+  stroke-width: 1.5;
+}
+
+.diagram-cell-active {
+  fill: var(--colour-code-ground);
+  stroke: var(--colour-code-flow);
+}
+
+.diagram-cell-idle {
+  stroke: var(--colour-rule);
+}
+
+.diagram-value,
+.diagram-instruction {
+  fill: var(--colour-text);
+  font-family: var(--font-code);
+  font-size: 19px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.diagram-value-idle {
+  fill: var(--colour-text-dim);
+}
+
+.diagram-instruction {
+  font-size: 16px;
+}
+
+.diagram-label {
+  fill: var(--colour-text-dim);
+  font-size: 15px;
+}
+
+.diagram-operation {
+  fill: var(--colour-code-ground);
+  stroke: var(--colour-code-flow);
+  stroke-width: 1.5;
+}
+
+.diagram-flow {
+  fill: none;
+  stroke: var(--colour-code-flow);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.diagram figcaption {
+  margin-top: var(--space-2);
+  color: var(--colour-text-dim);
+  font-size: var(--size-small);
+  line-height: 1.5;
+}
+
+@media (max-width: 40rem) {
+  .diagram-panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Tables */
 
 .table-scroll {

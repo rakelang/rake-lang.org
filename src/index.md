@@ -21,18 +21,78 @@ order they appear in a program, starting with what vector processing means.
 
 ### One instruction, several numbers
 
+<figure class="diagram">
+<div class="diagram-panels">
+<div class="diagram-panel">
+<h4>Scalar: one number at a time</h4>
+<svg viewBox="0 0 320 288" role="img" aria-labelledby="scalar-desk-title scalar-desk-description">
+<title id="scalar-desk-title">One scalar add at a narrow desk</title>
+<desc id="scalar-desk-description">The tape holds 4, 7, 2 and 9. Only 4 is on the narrow desk. One add instruction changes it to 5, leaving the other numbers unchanged. The tape must advance before the next number can be processed.</desc>
+<text class="diagram-label" x="18" y="25">Narrow desk</text>
+<rect class="diagram-desk" x="18" y="40" width="66" height="208" rx="8"/>
+<rect class="diagram-cell diagram-cell-active" x="24" y="54" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-idle" x="90" y="54" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-idle" x="156" y="54" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-idle" x="222" y="54" width="54" height="44" rx="4"/>
+<text class="diagram-value" x="51" y="76">4</text>
+<text class="diagram-value diagram-value-idle" x="117" y="76">7</text>
+<text class="diagram-value diagram-value-idle" x="183" y="76">2</text>
+<text class="diagram-value diagram-value-idle" x="249" y="76">9</text>
+<path class="diagram-flow" d="M51 104 V128 M51 164 V182 M46 176 L51 182 L56 176"/>
+<rect class="diagram-operation" x="26" y="130" width="50" height="32" rx="4"/>
+<text class="diagram-value" x="51" y="146">+1</text>
+<rect class="diagram-cell diagram-cell-active" x="24" y="190" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-idle" x="90" y="190" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-idle" x="156" y="190" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-idle" x="222" y="190" width="54" height="44" rx="4"/>
+<text class="diagram-value" x="51" y="212">5</text>
+<text class="diagram-value diagram-value-idle" x="117" y="212">7</text>
+<text class="diagram-value diagram-value-idle" x="183" y="212">2</text>
+<text class="diagram-value diagram-value-idle" x="249" y="212">9</text>
+<text class="diagram-label" x="18" y="277">Advance the tape, then add again.</text>
+</svg>
+</div>
+<div class="diagram-panel">
+<h4>Vector: four numbers together</h4>
+<svg viewBox="0 0 320 288" role="img" aria-labelledby="vector-desk-title vector-desk-description">
+<title id="vector-desk-title">One vector add at a wide desk</title>
+<desc id="vector-desk-description">All four numbers, 4, 7, 2 and 9, fit on the wide desk. One vector add instruction applies plus 1 to all four lanes, producing 5, 8, 3 and 10.</desc>
+<text class="diagram-label" x="18" y="25">Wide desk</text>
+<rect class="diagram-desk" x="18" y="40" width="288" height="208" rx="8"/>
+<rect class="diagram-cell diagram-cell-active" x="24" y="54" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="90" y="54" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="156" y="54" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="222" y="54" width="54" height="44" rx="4"/>
+<text class="diagram-value" x="51" y="76">4</text>
+<text class="diagram-value" x="117" y="76">7</text>
+<text class="diagram-value" x="183" y="76">2</text>
+<text class="diagram-value" x="249" y="76">9</text>
+<path class="diagram-flow" d="M51 104 V128 M117 104 V128 M183 104 V128 M249 104 V128"/>
+<rect class="diagram-operation" x="26" y="130" width="248" height="32" rx="4"/>
+<text class="diagram-instruction" x="150" y="146">one +1 instruction</text>
+<path class="diagram-flow" d="M51 164 V182 M46 176 L51 182 L56 176 M117 164 V182 M112 176 L117 182 L122 176 M183 164 V182 M178 176 L183 182 L188 176 M249 164 V182 M244 176 L249 182 L254 176"/>
+<rect class="diagram-cell diagram-cell-active" x="24" y="190" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="90" y="190" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="156" y="190" width="54" height="44" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="222" y="190" width="54" height="44" rx="4"/>
+<text class="diagram-value" x="51" y="212">5</text>
+<text class="diagram-value" x="117" y="212">8</text>
+<text class="diagram-value" x="183" y="212">3</text>
+<text class="diagram-value" x="249" y="212">10</text>
+<text class="diagram-label" x="18" y="277">The same add changes every lane.</text>
+</svg>
+</div>
+</div>
+<figcaption>Highlighted cells are processed by one add instruction. Four vector lanes are shown here.</figcaption>
+</figure>
+
 Imagine a person at a desk with a long tape passing over it. They can modify
 the number in front of them, perhaps by adding 1. In a scalar loop, they
 advance the tape and repeat that operation for the next number.
 
 A vector operation gives them a wider desk with several numbers side by
 side. There's still one person issuing the instruction, but linked pens
-apply it to every number at once:
-
-```text
-scalar add 1:   [4]             → [5]
-vector add 1:   [4, 7, 2, 9]    → [5, 8, 3, 10]
-```
+apply it to every number at once, as the diagram's wide desk shows.
 
 This is SIMD: *single instruction, multiple data*. Each position is called a
 *lane*. The instruction “add 1” acts on all the lanes together.
