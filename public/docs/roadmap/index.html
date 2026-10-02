@@ -157,7 +157,7 @@ common-subexpression sharing and strength reduction within a fused region.
 Each profile will choose among legal rewrites using its operation costs, and
 tests will compare the emitted result with the verified optimised graph.</p>
 <h3 id="implement-the-unavailable-language-capabilities">Implement the unavailable language capabilities</h3>
-<p>We will work down the capability catalogue, which currently reports 90 checked
+<p>We will work down the capability catalogue, which currently reports 91 checked
 and 34 unavailable capabilities. The outstanding language areas
 include tuple types, closures, lambdas, pipelines, type aliases, spread
 parameters, record updates, inline tines, outer products and several masked
@@ -184,6 +184,11 @@ end to end.</p>
 <code>&lt;uniform&gt;</code>, <code>#tine</code>, fused <code>| name &lt;| value</code> bindings, <code>through</code> and <code>sweep</code>
 are introduced when a learner first needs them. Compiler messages will name
 the same concepts as the documentation and point to the relevant lesson.</p>
+<p>Global tines now provide reusable typed predicates, and <code>gaps</code> supplies exact
+mask inversion. Optional fallbacks are checked through Boolean coverage and
+lane-definedness proofs. We will extend this analysis only with sound
+floating-point and lane-movement semantics, retaining compile-time refusal
+when coverage cannot be proved.</p>
 <h3 id="remove-the-negative-uniform-ambiguity">Remove the negative-uniform ambiguity</h3>
 <p>We will choose and validate a spelling for negative uniforms that cannot be
 mistaken for an assignment arrow when a programming font enables ligatures.

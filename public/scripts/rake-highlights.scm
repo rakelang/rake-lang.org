@@ -122,6 +122,7 @@
   "and"
   "or"
   "not"
+  "gaps"
 ] @operator
 
 (integer_literal) @number

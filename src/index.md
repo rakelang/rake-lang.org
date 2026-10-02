@@ -38,13 +38,14 @@ The equivalent operation on a Rake rack is:
 
 <!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 -->
 ```rake
+tine #valid(values: f32s) means values >= <0.0>
+
 rake safe_root(values: f32s) -> f32s:
-  tine #valid means values >= <0.0>
-  through #valid else <0.0> into rooted:
+  through #valid(values) into rooted:
     sqrt(values)
   sweep:
-    | #valid => rooted
-    | _ => <0.0>
+    | #valid(values) => rooted
+    | #valid(values) gaps => <0.0>
 ```
 
 The native AVX2 demonstration puts this operation in a compiler-generated
@@ -55,9 +56,9 @@ comparisons, rather than a promise that Rake always beats C.
 [The benchmark source and commands](https://github.com/rakelang/rake/tree/main/demo/safe-root)
 include the flags and correctness checks, and generate both disassemblies.
 
-Rake's execution model can be pictured in a sentence: “`rake` data `through`
-`tine`s, then `sweep` them into the result.” We'll read those words in the
-order they appear in a program, starting with what vector processing means.
+Rake's execution model can be pictured in three steps: define the `tine`s,
+`rake` data `through` them, then `sweep` the results. We'll read the program
+in that order, starting with what vector processing means.
 
 ### One instruction, several numbers
 
@@ -142,7 +143,7 @@ how many numbers fit: a 128-bit register holds four 32-bit numbers, while a
 256-bit register holds eight. “32-bit” describes the space one number takes.
 Rake calls the row of values held together a *rack*.
 
-### rake
+### Define the tines
 
 Let's extend that first operation with a second case, so we can see how
 tines combine. Positive numbers take their
@@ -152,37 +153,27 @@ compound definition, which we'll read from top to bottom:
 
 <!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 -->
 ```rake
-rake signed_root(values: f32s) -> f32s:
-  tine #nonnegative means values >= <0.0>
-  tine #negative means values < <0.0>
+tine #nonnegative(values: f32s) means values >= <0.0>
+tine #negative(values: f32s) means values < <0.0>
 
-  through #nonnegative else <0.0> into positive_roots:
+rake signed_root(values: f32s) -> f32s:
+  through #nonnegative(values) into positive_roots:
     sqrt(values)
 
-  through #negative else <0.0> into negative_roots:
+  through #negative(values) into negative_roots:
     -sqrt(-values)
 
   sweep:
-    | #nonnegative => positive_roots
-    | #negative    => negative_roots
-    | _            => <0.0>
+    | #nonnegative(values) => positive_roots
+    | #negative(values) => negative_roots
+    | (#nonnegative(values) or #negative(values)) gaps => <0.0>
 ```
-
-The first line resembles a function declaration. `signed_root` is the name,
-`values` is its input, and `f32s` means a rack of 32-bit floating-point
-numbers. The arrow says the result is another rack of the same type.
-
-The `rake` keyword tells the compiler that this definition will choose work
-for individual lanes. Its body supplies that work. The next line tells us
-which lanes to select.
-
-### tine
 
 A tine is a prong on a garden rake. In the language, a `tine` is a labelled
 *mask*: a true-or-false choice for each lane. The hash, `#`, resembles the
 crossing lines and prongs of a rake. It also marks a label, another way to
 think about referring to a mask. Read
-`tine #nonnegative means values >= <0.0>` as “the nonnegative tine catches
+`tine #nonnegative(values: f32s) means values >= <0.0>` as “the nonnegative tine catches
 numbers that are greater than or equal to zero”. The second tine catches
 the negative numbers.
 
@@ -196,33 +187,50 @@ values:        [16,    -4,     9,    -1]
 #negative:    [false, true, false,  true]
 ```
 
-`tine #nonnegative` declares the mask's label, and `means values >= <0.0>` defines how
-to calculate it. That follows the familiar distinction between a declaration,
-which introduces a name, and a definition, which supplies its meaning. Here
-both are on one line. The comparison computes the mask when the rake runs,
-and the `#` marks the name we'll use to refer to it.
+The tine's parameter, `values: f32s`, says that it takes a rack of 32-bit
+floating-point numbers. `tine #nonnegative` declares its label, and
+`means values >= <0.0>` defines how to calculate its mask. That follows the
+familiar distinction between a declaration, which introduces an identifier,
+and a definition, which supplies its meaning. Both are on one line here.
+
+This definition sits outside the rake, so another rake can reuse it with
+different data. It stores no global mask. The application
+`#nonnegative(values)` computes the mask for the particular input.
+
+### Rake the data
+
+With the tines defined, the `rake signed_root` line introduces the operation
+that will use them. `values` is its input, and the arrow says that the
+result is another `f32s` rack. The `rake` keyword tells the compiler that
+this definition will choose work for individual lanes. Its through blocks
+supply that work, and its sweep chooses the result.
 
 ### through
 
 Now that we've selected the valid lanes, we can pass them through a
-calculation. Read `through #nonnegative else <0.0> into positive_roots:` as
-“calculate the nonnegative lanes using the body below, give the other lanes
-zero, and call the result `positive_roots`”. The body is `sqrt(values)`.
-The second block calculates `-sqrt(-values)` under `#negative`:
+calculation. Read `through #nonnegative(values) into positive_roots:` as
+“calculate the nonnegative lanes using the body below, and bind those
+results to `positive_roots`”. The body is `sqrt(values)`.
+The second block calculates `-sqrt(-values)` under the negative tine:
 
 ```text
 values:         [16, -4, 9, -1]
-positive_roots: [ 4,  0, 3,  0]
-negative_roots: [ 0, -2, 0, -1]
+positive_roots: [ 4,  ·, 3,  ·]
+negative_roots: [ ·, -2, ·, -1]
 ```
+
+The dots mean undefined lanes. We haven't supplied an intermediate
+fallback, so those lanes can't be read. The compiler checks every later
+use against the mask where the value is defined.
 
 Giving the result the name `positive_roots` is called *binding* a name to a value.
 Binding is general programming terminology, used in languages such as
 [OCaml](https://ocaml.org/docs/values-and-functions). It's the association
 between a name and what that name means. Here `into positive_roots` introduces the
-name, and the block defines its value through the calculation and the fallback.
+identifier, and the block defines its value through the masked calculation.
 
-We can now use `positive_roots` in a later block or in the sweep. A binding doesn't
+We can now use `positive_roots` under the same mask, or a narrower one, in
+a later block or in the sweep. A binding doesn't
 require the compiler to store a temporary array: this value can stay in a
 vector register. Identifiers introduced inside a through body are local to
 that body. Its result binding is available to the rest of the rake.
@@ -230,11 +238,12 @@ that body. Its result binding is available to the rest of the rake.
 ### sweep
 
 We've calculated an intermediate rack. A `sweep` chooses the values that
-leave the function. Read its arms in order: `| #nonnegative => positive_roots`
+leave the function. Read its arms in order: `| #nonnegative(values) => positive_roots`
 takes the positive roots in the nonnegative lanes. The next arm takes the
-negative roots in the negative lanes. The final arm, `| _ => <0.0>`, gives
-zero to any lane left over, such as a NaN that passed neither comparison.
-The `_` means “everything else”.
+negative roots in the negative lanes. The final arm uses
+`(#nonnegative(values) or #negative(values)) gaps`: the gaps in the union
+of both masks. It gives zero to any lane left over, including a NaN that
+passed neither comparison. `gaps` is exact mask inversion.
 
 The result is `[4, -2, 3, -1]`. Each value stays in its original lane, so a
 sweep doesn't shuffle or compact the rack. `sweep:` is itself the rake's
@@ -242,31 +251,34 @@ result form, which is why it doesn't need a `return` keyword.
 
 ### Intermediate and final results
 
-The two through blocks fill their inactive lanes with zero. The sweep then
-chooses between their results. These fallbacks have separate scopes:
+The sweep reads each partial result only in its defined lanes:
 
 | Stage | Lane 0 | Lane 1 | Lane 2 | Lane 3 |
 | --- | ---: | ---: | ---: | ---: |
 | Input | 16 | −4 | 9 | −1 |
-| `positive_roots` | 4 | 0 | 3 | 0 |
-| `negative_roots` | 0 | −2 | 0 | −1 |
+| `positive_roots` | 4 | undefined | 3 | undefined |
+| `negative_roots` | undefined | −2 | undefined | −1 |
 | Sweep result | 4 | −2 | 3 | −1 |
 
-For a negative input, the zero in `positive_roots` never reaches the result.
-The sweep takes that lane from `negative_roots` instead. Changing only the
-sweep's last arm changes unmatched lanes, not these intermediate values.
-If a later calculation uses an entire intermediate rack, its through
-fallback matters there. The compiler removes redundant selections when the
-intermediate fallback cannot affect the result.
+For a negative input, the sweep takes the value from `negative_roots`.
+Trying to take it from `positive_roots` is a compile error. If a later
+calculation needs the whole intermediate rack, add an explicit through
+fallback such as `else <0.0>`. That makes every lane defined.
+
+A sweep can also use a final `_` arm for unmatched lanes. It is optional
+when the masks provably cover every lane, as these tines and their `gaps`
+do. Separate numeric comparisons aren't assumed to cover all inputs:
+NaNs fail both comparisons in this example.
 
 Reading the definition in stages explains how the calculation depends on
 its inputs. It doesn't specify a delayed execution model: the sweep isn't
 a trigger for earlier work. The compiler can optimise these pure
-calculations together. Both square roots become vector instructions, with
-benign operands in their inactive lanes.
+calculations together. Both square roots become vector instructions. On
+physical CPU profiles, the compiler supplies benign operands in their
+inactive lanes. WebAssembly SIMD has no floating-point exception flags.
 
-[Lesson 8](/docs/playground/#lesson-8) lets you change each fallback separately
-and inspect the result. [Tines, through and sweeps](/docs/tines-and-through/)
+[Lesson 8](/docs/playground/#lesson-8) lets you try an undefined-lane read,
+then add a fallback and inspect the result. [Tines, through and sweeps](/docs/tines-and-through/)
 defines the scope and masking rules.
 
 ## Characteristics
@@ -291,7 +303,7 @@ broadcasting easy to see.
 
 There are no branches inside a rack. A tine such as `#nonnegative` identifies a mask of
 lanes, a `through` block computes under it, and a sweep picks each lane's
-result by priority, ending in `_` so that every lane gets one. Lanes outside a
+result by priority, with proven coverage or a final `_`. Lanes outside a
 mask can't fail or raise a floating-point exception.
 
 ### Stages fuse

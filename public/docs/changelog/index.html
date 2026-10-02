@@ -82,6 +82,15 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Define typed global tines with explicit rack and uniform parameters, and
+apply them in local tines, through blocks and sweeps. <code>gaps</code> complements a
+tine or composed mask, including unordered floating-point lanes.
+Through fallbacks are optional: without <code>else</code>, reading an undefined lane
+is a compile error. Sweeps may omit <code>_</code> when Boolean mask coverage is
+provably total. Physical and WebAssembly lowering retain their existing
+predication and inactive-input safety obligations.</p>
+</li>
+<li>
 <p>Support opaque header-backed C typedefs through typed pointers, including
 callback signatures. Reject by-value opaque objects and their construction.</p>
 </li>

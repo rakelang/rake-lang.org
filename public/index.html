@@ -69,13 +69,14 @@ ordinary C loop:</p>
 }
 </code></pre>
 <p>The equivalent operation on a Rake rack is:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
-  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
+<pre class="code code-rake"><code><span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
-    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
-    <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">gaps</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 </code></pre>
 <p>The native AVX2 demonstration puts this operation in a compiler-generated
 loop over a million entries. Both Rake and optimized C took about 0.14 ms on
@@ -84,9 +85,9 @@ made its scalar loop about 26 times slower. Those are measured build/input
 comparisons, rather than a promise that Rake always beats C.
 <a href="https://github.com/rakelang/rake/tree/main/demo/safe-root">The benchmark source and commands</a>
 include the flags and correctness checks, and generate both disassemblies.</p>
-<p>Rake's execution model can be pictured in a sentence: “<code>rake</code> data <code>through</code>
-<code>tine</code>s, then <code>sweep</code> them into the result.” We'll read those words in the
-order they appear in a program, starting with what vector processing means.</p>
+<p>Rake's execution model can be pictured in three steps: define the <code>tine</code>s,
+<code>rake</code> data <code>through</code> them, then <code>sweep</code> the results. We'll read the program
+in that order, starting with what vector processing means.</p>
 <h3 id="one-instruction-several-numbers">One instruction, several numbers</h3>
 <figure class="diagram">
 <div class="diagram-panels">
@@ -164,39 +165,32 @@ apply it to every number at once, as the diagram's wide desk shows.</p>
 how many numbers fit: a 128-bit register holds four 32-bit numbers, while a
 256-bit register holds eight. “32-bit” describes the space one number takes.
 Rake calls the row of values held together a <em>rack</em>.</p>
-<h3 id="rake">rake</h3>
+<h3 id="define-the-tines">Define the tines</h3>
 <p>Let's extend that first operation with a second case, so we can see how
 tines combine. Positive numbers take their
 square roots. Negative numbers take the square roots of their magnitudes,
 then keep their negative signs: 16 becomes 4, and −4 becomes −2. Here's that
 compound definition, which we'll read from top to bottom:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">signed_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">nonnegative</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
-  <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">negative</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&lt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+<pre class="code code-rake"><code><span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">nonnegative</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+<span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">negative</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&lt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 
-  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">nonnegative</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">positive_roots</span><span class="tok-punctuation-delimiter">:</span>
+<span class="tok-keyword">rake</span> <span class="tok-function">signed_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">nonnegative</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">into</span> <span class="tok-variable">positive_roots</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 
-  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">negative</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">negative_roots</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">negative</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">into</span> <span class="tok-variable">negative_roots</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-operator">-</span><span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">-</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 
   <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
-    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">nonnegative</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">positive_roots</span>
-    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">negative</span>    <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">negative_roots</span>
-    <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>            <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">nonnegative</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">positive_roots</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">negative</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">negative_roots</span>
+    <span class="tok-operator-flow">|</span> <span class="tok-punctuation-bracket">(</span><span class="tok-tag">#</span><span class="tok-tag">nonnegative</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">or</span> <span class="tok-tag">#</span><span class="tok-tag">negative</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">gaps</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 </code></pre>
-<p>The first line resembles a function declaration. <code>signed_root</code> is the name,
-<code>values</code> is its input, and <code>f32s</code> means a rack of 32-bit floating-point
-numbers. The arrow says the result is another rack of the same type.</p>
-<p>The <code>rake</code> keyword tells the compiler that this definition will choose work
-for individual lanes. Its body supplies that work. The next line tells us
-which lanes to select.</p>
-<h3 id="tine">tine</h3>
 <p>A tine is a prong on a garden rake. In the language, a <code>tine</code> is a labelled
 <em>mask</em>: a true-or-false choice for each lane. The hash, <code>#</code>, resembles the
 crossing lines and prongs of a rake. It also marks a label, another way to
 think about referring to a mask. Read
-<code>tine #nonnegative means values &gt;= &lt;0.0&gt;</code> as “the nonnegative tine catches
+<code>tine #nonnegative(values: f32s) means values &gt;= &lt;0.0&gt;</code> as “the nonnegative tine catches
 numbers that are greater than or equal to zero”. The second tine catches
 the negative numbers.</p>
 <p><code>&lt;0.0&gt;</code> is a <em>uniform</em>, one scalar value shared by every lane. The angle
@@ -206,63 +200,79 @@ checks every input number against the same zero:</p>
 #nonnegative: [true, false,  true, false]
 #negative:    [false, true, false,  true]
 </code></pre>
-<p><code>tine #nonnegative</code> declares the mask's label, and <code>means values &gt;= &lt;0.0&gt;</code> defines how
-to calculate it. That follows the familiar distinction between a declaration,
-which introduces a name, and a definition, which supplies its meaning. Here
-both are on one line. The comparison computes the mask when the rake runs,
-and the <code>#</code> marks the name we'll use to refer to it.</p>
+<p>The tine's parameter, <code>values: f32s</code>, says that it takes a rack of 32-bit
+floating-point numbers. <code>tine #nonnegative</code> declares its label, and
+<code>means values &gt;= &lt;0.0&gt;</code> defines how to calculate its mask. That follows the
+familiar distinction between a declaration, which introduces an identifier,
+and a definition, which supplies its meaning. Both are on one line here.</p>
+<p>This definition sits outside the rake, so another rake can reuse it with
+different data. It stores no global mask. The application
+<code>#nonnegative(values)</code> computes the mask for the particular input.</p>
+<h3 id="rake-the-data">Rake the data</h3>
+<p>With the tines defined, the <code>rake signed_root</code> line introduces the operation
+that will use them. <code>values</code> is its input, and the arrow says that the
+result is another <code>f32s</code> rack. The <code>rake</code> keyword tells the compiler that
+this definition will choose work for individual lanes. Its through blocks
+supply that work, and its sweep chooses the result.</p>
 <h3 id="through">through</h3>
 <p>Now that we've selected the valid lanes, we can pass them through a
-calculation. Read <code>through #nonnegative else &lt;0.0&gt; into positive_roots:</code> as
-“calculate the nonnegative lanes using the body below, give the other lanes
-zero, and call the result <code>positive_roots</code>”. The body is <code>sqrt(values)</code>.
-The second block calculates <code>-sqrt(-values)</code> under <code>#negative</code>:</p>
+calculation. Read <code>through #nonnegative(values) into positive_roots:</code> as
+“calculate the nonnegative lanes using the body below, and bind those
+results to <code>positive_roots</code>”. The body is <code>sqrt(values)</code>.
+The second block calculates <code>-sqrt(-values)</code> under the negative tine:</p>
 <pre class="code code-text"><code>values:         [16, -4, 9, -1]
-positive_roots: [ 4,  0, 3,  0]
-negative_roots: [ 0, -2, 0, -1]
+positive_roots: [ 4,  ·, 3,  ·]
+negative_roots: [ ·, -2, ·, -1]
 </code></pre>
+<p>The dots mean undefined lanes. We haven't supplied an intermediate
+fallback, so those lanes can't be read. The compiler checks every later
+use against the mask where the value is defined.</p>
 <p>Giving the result the name <code>positive_roots</code> is called <em>binding</em> a name to a value.
 Binding is general programming terminology, used in languages such as
 <a href="https://ocaml.org/docs/values-and-functions">OCaml</a>. It's the association
 between a name and what that name means. Here <code>into positive_roots</code> introduces the
-name, and the block defines its value through the calculation and the fallback.</p>
-<p>We can now use <code>positive_roots</code> in a later block or in the sweep. A binding doesn't
+identifier, and the block defines its value through the masked calculation.</p>
+<p>We can now use <code>positive_roots</code> under the same mask, or a narrower one, in
+a later block or in the sweep. A binding doesn't
 require the compiler to store a temporary array: this value can stay in a
 vector register. Identifiers introduced inside a through body are local to
 that body. Its result binding is available to the rest of the rake.</p>
 <h3 id="sweep">sweep</h3>
 <p>We've calculated an intermediate rack. A <code>sweep</code> chooses the values that
-leave the function. Read its arms in order: <code>| #nonnegative =&gt; positive_roots</code>
+leave the function. Read its arms in order: <code>| #nonnegative(values) =&gt; positive_roots</code>
 takes the positive roots in the nonnegative lanes. The next arm takes the
-negative roots in the negative lanes. The final arm, <code>| _ =&gt; &lt;0.0&gt;</code>, gives
-zero to any lane left over, such as a NaN that passed neither comparison.
-The <code>_</code> means “everything else”.</p>
+negative roots in the negative lanes. The final arm uses
+<code>(#nonnegative(values) or #negative(values)) gaps</code>: the gaps in the union
+of both masks. It gives zero to any lane left over, including a NaN that
+passed neither comparison. <code>gaps</code> is exact mask inversion.</p>
 <p>The result is <code>[4, -2, 3, -1]</code>. Each value stays in its original lane, so a
 sweep doesn't shuffle or compact the rack. <code>sweep:</code> is itself the rake's
 result form, which is why it doesn't need a <code>return</code> keyword.</p>
 <h3 id="intermediate-and-final-results">Intermediate and final results</h3>
-<p>The two through blocks fill their inactive lanes with zero. The sweep then
-chooses between their results. These fallbacks have separate scopes:</p>
+<p>The sweep reads each partial result only in its defined lanes:</p>
 <div class="table-scroll"><table><thead><tr><th>Stage</th><th class="align-right">Lane 0</th><th class="align-right">Lane 1</th><th class="align-right">Lane 2</th><th class="align-right">Lane 3</th></tr></thead><tbody>
 <tr><td>Input</td><td class="align-right">16</td><td class="align-right">−4</td><td class="align-right">9</td><td class="align-right">−1</td></tr>
-<tr><td><code>positive_roots</code></td><td class="align-right">4</td><td class="align-right">0</td><td class="align-right">3</td><td class="align-right">0</td></tr>
-<tr><td><code>negative_roots</code></td><td class="align-right">0</td><td class="align-right">−2</td><td class="align-right">0</td><td class="align-right">−1</td></tr>
+<tr><td><code>positive_roots</code></td><td class="align-right">4</td><td class="align-right">undefined</td><td class="align-right">3</td><td class="align-right">undefined</td></tr>
+<tr><td><code>negative_roots</code></td><td class="align-right">undefined</td><td class="align-right">−2</td><td class="align-right">undefined</td><td class="align-right">−1</td></tr>
 <tr><td>Sweep result</td><td class="align-right">4</td><td class="align-right">−2</td><td class="align-right">3</td><td class="align-right">−1</td></tr>
 </tbody></table>
 </div>
-<p>For a negative input, the zero in <code>positive_roots</code> never reaches the result.
-The sweep takes that lane from <code>negative_roots</code> instead. Changing only the
-sweep's last arm changes unmatched lanes, not these intermediate values.
-If a later calculation uses an entire intermediate rack, its through
-fallback matters there. The compiler removes redundant selections when the
-intermediate fallback cannot affect the result.</p>
+<p>For a negative input, the sweep takes the value from <code>negative_roots</code>.
+Trying to take it from <code>positive_roots</code> is a compile error. If a later
+calculation needs the whole intermediate rack, add an explicit through
+fallback such as <code>else &lt;0.0&gt;</code>. That makes every lane defined.</p>
+<p>A sweep can also use a final <code>_</code> arm for unmatched lanes. It is optional
+when the masks provably cover every lane, as these tines and their <code>gaps</code>
+do. Separate numeric comparisons aren't assumed to cover all inputs:
+NaNs fail both comparisons in this example.</p>
 <p>Reading the definition in stages explains how the calculation depends on
 its inputs. It doesn't specify a delayed execution model: the sweep isn't
 a trigger for earlier work. The compiler can optimise these pure
-calculations together. Both square roots become vector instructions, with
-benign operands in their inactive lanes.</p>
-<p><a href="/docs/playground/#lesson-8">Lesson 8</a> lets you change each fallback separately
-and inspect the result. <a href="/docs/tines-and-through/">Tines, through and sweeps</a>
+calculations together. Both square roots become vector instructions. On
+physical CPU profiles, the compiler supplies benign operands in their
+inactive lanes. WebAssembly SIMD has no floating-point exception flags.</p>
+<p><a href="/docs/playground/#lesson-8">Lesson 8</a> lets you try an undefined-lane read,
+then add a fallback and inspect the result. <a href="/docs/tines-and-through/">Tines, through and sweeps</a>
 defines the scope and masking rules.</p>
 <h2 id="characteristics">Characteristics</h2>
 <h3 id="racks-are-vector-values">Racks are vector values</h3>
@@ -280,7 +290,7 @@ broadcasting easy to see.</p>
 <h3 id="masks-choose-lanes">Masks choose lanes</h3>
 <p>There are no branches inside a rack. A tine such as <code>#nonnegative</code> identifies a mask of
 lanes, a <code>through</code> block computes under it, and a sweep picks each lane's
-result by priority, ending in <code>_</code> so that every lane gets one. Lanes outside a
+result by priority, with proven coverage or a final <code>_</code>. Lanes outside a
 mask can't fail or raise a floating-point exception.</p>
 <h3 id="stages-fuse">Stages fuse</h3>
 <p>Once we've given an intermediate value a name, it can look as though we've

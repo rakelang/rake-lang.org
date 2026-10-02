@@ -80,7 +80,7 @@ stage checks each promise from <a href="/docs/goals/">the goals</a>.</p>
 <h2 id="scratches-and-rakes">Scratches and rakes</h2>
 <pre class="code code-text"><code>source
   -&gt; layout check, lexer and layout tokens, parser       the AST
-  -&gt; type checker                                        types and capabilities
+  -&gt; type checker                                        types, capabilities and lane coverage
   -&gt; native lowering                                     typed native IR
   -&gt; native IR verifier
   -&gt; optimiser                                           identifiers substituted, fused multiply-adds formed, dead code removed
@@ -94,8 +94,16 @@ stage checks each promise from <a href="/docs/goals/">the goals</a>.</p>
 </code></pre>
 <p>The type checker accepts a program only when every construct it uses has a
 type rule and is available, and <code>rakec --print-capabilities</code> lists that
-status for each feature. Native lowering turns a scratch or rake into typed
-SSA, inlining the scratches and rakes it calls. The IR verifier checks that
+status for each feature. Global tines are instantiated with their typed
+arguments before the checker proves mask coverage. A Boolean decision diagram
+checks that each use of a partial <code>through</code> result stays inside its defined
+mask, and that the sweep covers every lane. Comparisons remain independent
+Boolean atoms, so <code>gaps</code> complements a mask without assuming numeric identities
+that fail for NaNs. Cross-lane operations require fully defined operands.</p>
+<p>Native lowering turns a scratch or rake into typed SSA, inlining the scratches
+and rakes it calls. A <code>through</code> without <code>else</code> needs no intermediate fallback
+selection. The sweep supplies the values for its complementary lanes.
+The IR verifier checks that
 every value is defined once and before its uses, that each operation has
 operands of the right types, that a fused region is contiguous and holds only
 pure rack or mask operations, that every block ends in exactly one

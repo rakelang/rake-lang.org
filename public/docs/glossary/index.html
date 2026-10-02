@@ -82,9 +82,10 @@ explains CPU SIMD and GPU terms, with examples of lane and memory operations.</p
 <tr><td>rack</td><td>one parallel value of the target profile, such as an <code>f32s</code>: one physical CPU vector register or WebAssembly <code>v128</code>. The GPU design maps it across a specified warp or subgroup</td></tr>
 <tr><td>lane</td><td>one element position in a rack: an <code>f32s</code> on AVX2 has eight</td></tr>
 <tr><td>uniform</td><td>one scalar shared by every lane, marked <code>&lt;name&gt;</code></td></tr>
-<tr><td>tine</td><td>a named mask of lanes, written <code>#name</code></td></tr>
-<tr><td>through block</td><td>code that computes under a tine, with a value for the other lanes</td></tr>
-<tr><td>sweep</td><td>the choice of each lane's result from tines in priority order, ending in <code>_</code></td></tr>
+<tr><td>tine</td><td>a labelled lane mask, local to a rake or defined globally as a typed predicate such as <code>#valid(values)</code></td></tr>
+<tr><td>gaps</td><td>the exact Boolean complement of a tine or composed mask, including lanes with NaNs that failed its comparisons</td></tr>
+<tr><td>through block</td><td>code that computes under a mask, with an optional <code>else</code> value for other lanes. Without <code>else</code>, only selected lanes are defined</td></tr>
+<tr><td>sweep</td><td>the choice of each lane's result in priority order, with masks that provably cover every lane or a final <code>_</code></td></tr>
 <tr><td>scratch</td><td>a function of racks without a tine/through/sweep body</td></tr>
 <tr><td>rake</td><td>a function of racks with tines, through blocks and a sweep</td></tr>
 <tr><td>run</td><td>vector code over memory: traverse stacks and apply rakes or scratches to racks from their columns</td></tr>
