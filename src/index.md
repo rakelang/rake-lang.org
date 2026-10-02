@@ -4,7 +4,7 @@
 <h1>Rake</h1>
 <p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
 <p>Rust's type system and borrow checker enforce memory safety in safe code. An <code>unsafe</code> block marks operations whose safety the programmer must establish. Rake's compiler checks that vector calculations become vector instructions. You get that guarantee without needing to manually review the assembly that the compiler generated, because it does that for you. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
-<p>Rake is a SIMD, or vector, programming language. It's built for calculations that apply the same operation to many numbers at once.</p>
+<p>Rake is a SIMD, or vector, programming language. It's built for calculations that apply the same operation to many numbers at once. Its current profiles target CPUs and WebAssembly. The planned GPU profiles will preserve parallel work across warp lanes and check the execution costs their contracts specify.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
 <li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
@@ -446,6 +446,73 @@ readers who come from C or Python.
 
 [Primitives, operations, and targets](/docs/primitives-operations-and-targets/) lists what each profile
 compiles, and [the roadmap](/docs/roadmap/) what comes next.
+
+The unreleased development compiler also combines native slow orchestration
+with Rake-selected register kernels, through a limited scalar C boundary.
+Typed C callbacks and process arguments are implemented there. Native runs
+and packs remain WIP*. [The backend](/docs/backend/#whole-programs) explains
+which parts Rake emits and which parts use a platform C compiler.
+
+## GPU execution: the design
+
+A CPU rack fits in one vector register. On an NVIDIA GPU, the planned rack
+will span a warp of 32 threads instead. Each thread holds one lane's value.
+Rake will check that the work stays mapped across those lanes, with no hidden
+loop that processes the rack serially inside one thread.
+
+<figure class="diagram diagram-gpu-rack">
+<div class="diagram-scroll" tabindex="0" role="region" aria-label="GPU rack diagram, scroll horizontally on a narrow screen">
+<svg viewBox="0 0 680 228" role="img" aria-labelledby="home-gpu-title home-gpu-description">
+<title id="home-gpu-title">A proposed GPU rack maps values across a warp</title>
+<desc id="home-gpu-description">32 values map to 32 thread lanes. Lanes zero, one, two, thirty and thirty-one are illustrated, with the intervening lanes omitted. Each participating thread applies plus one to its own value. Rake checks that mapping. Hardware schedules the warp.</desc>
+<text class="diagram-label" x="18" y="24">Column in memory: 32 values</text>
+<rect class="diagram-cell diagram-cell-active" x="18" y="38" width="644" height="32" rx="4"/>
+<text class="diagram-value" x="340" y="54">One value per thread lane</text>
+<path class="diagram-flow" d="M68 76 V100 M176 76 V100 M284 76 V100 M392 76 V100 M500 76 V100 M610 76 V100"/>
+<rect class="diagram-cell diagram-cell-active" x="18" y="106" width="100" height="38" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="126" y="106" width="100" height="38" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="234" y="106" width="100" height="38" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="342" y="106" width="100" height="38" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="450" y="106" width="100" height="38" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="558" y="106" width="104" height="38" rx="4"/>
+<text class="diagram-value" x="68" y="125">0: +1</text>
+<text class="diagram-value" x="176" y="125">1: +1</text>
+<text class="diagram-value" x="284" y="125">2: +1</text>
+<text class="diagram-value" x="392" y="125">…</text>
+<text class="diagram-value" x="500" y="125">30: +1</text>
+<text class="diagram-value" x="610" y="125">31: +1</text>
+<text class="diagram-label" x="18" y="181">Rake checks lane mapping and permitted costs.</text>
+<text class="diagram-label" x="18" y="213">Hardware schedules the warp.</text>
+</svg>
+</div>
+<figcaption>Proposed GPU execution. Per-thread arithmetic is the parallel lowering here, not a CPU scalar fallback. GPU support isn't implemented yet.</figcaption>
+</figure>
+
+Masks can leave some lanes inactive because the input takes different paths.
+The compiler can't promise that every lane always works, or choose the
+hardware's warp schedule. It can preserve the declared control flow and
+reject forbidden spills, reloads or helper calls in checked regions. Memory
+address patterns and synchronisation scopes will remain explicit.
+
+The first proposed profile, `nvidia-ptx-sm120`, will emit inspectable PTX,
+then use a pinned NVIDIA toolchain to build a cubin ahead of time. NVIDIA
+will allocate physical registers and schedule instructions. Rake will verify
+the resulting device artifact and load those exact bytes, with no unverified
+PTX JIT fallback. Later designs cover portable SPIR-V/Vulkan and a direct
+physical backend for a documented ISA.
+
+| Checkable contract | Needs execution evidence |
+| --- | --- |
+| lane mapping and permitted control flow | input-dependent inactive lanes and workload balance |
+| no forbidden spills in strict regions | achieved occupancy and the best register policy |
+| explicit lane-to-address patterns | memory transactions, caches and transfer costs |
+| declared numerical and synchronisation rules | elapsed time and application throughput |
+
+Keeping more values in registers can reduce the number of resident warps.
+No-spill therefore doesn't mean fastest. Enough independent work and balanced
+workloads still matter. [The GPU design](/docs/gpu/) defines the proposed
+contract, and [the comparison with ISPC and Bend 2](/docs/comparisons/#gpu-execution-rake-ispc-and-bend)
+separates lane-parallel kernels from parallel fork–join tasks.
 
 ## Projects using Rake
 

@@ -57,6 +57,7 @@
 (storage_type) @type.builtin
 (rack_type) @type.builtin
 (mask_type) @type.builtin
+(void_type) @type.builtin
 (type_identifier) @type
 (record_definition name: (type_identifier) @type)
 (record_expression record: (type_identifier) @type)

@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=3c180efb">
+  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Changelog | Rake","name":"Changelog | Rake","description":"What changed in each Rake release, starting with 0.4.0-beta: integer racks, runs and whole programs on WebAssembly, and checked documentation examples.","url":"https://rake-lang.org/docs/changelog/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -79,6 +79,11 @@ boundaries between versions. A design in the documentation gets a version
 only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
+<li>Slow code supports typed C function pointers, noncapturing callbacks and
+opaque <code>ptr ()</code> contexts. <code>addr(function)</code> forms a callback, and data
+pointers can be erased or restored through <code>bitcast(ptr T, pointer)</code>.
+Native and WebAssembly calls use the platform C ABI, with null indirect
+calls trapping. Unions remain work in progress.</li>
 <li>A process entry may take <code>argc: i32, argv: ptr ptr u8</code>. Native C and WASI
 startup pass the count, zero-terminated byte strings and trailing null
 pointer through a compiler-owned typed adapter. The interpreter accepts

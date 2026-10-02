@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=3c180efb">
+  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Primitives, operations, and targets | Rake","name":"Primitives, operations, and targets | Rake","description":"What each Rake profile compiles: float and integer racks, bit operations, shuffles, floating-point rules, relaxed SIMD, calling conventions and checks.","url":"https://rake-lang.org/docs/primitives-operations-and-targets/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -73,7 +73,8 @@
 </nav>
     <main class="content">
 <h1 id="primitives-operations-and-targets">Primitives, operations, and targets</h1>
-<p>A rack is one vector register. Its type specifies its element: <code>f32s</code> is a
+<p>A rack is one vector value on the current CPU and WebAssembly profiles.
+Its type specifies its element: <code>f32s</code> is a
 rack of <code>f32</code> lanes. The target profile gives its width. This page
 defines the profiles, the operations each one compiles, the floating-point
 rules and the calling conventions of crunches and rakes.</p>
@@ -96,6 +97,17 @@ and the scalar fallback remain WIP*. The compiler rejects unsupported targets.</
 <p><code>--width n</code> asserts the <code>f32</code> lane count. It must equal the profile's, and a
 mismatch is an error before any code is generated. The compiler never meets
 it by splitting or narrowing a rack.</p>
+<p>GPU targets are designs, outside the implemented table above:</p>
+<div class="table-scroll"><table><thead><tr><th>Proposed profile</th><th>Rack</th><th>Boundary and status</th></tr></thead><tbody>
+<tr><td><code>nvidia-ptx-sm120</code></td><td>32 thread lanes</td><td>PTX 8.7 to ahead-of-time cubin, with final artifact verification. WIP*</td></tr>
+<tr><td>Vulkan subgroup profiles</td><td>required 32- or 64-invocation subgroup</td><td>portable SPIR-V, with device verification for physical claims. Later design, WIP*</td></tr>
+<tr><td>Direct physical GPU profile</td><td>specified wave/lane mapping</td><td>Rake-owned selection, allocation and sequencing for a documented ISA. Later design, WIP*</td></tr>
+</tbody></table>
+</div>
+<p>A GPU lane's scalar arithmetic is the SIMT mapping, not CPU scalar fallback.
+The <a href="/docs/gpu/">GPU contract</a> defines the proposed operation set, masks,
+collectives, memory rules and verification boundary. These profiles are not
+accepted by the current compiler.</p>
 <p><code>lanes</code>, the lane count, and <code>@</code>, the lane index, are reserved and
 unavailable on every profile.</p>
 <h2 id="float-racks">Float racks</h2>

@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>The compiler backend | Rake</title>
-  <meta name="description" content="How rakec turns source into code: native IR, physical-target register allocation, WebAssembly SIMD instructions and object verification.">
+  <meta name="description" content="How rakec lowers native CPU and WebAssembly code, checks objects and separates its planned GPU lane mapping from NVIDIA's physical allocation.">
   <link rel="canonical" href="https://rake-lang.org/docs/backend/">
   <meta property="og:title" content="The compiler backend | Rake">
-  <meta property="og:description" content="How rakec turns source into code: native IR, physical-target register allocation, WebAssembly SIMD instructions and object verification.">
+  <meta property="og:description" content="How rakec lowers native CPU and WebAssembly code, checks objects and separates its planned GPU lane mapping from NVIDIA's physical allocation.">
   <meta property="og:url" content="https://rake-lang.org/docs/backend/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
@@ -19,8 +19,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=3c180efb">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The compiler backend | Rake","name":"The compiler backend | Rake","description":"How rakec turns source into code: native IR, physical-target register allocation, WebAssembly SIMD instructions and object verification.","url":"https://rake-lang.org/docs/backend/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The compiler backend | Rake","name":"The compiler backend | Rake","description":"How rakec lowers native CPU and WebAssembly code, checks objects and separates its planned GPU lane mapping from NVIDIA's physical allocation.","url":"https://rake-lang.org/docs/backend/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
 <body class="layout-docs">
@@ -222,6 +222,26 @@ and rakes only. The development compiler adds native mixed programs through
 the limited scalar C boundary above. Runs and packs still compile only on
 WebAssembly. The <a href="/docs/packs-and-runs/#planned-x86-64-boundary">planned x86-64 run
 boundary</a> is a design.</p>
+<h2 id="planned-gpu-pipeline">Planned GPU pipeline</h2>
+<p>GPU profiles will add lane-to-invocation mapping, uniformity and collective
+participation to the existing checked lowering. They will preserve useful
+parallel execution, with explicit memory and synchronisation effects.
+They will never serially emulate a rack with a hidden per-thread lane loop.</p>
+<pre class="code code-text"><code>Physical CPU: Rake selection + allocation -&gt; assembly -&gt; object verification
+WebAssembly: Rake virtual SIMD selection -&gt; object verification -&gt; runtime
+NVIDIA (planned): Rake SIMT mapping -&gt; PTX -&gt; pinned ptxas -&gt; cubin verification
+Vulkan (later): Rake subgroup mapping -&gt; SPIR-V -&gt; driver -&gt; device verification
+</code></pre>
+<p>The proposed <code>nvidia-ptx-sm120</code> profile targets PTX 8.7 and a 32-thread warp.
+NVIDIA will own final allocation and instruction scheduling. Rake will check
+the final cubin's instructions, control/data flow and resources against its
+contract, rejecting unknown or insufficient evidence. A certificate applies
+to that artifact, not every translation of its PTX.</p>
+<p>The runtime will load only the verified cubin, with an explicit parameter ABI,
+context and CUDA stream. It will refuse an unverified PTX JIT fallback.
+Hardware scheduling, input-dependent lane activity and achieved occupancy
+remain outside compiler ownership. <a href="/docs/gpu/">The GPU design</a> separates the
+proof obligations from measurements and defines the acceptance gates.</p>
 
     </main>
 <nav class="page-contents" aria-label="On this page">
@@ -232,6 +252,7 @@ boundary</a> is a design.</p>
 <li><a href="#profiles">Profiles</a></li>
 <li><a href="#object-verification">Object verification</a></li>
 <li><a href="#ownership">Ownership</a></li>
+<li><a href="#planned-gpu-pipeline">Planned GPU pipeline</a></li>
 </ul>
 </nav>
   </div>

@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GPU profiles (design) | Rake</title>
-  <meta name="description" content="A design for Rake on GPUs: a rack as a Vulkan subgroup, SPIR-V as the portable boundary, what the driver decides, and certifying one device and driver.">
+  <meta name="description" content="Rake's proposed GPU contract: warp lanes, explicit costs, PTX to verified cubin, exact artifact loading, and what still needs device measurement.">
   <link rel="canonical" href="https://rake-lang.org/docs/gpu/">
   <meta property="og:title" content="GPU profiles (design) | Rake">
-  <meta property="og:description" content="A design for Rake on GPUs: a rack as a Vulkan subgroup, SPIR-V as the portable boundary, what the driver decides, and certifying one device and driver.">
+  <meta property="og:description" content="Rake's proposed GPU contract: warp lanes, explicit costs, PTX to verified cubin, exact artifact loading, and what still needs device measurement.">
   <meta property="og:url" content="https://rake-lang.org/docs/gpu/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
@@ -19,8 +19,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=3c180efb">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"GPU profiles (design) | Rake","name":"GPU profiles (design) | Rake","description":"A design for Rake on GPUs: a rack as a Vulkan subgroup, SPIR-V as the portable boundary, what the driver decides, and certifying one device and driver.","url":"https://rake-lang.org/docs/gpu/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"GPU profiles (design) | Rake","name":"GPU profiles (design) | Rake","description":"Rake's proposed GPU contract: warp lanes, explicit costs, PTX to verified cubin, exact artifact loading, and what still needs device measurement.","url":"https://rake-lang.org/docs/gpu/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
 <body class="layout-docs">
@@ -73,123 +73,201 @@
 </nav>
     <main class="content">
 <h1 id="gpu-profiles">GPU profiles</h1>
-<p>This page is a design. Rake has no SPIR-V backend, no Vulkan runtime profile
-and no device certification. Building them would need executable semantics,
-rejection tests, SPIR-V inspection and validation on supported devices.</p>
-<p>The design maps Rake's lanes to Vulkan shader invocations, the individual
-executions of a GPU program. Invocations run in subgroups, sets of
-invocations that execute together and exchange values directly. Where a CPU
-rack is one SIMD register, a GPU rack would span one subgroup, one lane to
-each invocation. The <a href="/docs/glossary/#gpu-terms">glossary</a> defines the GPU terms.</p>
-<h2 id="spir-v-is-the-portable-boundary">SPIR-V is the portable boundary</h2>
-<p>On a CPU, Rake controls instruction selection, register assignment,
-assembly and the object file. For Vulkan it would emit SPIR-V instead, a
-portable binary program that the vendor's driver translates into device
-instructions. Rake could verify the SPIR-V module and the requirements it
-declares, and the driver would own the final instructions and registers.</p>
-<pre class="code code-text"><code>Rake source
-  |
-  +-- CPU profile -- Rake machine form -- register allocation -- assembly -- object
-  |                  Rake controls and verifies all of it
-  |
-  +-- GPU profile -- validated SPIR-V -- Vulkan driver -- device code
-                     Rake proves this    the driver controls the rest
-</code></pre>
-<h2 id="a-gpu-rack-is-a-subgroup">A GPU rack is a subgroup</h2>
-<p>A SPIR-V vector is a small value of two to four components inside one
-invocation. A Vulkan subgroup is a set of invocations that can exchange data
-and run collective operations efficiently, which hardware executes together
-as a wave or warp, although Vulkan defines the subgroup's behaviour rather
-than an instruction format.</p>
-<p>In the design, each rack lane is one invocation of a subgroup. Rack
-arithmetic becomes scalar arithmetic in each invocation, reductions and
-shuffles become SPIR-V subgroup operations, and tines become predicates in
-each invocation. A 32-lane rack spans 32 invocations. It isn't an
-<code>OpTypeVector</code> of 32 components in one invocation.</p>
-<div class="table-scroll"><table><thead><tr><th></th><th>CPU rack</th><th>GPU rack</th></tr></thead><tbody>
-<tr><td>What it is</td><td>one SIMD register</td><td>one subgroup, spread across invocations</td></tr>
-<tr><td>A lane</td><td>one component of the register</td><td>one scalar owned by an invocation</td></tr>
-<tr><td>The width</td><td>the element type and the CPU profile</td><td>the subgroup size the Vulkan pipeline profile requires</td></tr>
-<tr><td>Evidence</td><td>the register-assigned program and the encoded instructions</td><td>validated SPIR-V, its declared capabilities and the pipeline's requirements</td></tr>
-<tr><td>Register allocation</td><td>Rake's</td><td>the driver's</td></tr>
+<p>This page defines the planned GPU execution contract. Rake currently has no
+GPU compiler, runtime or device-artifact verifier. CPU coverage and native
+C interoperation come first. The first GPU backend will target NVIDIA PTX
+and verify an ahead-of-time cubin. Portable SPIR-V and a direct physical
+backend are later directions.</p>
+<p>The purpose is to preserve useful parallel work across GPU lanes, keep
+temporary values in registers where the profile requires it, and make memory
+and synchronisation costs explicit. Hardware schedules warps. Rake will
+control the algorithm's lane mapping and check the resulting execution structure.</p>
+<figure class="diagram diagram-gpu-rack">
+<div class="diagram-scroll" tabindex="0" role="region" aria-label="GPU rack diagram, scroll horizontally on a narrow screen">
+<svg viewBox="0 0 680 264" role="img" aria-labelledby="gpu-rack-title gpu-rack-description">
+<title id="gpu-rack-title">A GPU rack spans a warp</title>
+<desc id="gpu-rack-description">A column maps to 32 thread lanes. Each lane calculates its own value. A mask disables selected lanes. Hardware schedules the warp, while Rake defines and verifies the lane mapping.</desc>
+<text class="diagram-label" x="18" y="24">Proposed NVIDIA rack: 32 thread lanes</text>
+<rect class="diagram-cell diagram-cell-active" x="18" y="40" width="644" height="34" rx="4"/>
+<text class="diagram-value" x="340" y="57">Column in memory: values 0 … 31</text>
+<path class="diagram-flow" d="M68 80 V104 M176 80 V104 M284 80 V104 M392 80 V104 M500 80 V104 M610 80 V104"/>
+<rect class="diagram-cell diagram-cell-active" x="18" y="110" width="100" height="40" rx="4"/>
+<rect class="diagram-cell diagram-cell-idle" x="126" y="110" width="100" height="40" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="234" y="110" width="100" height="40" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="342" y="110" width="100" height="40" rx="4"/>
+<rect class="diagram-cell diagram-cell-idle" x="450" y="110" width="100" height="40" rx="4"/>
+<rect class="diagram-cell diagram-cell-active" x="558" y="110" width="104" height="40" rx="4"/>
+<text class="diagram-value" x="68" y="130">lane 0</text>
+<text class="diagram-value" x="176" y="130">lane 1</text>
+<text class="diagram-value" x="284" y="130">lane 2</text>
+<text class="diagram-value" x="392" y="130">…</text>
+<text class="diagram-value" x="500" y="130">lane 30</text>
+<text class="diagram-value" x="610" y="130">lane 31</text>
+<rect class="diagram-operation" x="18" y="178" width="644" height="36" rx="4"/>
+<text class="diagram-instruction" x="340" y="196">The operation runs in each participating lane.</text>
+<text class="diagram-label" x="18" y="249">Rake checks the mapping. Hardware schedules the warp.</text>
+</svg>
+</div>
+<figcaption>One rack spans a warp. Grey lanes illustrate a programmer-selected mask, not a compiler fallback.</figcaption>
+</figure>
+<h2 id="a-rack-is-a-group-of-lanes">A rack is a group of lanes</h2>
+<p>A CPU rack occupies one vector register. A GPU rack will span a specified
+warp, wave or subgroup, with each invocation holding one lane's value.
+Arithmetic in each invocation is the parallel lowering. A hidden loop that
+processes all rack elements inside one invocation would violate the contract.
+NVIDIA's <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/03-advanced/advanced-kernel-programming.html#simt-execution-model">SIMT model</a>
+describes warp execution and masked paths.</p>
+<div class="table-scroll"><table><thead><tr><th>Property</th><th>Physical CPU profile</th><th>Proposed NVIDIA profile</th></tr></thead><tbody>
+<tr><td>Rack</td><td>one vector register</td><td>one 32-thread warp</td></tr>
+<tr><td>Lane</td><td>a register component</td><td>a value held by one thread</td></tr>
+<tr><td>Uniform</td><td>one scalar broadcast into the rack</td><td>one value shared by the warp</td></tr>
+<tr><td>Tine</td><td>a vector mask</td><td>a predicate for each thread</td></tr>
+<tr><td>Lane exchange</td><td>vector shuffle or reduction</td><td>explicit warp collective</td></tr>
+<tr><td>Physical registers</td><td>allocated by Rake</td><td>allocated by NVIDIA, then checked in the cubin</td></tr>
+<tr><td>Scheduling</td><td>Rake's instruction sequence, executed by the CPU</td><td>NVIDIA's instruction schedule and hardware warp scheduling</td></tr>
 </tbody></table>
 </div>
-<p>The 400 particles of <a href="/docs/comparisons/#ways-to-write-simd-code">the comparison harness</a>
-would take twelve full racks and a last rack of 16 active invocations on a
-<code>vulkan-subgroup32</code> profile, and six full racks and the same last rack on
-<code>vulkan-subgroup64</code>. Vulkan also rounds a dispatch up to the workgroup size,
-so padding invocations run, and Rake's bounds predicate would keep them from
-touching memory or computing partial operations.</p>
-<div class="table-scroll"><table><thead><tr><th>Profile</th><th>Rack width</th><th>400 particles</th></tr></thead><tbody>
-<tr><td><code>x86-avx2</code></td><td>8 values</td><td>50 full racks</td></tr>
-<tr><td><code>vulkan-subgroup32</code></td><td>32 invocations</td><td>12 full racks and 16 active invocations</td></tr>
-<tr><td><code>vulkan-subgroup64</code></td><td>64 invocations</td><td>6 full racks and 16 active invocations</td></tr>
-</tbody></table>
-</div><h2 id="checks-on-the-spir-v">Checks on the SPIR-V</h2>
-<p>A Vulkan profile would fix a SPIR-V version, the Vulkan features it needs, the
-subgroup width, floating-point modes, the memory model and the operations it
-allows. Creating the pipeline would check the device and reject a profile
-whose subgroup size or capabilities it lacks. The profile would require:</p>
-<ul>
-<li>a fixed subgroup width, requested by the runtime, with incompatible devices
-and shader stages refused,</li>
-<li>no loop over logical lanes: rack arithmetic stays spread across
-invocations,</li>
-<li>subgroup collectives, such as reductions, shuffles, ballots and
-broadcasts, as SPIR-V subgroup operations instead of algorithms through
-workgroup memory,</li>
-<li>typed uniformity, so a value shared by the subgroup and a value for each
-invocation can't be confused,</li>
-<li>safe inactive invocations, with tail predicates and benign operands,</li>
-<li>inspectable memory access: adjacent lanes address adjacent elements, and the
-SPIR-V shows the address calculation,</li>
-<li>a source-located error for an unavailable operation or execution mode, and</li>
-<li>SPIR-V validation and Rake's own structural checks before the shader
-reaches Vulkan.</li>
-</ul>
-<h2 id="what-the-driver-decides">What the driver decides</h2>
-<p>Vulkan drivers compile SPIR-V into device executables when a pipeline is
-created, and may change instruction selection, scheduling and register
-allocation, or spill. A portable SPIR-V profile therefore can't promise any
-of these from the module alone:</p>
-<ul>
-<li>no spills, because SPIR-V identifiers don't fix GPU registers,</li>
-<li>one instruction for each operation, because the driver may expand or combine
-them,</li>
-<li>a register count or occupancy, which depend on the driver and the whole
-pipeline,</li>
-<li>coalesced memory transactions: Rake can prove that addresses are adjacent,
-and the hardware decides the transactions and caching, and</li>
-<li>identical code across driver versions.</li>
-</ul>
-<h2 id="certifying-one-device">Certifying one device</h2>
-<p>Verification for one device would name the device and the driver. A tool
-would create the pipeline, capture its executable statistics and any internal
-representation the driver exposes, and run a vendor-specific checker for
-spills, register use, helper code and forbidden instructions. The certificate
-would bind the SPIR-V hash, pipeline state, device, driver version, subgroup
-size and checker version.</p>
-<p>Vulkan exposes executable statistics and internal representations through
-an optional <a href="https://docs.vulkan.org/refpages/latest/refpages/source/VK_KHR_pipeline_executable_properties.html">developer extension</a>.
-What it shows depends on the implementation, and may include the final shader
-assembly, so a device without it couldn't be certified. A certificate would
-hold for that device and driver, and not for every device that accepts the
-module.</p>
-<p>The GPU profiles would share the CPU profiles' lane semantics, column
-declarations and predication. The <a href="https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html">SPIR-V
+<p>Partial masks are legitimate program choices. Rake cannot make arbitrary
+inputs keep every lane active. It can distinguish uniform control from
+lane-varying control and refuse compiler-introduced serialization. A declared
+masked path may still use fewer lanes while it executes.</p>
+<h2 id="first-profile-nvidia-ptx">First profile: NVIDIA PTX</h2>
+<p>The proposed identifier is <code>nvidia-ptx-sm120</code>. It fixes PTX ISA 8.7,
+<code>sm_120</code>, 64-bit addressing and a 32-lane rack. It supports only that SM
+architecture initially. The selected toolchain is CUDA 12.8.1, with the exact
+tool binaries to be pinned by hash in the implementation. See the <a href="https://docs.nvidia.com/cuda/archive/12.8.1/parallel-thread-execution/index.html">PTX 8.7
 specification</a>
-and Vulkan's <a href="https://docs.vulkan.org/guide/latest/subgroups.html">subgroup guide</a>
-describe the target.</p>
+and <a href="https://docs.nvidia.com/cuda/archive/12.8.1/cuda-toolkit-release-notes/index.html#cuda-toolkit-major-component-versions">CUDA 12.8.1 component versions</a>.</p>
+<p>The initial operation set below is a design boundary, not available support.
+Other architectures and operations require a checked profile extension.
+Unsupported constructs must report their source location, profile and failed
+obligation before any artifact is accepted.</p>
+<div class="table-scroll"><table><thead><tr><th>Area</th><th>Initial contract</th></tr></thead><tbody>
+<tr><td>Values</td><td><code>f32</code> lane values and predicates, 32-bit integer indices and 64-bit device addresses. Uniformity is tracked separately</td></tr>
+<tr><td>Arithmetic</td><td>binary32 add, subtract, multiply, divide, square root, explicit FMA, ordered comparisons and selection. Divide and square root require correctly rounded forms</td></tr>
+<tr><td>Floating point</td><td>round to nearest, ties to even, with subnormals preserved. Explicit FMA has one rounding. Fused regions may contract under published rules. No implicit fast-math</td></tr>
+<tr><td>Masks</td><td>source through/sweep priority, no inactive memory effects, safe operands or verified predication for partial arithmetic</td></tr>
+<tr><td>Collectives</td><td>broadcast, static shuffle, ballot and ordered float reductions/scans through published warp-shuffle sequences. Participation and reduction order are explicit</td></tr>
+<tr><td>Memory</td><td>typed structure-of-arrays global loads/stores, with alignment, count and lane-to-address mapping. Tails suppress out-of-bounds accesses</td></tr>
+<tr><td>Control</td><td>uniform bounds and source traversal control are permitted. Pure fused regions forbid calls and hidden lane loops</td></tr>
+<tr><td>Initial exclusions</td><td>shared-memory collectives, atomics, dynamic allocation, recursion, device callbacks, tensor operations, scatter and unsupported numerical functions</td></tr>
+</tbody></table>
+</div>
+<p>Every launched warp will contain 32 invocations. Padding invocations remain
+present until required collectives finish, with neutral operands for inactive
+data lanes. All participants reach the same collective with the same
+membership mask. The checker must reject reads from unavailable shuffle
+sources and collectives whose participation cannot be established. Execution
+never relies on implicit lockstep between threads.</p>
+<p>For 400 records the mapping needs twelve full racks and a rack with sixteen
+data lanes. Additional dispatch padding may be needed for the block size.
+Padding invocations never touch out-of-bounds records.</p>
+<h2 id="compilation-and-final-code-verification">Compilation and final-code verification</h2>
+<p>The backend belongs in Rake's profile, lowering and verifier pipeline:</p>
+<pre class="code code-text"><code>Rake source and GPU lane contract
+  -&gt; checked IR: uniformity, masks and memory effects
+  -&gt; inspectable PTX 8.7 for sm_120
+  -&gt; pinned ptxas: ahead-of-time cubin
+  -&gt; nvdisasm and cuobjdump: instructions, control flow and resources
+  -&gt; Rake's sm_120 artifact verifier
+  -&gt; exact verified cubin loaded by the runtime
+</code></pre>
+<p>NVIDIA owns final instruction selection, physical register allocation and
+instruction scheduling on this virtual profile. Rake's verifier must
+establish the promised properties of the resulting artifact. Passing it
+does not transfer those allocation decisions to Rake.</p>
+<p>The verifier will inspect every reachable instruction and control-flow path,
+relating register/data flow to the lane, mask, memory and collective contract.
+It must reject unknown instructions, opaque helper paths, unexplained loops
+and insufficient evidence. In designated pure regions it must establish no
+spills or reloads, no calls and no hidden serial lane loop. Explicit address
+and traversal work has separate obligations.</p>
+<p>Zero <code>LOCAL</code> or <code>STACK</code> bytes alone do not prove those properties. NVIDIA's
+<a href="https://docs.nvidia.com/cuda/cuda-binary-utilities/">binary utilities</a>
+supply disassembly, control-flow output and resource reports. The verifier
+must also check actual memory instructions and their data flow.</p>
+<h2 id="artifact-identity-and-runtime-boundary">Artifact identity and runtime boundary</h2>
+<p>Verification will bind the exact cubin and kernel hashes to the source,
+profile, compiler revision, PTX hash, toolchain binaries and flags, target
+SM, verifier version and launch/parameter ABI. Runtime evidence also records
+device and driver identity. A driver or runtime change requires refreshed
+compatibility checks and execution evidence.</p>
+<p>The runtime will load those cubin bytes and confirm target and kernel identity.
+It will refuse unverified PTX JIT fallback, a rebuild with different flags,
+or verification transferred to different bytes.</p>
+<p>The host interface is a separate C ABI for loading a verified artifact and
+launching a kernel with an explicit CUDA context, stream and parameter layout.
+Column arguments will be device addresses with counts and alignment
+requirements. The caller owns allocation, lifetimes, stream ordering and
+synchronisation. Launch errors remain visible. CUDA supplies the execution
+interface, while Rake emits PTX directly. Rake source need not be CUDA C++.</p>
+<p>The compiler/runtime handoff requires a versioned parameter layout and launch
+contract, semantic checks and an exact artifact identity. Engine adoption
+additionally requires CPU, official-engine and GPU parity, then bounded
+resource and throughput measurements. Compiler availability alone does not
+satisfy those engine gates.</p>
+<h2 id="guarantees-and-measurements">Guarantees and measurements</h2>
+<div class="table-scroll"><table><thead><tr><th>Compilation or artifact verification</th><th>Execution and measurement</th></tr></thead><tbody>
+<tr><td>lanes map to threads, without a hidden serial lane loop</td><td>enough independent warps to use the device</td></tr>
+<tr><td>permitted predicates, control flow and collective participation</td><td>input-dependent inactive lanes</td></tr>
+<tr><td>no forbidden spills, reloads or helpers in checked regions</td><td>achieved occupancy and whether another register policy is faster</td></tr>
+<tr><td>parameter layout and lane-to-address pattern</td><td>memory transactions, caches and transfer overhead</td></tr>
+<tr><td>numerical semantics and explicit synchronisation scopes</td><td>elapsed time and application throughput</td></tr>
+</tbody></table>
+</div>
+<p>More registers per thread can leave room for fewer resident warps. A strict
+no-spill profile will reject a forbidden spill even when another policy
+might run faster. Any relaxed resource policy must be an explicit separate
+choice, never a fallback. Balanced workloads and enough independent work
+remain program responsibilities. NVIDIA's <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/writing-cuda-kernels.html#registers">register and occupancy
+discussion</a>
+explains that trade-off.</p>
+<h2 id="acceptance-checks">Acceptance checks</h2>
+<p>Independent numerical and CPU reference results will check lane mapping,
+mask priority, tails, collectives and floating-point edge cases. Boundary
+counts include empty data and partial warps. Collective checks include
+missing participants and unavailable shuffle sources.</p>
+<p>Final-code negative fixtures will contain spills/reloads, helper calls,
+serial lane loops, unexpected divergent control, incorrect address patterns
+and unknown instructions. The verifier must refuse them even when a resource
+summary appears acceptable. Artifact checks will change bytes, architecture,
+flags and launch metadata to ensure verification cannot follow a different
+kernel silently.</p>
+<h2 id="later-portable-and-physical-profiles">Later portable and physical profiles</h2>
+<p>SPIR-V/Vulkan is a later portable virtual profile. A rack will span a required
+subgroup width, rather than a large <code>OpTypeVector</code> inside one invocation.
+Profiles such as <code>vulkan-subgroup32</code> and <code>vulkan-subgroup64</code> will specify
+SPIR-V/Vulkan versions, memory model, numerical modes, operations and
+collective participation. Pipeline creation must reject incompatible devices.
+The <a href="https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html">SPIR-V specification</a>
+and <a href="https://docs.vulkan.org/guide/latest/subgroups.html">Vulkan subgroup guide</a>
+define those interfaces.</p>
+<p>Source and module verification can preserve the lane contract. Physical
+resource claims require the particular driver-generated executable. Vulkan's
+optional <a href="https://docs.vulkan.org/refpages/latest/refpages/source/VK_KHR_pipeline_executable_properties.html">pipeline executable properties extension</a>
+may expose statistics or representations, depending on the implementation.
+Insufficient final-code evidence means rejection of certification. Evidence
+must bind the module, pipeline state, device, driver and verifier.</p>
+<p>A later physical profile could use a sufficiently documented ISA, such as
+one in <a href="https://gpuopen.com/amd-gpu-architecture-programming-documentation/">AMD's architecture documentation</a>.
+Rake would own selection, allocation and instruction scheduling as well as
+final-object verification. That is a possible stronger ownership contract,
+not a prerequisite for useful verified GPU execution. This plan includes
+neither an unofficial NVIDIA SASS encoder nor a GPU purchase.</p>
+<p><a href="/docs/comparisons/#gpu-execution-rake-ispc-and-bend">Rake and other languages</a>
+compares this lane contract with ISPC's gangs and Bend 2's fork–join tasks.</p>
 
     </main>
 <nav class="page-contents" aria-label="On this page">
 <p class="page-contents-title">On this page</p>
 <ul>
-<li><a href="#spir-v-is-the-portable-boundary">SPIR-V is the portable boundary</a></li>
-<li><a href="#a-gpu-rack-is-a-subgroup">A GPU rack is a subgroup</a></li>
-<li><a href="#checks-on-the-spir-v">Checks on the SPIR-V</a></li>
-<li><a href="#what-the-driver-decides">What the driver decides</a></li>
-<li><a href="#certifying-one-device">Certifying one device</a></li>
+<li><a href="#a-rack-is-a-group-of-lanes">A rack is a group of lanes</a></li>
+<li><a href="#first-profile-nvidia-ptx">First profile: NVIDIA PTX</a></li>
+<li><a href="#compilation-and-final-code-verification">Compilation and final-code verification</a></li>
+<li><a href="#artifact-identity-and-runtime-boundary">Artifact identity and runtime boundary</a></li>
+<li><a href="#guarantees-and-measurements">Guarantees and measurements</a></li>
+<li><a href="#acceptance-checks">Acceptance checks</a></li>
+<li><a href="#later-portable-and-physical-profiles">Later portable and physical profiles</a></li>
 </ul>
 </nav>
   </div>

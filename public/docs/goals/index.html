@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=3c180efb">
+  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Language goals | Rake","name":"Language goals | Rake","description":"The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.","url":"https://rake-lang.org/docs/goals/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -80,7 +80,7 @@ makes. A compiler may reject a program or a profile it can't compile under
 them, and it never keeps a program by weakening a rack, a fused region or a
 rake into scalar code. Each section ends with what the compiler does today.</p>
 <h2 id="racks-are-vector-values">Racks are vector values</h2>
-<p>A rack is one vector register of a physical target profile, or one vector
+<p>A rack is one vector register of a physical CPU profile, or one vector
 value in a virtual machine profile. The profile fixes its width, and the
 element type gives the lane count: on a 256-bit profile an <code>f32s</code> rack has
 eight lanes. A rack is never split, narrowed, held in source-visible memory
@@ -92,7 +92,9 @@ the features of the machine it runs on.</p>
 which the object verifier checks. The <code>wasm-simd128</code> profile keeps each rack
 as one <code>v128</code> value and uses SIMD instructions for rack work. Rake accepts the
 virtual machine's fiction and leaves physical register allocation to the
-WebAssembly runtime.</p>
+WebAssembly runtime. The proposed GPU rack has a different representation:
+one lane per invocation in a specified warp or subgroup, as the GPU contract
+below describes.</p>
 <h2 id="scalars-are-marked">Scalars are marked</h2>
 <p>Plural types, such as <code>f32s</code>, are racks. Angle brackets mark a uniform scalar
 where it is declared and where it is used, so every broadcast from a scalar
@@ -163,10 +165,10 @@ platform C compiler. Slow callers currently take uniform <code>f32</code> argume
 receive <code>f32</code> results. Native memory runs and other scalar kernel boundaries
 remain work in progress.</p>
 <h2 id="compilation-is-predictable">Compilation is predictable</h2>
-<p>On physical profiles the compiler owns every lowering decision from typed
-source to machine code: instruction selection, register allocation,
-scheduling and assembly. The assembler only encodes what it is given. On
-WebAssembly, Rake owns selection of the virtual machine instructions and the
+<p>On physical CPU profiles the compiler owns rack instruction selection,
+register allocation, instruction sequencing and assembly. The assembler only
+encodes what it is given. Explicit slow code uses the platform C compiler.
+On WebAssembly, Rake owns selection of the virtual machine instructions and the
 shape of its <code>v128</code> values. The WebAssembly runtime owns their eventual
 physical registers. Every compiler stage can be inspected, and the compiler
 proves the properties it claims for an accepted program. When it can't prove
@@ -179,6 +181,29 @@ allocates registers without spills and writes the assembly, and
 selects the instructions and writes each as one intrinsic in C, and clang
 encodes them, choosing locals and occasionally an equivalent instruction,
 which <code>--verify-native</code> checks.</p>
+<h2 id="gpu-work-keeps-its-parallel-structure">GPU work keeps its parallel structure</h2>
+<p>A GPU rack will map its lanes onto a specified warp, wave or subgroup.
+Per-invocation arithmetic is that parallel work. A hidden loop serially
+processing the rack inside one invocation is forbidden. Uniform values,
+lane masks, collective participation, memory address patterns and
+synchronisation scopes will be explicit parts of the profile.</p>
+<p>The hardware schedules warps. Rake will preserve and verify the declared lane
+mapping and permitted control flow, including programmer-selected partial
+masks. It cannot promise that arbitrary inputs keep all lanes active. In
+regions with a strict resource contract, forbidden spills, reloads and helper
+paths cause rejection.</p>
+<p>The initial NVIDIA PTX route delegates final physical allocation and
+instruction scheduling to NVIDIA, then verifies the exact cubin. Portable
+SPIR-V could preserve the same source-level contract, with device-specific
+evidence for final-code claims. A later direct physical backend is a stronger
+ownership option, rather than a prerequisite for useful GPU guarantees.</p>
+<p>Register count, memory address structure and absence of forbidden lowering
+can be checked. Achieved occupancy, cache behaviour and elapsed time require
+measurement. No-spill does not mean fastest: retaining more registers may
+reduce resident warps. Another resource policy must be an explicit profile,
+never a silent fallback.</p>
+<p>Today: GPU support is a design. <a href="/docs/gpu/">GPU profiles</a> defines the first
+proposed NVIDIA profile, its artifact verifier and runtime boundary.</p>
 
     </main>
 <nav class="page-contents" aria-label="On this page">
@@ -192,6 +217,7 @@ which <code>--verify-native</code> checks.</p>
 <li><a href="#data-layout-is-explicit">Data layout is explicit</a></li>
 <li><a href="#scalar-code-stays-scalar">Scalar code stays scalar</a></li>
 <li><a href="#compilation-is-predictable">Compilation is predictable</a></li>
+<li><a href="#gpu-work-keeps-its-parallel-structure">GPU work keeps its parallel structure</a></li>
 </ul>
 </nav>
   </div>

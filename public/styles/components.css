@@ -282,6 +282,14 @@ strong {
   line-height: 1.5;
 }
 
+.diagram-gpu-rack .diagram-scroll {
+  overflow-x: auto;
+}
+
+.diagram-gpu-rack svg {
+  min-width: 36rem;
+}
+
 @media (max-width: 40rem) {
   .diagram-panels {
     grid-template-columns: minmax(0, 1fr);

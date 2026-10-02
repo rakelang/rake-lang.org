@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=3c180efb">
+  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","headline":"Rake documentation","name":"Rake documentation","description":"The Rake documentation: the language reference, a twelve-lesson interactive tutorial, the rakec compiler and its backend, the goals and roadmap.","url":"https://rake-lang.org/docs/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -73,11 +73,11 @@
 </nav>
     <main class="content">
 <h1 id="documentation">Documentation</h1>
-<p>These pages describe Rake as the 0.6.0-beta compiler implements it. The language
-pages define each form, starting from <a href="/docs/syntax/">the syntax reference</a>,
-and every Rake program in them is compiled by the compiler's tests, most of
-them run with their stated result. A design that no compiler implements yet
-says so at the top of its section.</p>
+<p>These pages describe the 0.6.0-beta release and explicitly marked additions
+in the development compiler. The language pages define each form, starting
+from <a href="/docs/syntax/">the syntax reference</a>. Every Rake program in them is
+compiled by the documentation checks, and most also run with their stated
+result. Proposed GPU profiles are designs, with no implementation yet.</p>
 <h2 id="language">Language</h2>
 <dl class="docs-list">
 <dt><a href="/docs/syntax/">Syntax reference</a></dt>
@@ -85,7 +85,7 @@ says so at the top of its section.</p>
 <dt><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></dt>
 <dd>What each Rake profile compiles: float and integer racks, bit operations, shuffles, floating-point rules, relaxed SIMD, calling conventions and checks.</dd>
 <dt><a href="/docs/tines-and-through/">Tines, through and sweeps</a></dt>
-<dd>How a Rake rake chooses values lane by lane without branches: tines name masks, through blocks compute under them, and a sweep picks each lane's result.</dd>
+<dd>How a Rake rake chooses values lane by lane without branches: tines define masks, through blocks compute under them, and a sweep chooses each result.</dd>
 <dt><a href="/docs/fused-bindings/">Fused bindings</a></dt>
 <dd>Rake's fused bindings: stages of one pure computation that the compiler may rewrite as a whole, how fused multiply-adds form, and what fma guarantees.</dd>
 <dt><a href="/docs/control-flow/">Control flow</a></dt>
@@ -111,7 +111,7 @@ says so at the top of its section.</p>
 <dt><a href="/docs/rakec/">The rakec command</a></dt>
 <dd>The rakec command line: its modes for checking, interpreting, emitting and verifying Rake programs, its options, its environment and its diagnostics.</dd>
 <dt><a href="/docs/backend/">The compiler backend</a></dt>
-<dd>How rakec turns source into code: native IR, physical-target register allocation, WebAssembly SIMD instructions and object verification.</dd>
+<dd>How rakec lowers native CPU and WebAssembly code, checks objects and separates its planned GPU lane mapping from NVIDIA's physical allocation.</dd>
 <dt><a href="/docs/testing/">Testing the compiler</a></dt>
 <dd>How the Rake compiler is tested: the fixture manifest, the interpreter and WebAssembly differential, the C boundary tests and the checked documentation.</dd>
 </dl>
@@ -124,9 +124,9 @@ says so at the top of its section.</p>
 <dt><a href="/docs/changelog/">Changelog</a></dt>
 <dd>What changed in each Rake release, starting with 0.4.0-beta: integer racks, runs and whole programs on WebAssembly, and checked documentation examples.</dd>
 <dt><a href="/docs/comparisons/">Rake and other languages</a></dt>
-<dd>How Rake compares with ISPC, with C and Rust SIMD, and with Halide, Futhark, CUDA, Taichi and Mojo, and where its guarantees about registers differ.</dd>
+<dd>Rake, ISPC and Bend 2 compared: SIMD lanes, GPU warps and parallel tasks, their lowering contracts, and the performance that needs measurement.</dd>
 <dt><a href="/docs/gpu/">GPU profiles (design)</a></dt>
-<dd>A design for Rake on GPUs: a rack as a Vulkan subgroup, SPIR-V as the portable boundary, what the driver decides, and certifying one device and driver.</dd>
+<dd>Rake's proposed GPU contract: warp lanes, explicit costs, PTX to verified cubin, exact artifact loading, and what still needs device measurement.</dd>
 </dl>
 
     </main>

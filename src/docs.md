@@ -1,7 +1,7 @@
 # Documentation
 
-These pages describe Rake as the 0.6.0-beta compiler implements it. The language
-pages define each form, starting from [the syntax reference](/docs/syntax/),
-and every Rake program in them is compiled by the compiler's tests, most of
-them run with their stated result. A design that no compiler implements yet
-says so at the top of its section.
+These pages describe the 0.6.0-beta release and explicitly marked additions
+in the development compiler. The language pages define each form, starting
+from [the syntax reference](/docs/syntax/). Every Rake program in them is
+compiled by the documentation checks, and most also run with their stated
+result. Proposed GPU profiles are designs, with no implementation yet.

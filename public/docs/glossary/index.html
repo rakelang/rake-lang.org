@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=3c180efb">
+  <link rel="stylesheet" href="/styles/components.css?v=1acd8f82">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Glossary | Rake","name":"Glossary | Rake","description":"The terms the Rake documentation uses, from racks, lanes, tines and sweeps to SIMD, SSA, register allocation, calling conventions and GPU subgroups.","url":"https://rake-lang.org/docs/glossary/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
@@ -77,7 +77,7 @@
 documentation uses them.</p>
 <h2 id="rakes-terms">Rake's terms</h2>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>rack</td><td>one vector value of the target profile, such as an <code>f32s</code>: a physical vector register on x86 or Arm, and one <code>v128</code> in WebAssembly</td></tr>
+<tr><td>rack</td><td>one parallel value of the target profile, such as an <code>f32s</code>: one physical CPU vector register or WebAssembly <code>v128</code>. The GPU design maps it across a specified warp or subgroup</td></tr>
 <tr><td>lane</td><td>one element position in a rack: an <code>f32s</code> on AVX2 has eight</td></tr>
 <tr><td>uniform</td><td>one scalar shared by every lane, marked <code>&lt;name&gt;</code></td></tr>
 <tr><td>tine</td><td>a named mask of lanes, written <code>#name</code></td></tr>
@@ -125,7 +125,7 @@ documentation uses them.</p>
 <tr><td>binding, reference</td><td>a binding associates a name with a value or other program entity, and a reference uses that name within its scope. Rake's immutable value bindings don't designate memory locations</td></tr>
 <tr><td>fusion</td><td>combining separate pieces of work so they can execute together, such as merging loops into one pass or forming a fused multiply-add. Rake uses fused bindings for stages of pure vector calculations</td></tr>
 <tr><td>instruction selection</td><td>choosing the machine instructions for each operation</td></tr>
-<tr><td>register allocation</td><td>assigning each value to a physical register. Rake does this for its physical targets, while a WebAssembly runtime does it for <code>v128</code> values</td></tr>
+<tr><td>register allocation</td><td>assigning each value to a physical register. Rake does this on its physical CPU targets. WebAssembly runtimes and the proposed NVIDIA toolchain own it on their virtual targets</td></tr>
 <tr><td>object code</td><td>encoded machine instructions and data, ready for a linker</td></tr>
 <tr><td>assembler</td><td>the tool that encodes textual assembly as object code</td></tr>
 <tr><td>ABI</td><td>application binary interface: the rules for passing arguments, returning values and laying out data</td></tr>
@@ -138,11 +138,15 @@ documentation uses them.</p>
 <p>These appear in <a href="/docs/gpu/">the GPU design</a>.</p>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
 <tr><td>GPU compute</td><td>using a graphics processor for general parallel calculation</td></tr>
+<tr><td>PTX</td><td>NVIDIA's virtual instruction language, translated into a GPU-specific executable by its toolchain</td></tr>
+<tr><td>cubin, SASS</td><td>a compiled NVIDIA device artifact, and its physical instruction assembly</td></tr>
 <tr><td>SPIR-V</td><td>a standard binary format for GPU programs, which a driver translates into the device's instructions</td></tr>
 <tr><td>Vulkan</td><td>a cross-platform interface for submitting graphics and compute work to GPUs</td></tr>
-<tr><td>driver</td><td>the vendor's software that translates portable GPU programs into device instructions and schedules them</td></tr>
+<tr><td>driver</td><td>the vendor's software that loads GPU programs and manages submission. It may translate portable programs into device instructions. Hardware schedules warps</td></tr>
 <tr><td>shader invocation</td><td>one execution of a GPU program, over one element of the data</td></tr>
 <tr><td>subgroup</td><td>a set of invocations that execute together and exchange values directly, called a warp or wave by vendors</td></tr>
+<tr><td>warp</td><td>NVIDIA's group of 32 thread lanes, scheduled by the hardware</td></tr>
+<tr><td>occupancy</td><td>the resident warps relative to the device's capacity. Resource limits affect it, while achieved utilisation also depends on work and inputs</td></tr>
 <tr><td>workgroup</td><td>a programmer-declared batch of invocations that may share local memory, containing one or more subgroups</td></tr>
 <tr><td>SPMD, SIMT</td><td>single program, multiple data: many instances of one program. GPUs call their hardware model single instruction, multiple threads</td></tr>
 <tr><td>ISPC</td><td>Intel's compiler for a C-like language that runs one program across a group of CPU SIMD lanes</td></tr>
