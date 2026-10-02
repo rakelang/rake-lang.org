@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <link rel="stylesheet" href="/styles/components.css?v=fec559f3">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Playground and tutorial | Rake","name":"Playground and tutorial | Rake","description":"An interactive Rake tutorial in twelve lessons, with each concept demonstrated in the result, lane trace, compiler output or diagnostic message.","url":"https://rake-lang.org/docs/playground/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 <script type="module" src="/scripts/playground.js?v=36478e95"></script>
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -31,6 +31,7 @@
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
+      <a href="/docs/roadmap/">Roadmap</a>
     </nav>
   </header>
   <div class="page">
@@ -39,9 +40,9 @@
 <h1 id="the-rake-playground">The Rake playground</h1>
 <section class="playground-app" data-rake-playground
   data-worker="/scripts/playground-worker.js?v=185e0038"
-  data-compiler="/scripts/rake-compiler.js?v=9c73338c"
+  data-compiler="/scripts/rake-compiler.js?v=f033354e"
   data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
-  data-rake-language="/scripts/tree-sitter-rake.wasm?v=791fc156"
+  data-rake-language="/scripts/tree-sitter-rake.wasm?v=9fe986bd"
   data-rake-highlights="/scripts/rake-highlights.scm?v=e38bfe67">
   <header class="playground-heading">
     <div>
@@ -158,7 +159,7 @@ updated.</p>
 <tr><td class="align-right">7</td><td><a href="#7-choosing-by-lane">Choosing by lane</a></td><td>masks, <code>if ... then ... else</code> on racks</td><td>both branches run and a select joins them</td></tr>
 <tr><td class="align-right">8</td><td><a href="#8-tines-and-sweeps">Tines and sweeps</a></td><td><code>#tine</code>, <code>through</code>, <code>sweep</code>, <code>_</code></td><td>a NaN in one lane disappears once the root is guarded</td></tr>
 <tr><td class="align-right">9</td><td><a href="#9-columns">Columns</a></td><td><code>stack</code>, <code>pack</code>, traversals, <code>widen</code>, tails</td><td>a count of 6 leaves a tail with two live lanes</td></tr>
-<tr><td class="align-right">10</td><td><a href="#10-a-whole-program">A whole program</a></td><td>records, <code>state</code>, <code>mut</code>, slow functions</td><td>slow code is refused a rack</td></tr>
+<tr><td class="align-right">10</td><td><a href="#10-a-whole-program">A whole program</a></td><td><code>slow {}</code>, records, <code>state</code>, <code>mut</code></td><td>scalar state updates require a block, and vector work resumes at <code>}</code></td></tr>
 <tr><td class="align-right">11</td><td><a href="#11-proved-or-refused">Proved or refused</a></td><td>profiles and their rules</td><td><code>sin</code> is refused instead of slowed down</td></tr>
 <tr><td class="align-right">12</td><td><a href="#12-bits">Bits</a></td><td>integer racks, bit operations, <code>repeat</code></td><td>a flood fill spreads along a row of a bitboard</td></tr>
 </tbody></table>
@@ -391,7 +392,11 @@ the record that exists.</p>
 <h2 id="10-a-whole-program">10. A whole program</h2>
 <p>Slow code holds a program's records, state and control flow. A <code>record</code> groups
 fields, <code>state games: i32 := 0</code> keeps a value for the life of the program,
-and a <code>mut</code> parameter is one the function writes.</p>
+and a <code>mut</code> parameter is one the function writes.
+Inside a run, <code>slow { ... }</code> explicitly enters scalar mode. This is the
+performance boundary corresponding to Rust's <code>unsafe { ... }</code> safety boundary.
+At <code>}</code> the run resumes vector mode. This syntax is available in the current
+source and playground, ahead of the next tagged release.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">record</span> <span class="tok-type">Score</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">best</span><span class="tok-punctuation-delimiter">;</span>
@@ -402,6 +407,7 @@ and a <code>mut</code> parameter is one the function writes.</p>
 
 <span class="tok-keyword">run</span> <span class="tok-function">highest</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">let</span> <span class="tok-operator">&lt;</span><span class="tok-variable">top</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span> <span class="tok-operator">=</span> <span class="tok-function">maximum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">slow</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-variable">games</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">games</span> <span class="tok-operator">+</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-punctuation-bracket">}</span>
   <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">top</span><span class="tok-operator">&gt;</span></span>
 
 <span class="tok-keyword">slow</span> <span class="tok-function">play</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">score</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-type">Score</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
@@ -410,7 +416,6 @@ and a <code>mut</code> parameter is one the function writes.</p>
   <span class="tok-keyword">if</span> <span class="tok-variable">top</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&gt;</span> <span class="tok-variable">score</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">best</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-variable">score</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">best</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">top</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span>
   <span class="tok-variable">score</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">rounds</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">score</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">rounds</span> <span class="tok-operator">+</span> <span class="tok-number">1</span>
-  <span class="tok-variable">games</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">games</span> <span class="tok-operator">+</span> <span class="tok-number">1</span>
 
 <span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">score</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type">Score</span> <span class="tok-operator">:=</span> <span class="tok-type">Score</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">best</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">rounds</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-number">0</span> <span class="tok-punctuation-bracket">}</span>
@@ -424,6 +429,16 @@ and a <code>mut</code> parameter is one the function writes.</p>
 <code>play(score, first)</code> after the two existing calls and run. Result becomes
 <code>main returned 933</code>, showing that the record and module state survive each
 call.</p>
+<p>Now remove <code>slow {</code> and its closing brace, leaving <code>games &lt;- games + 1</code> in
+the run. Run it and read the error: vector code can't access module state.
+Restore the block and run again. The reduction before it and the broadcast
+store after it remain vector work. In Code, find the scalar helper call
+between them.</p>
+<p>A block's last expression can return a scalar to a marked uniform binding.
+Its local names end at the brace. A block can't capture a rack: move the
+<code>maximum</code> into it as <code>let top = maximum(x[&lt;0&gt;])</code>, run, and read the error.
+Restore the reduction outside the block. A reduction or extraction is the
+explicit boundary from a rack to a scalar.</p>
 <p>Slow code can't hold a rack. This separate rejected example shows the rule:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">slow</span> <span class="tok-function">total</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">return</span> <span class="tok-number">0.0</span>
@@ -487,11 +502,11 @@ C, Java or JavaScript meets these forms for the first time, and the
 playground explains each one where it first appears, in a note beside the
 editor.</p>
 <h3 id="layout">Layout</h3>
-<p>There are no braces around bodies and no semicolons between statements. A
-line that ends in <code>:</code> opens a body, and the body is the lines indented below
-it, as in Python. Tabs aren't allowed in indentation, so the code looks the
-same in every editor. Braces appear only around the fields of a <code>stack</code> or
-<code>record</code>.</p>
+<p>Function and control-flow bodies use indentation: a line ending in <code>:</code> opens
+the lines indented below it, as in Python. Tabs aren't allowed. Braces enclose
+stack and record fields, record literals and <code>slow { ... }</code> blocks. In a slow
+block, multiline statements are indented, while inline statements use
+semicolons. Its last expression is its value unless a semicolon discards it.</p>
 <h3 id="types-after-names">Types after names</h3>
 <p><code>values: f32s</code> reads "values, of type <code>f32s</code>", the order of Python's type
 hints, TypeScript, Rust and the ML family, rather than C's <code>float values</code>.

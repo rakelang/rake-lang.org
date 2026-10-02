@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <link rel="stylesheet" href="/styles/components.css?v=fec559f3">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Language goals | Rake","name":"Language goals | Rake","description":"The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.","url":"https://rake-lang.org/docs/goals/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -31,6 +31,7 @@
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
+      <a href="/docs/roadmap/">Roadmap</a>
     </nav>
   </header>
   <div class="page">
@@ -149,9 +150,11 @@ inactive lanes raise no exception and have no effect.</p>
 boundary in <a href="/docs/packs-and-runs/">packs and runs</a>.</p>
 <h2 id="scalar-code-stays-scalar">Scalar code stays scalar</h2>
 <p>A program's scalar work, its records, state, control flow and calls to C, is
-slow code, marked <code>slow</code>. Slow code can't hold a rack, and reaches vector work
-only through calls whose uniform arguments are marked, so the promises above
-hold unchanged around it.</p>
+slow code, marked <code>slow</code>. A run enters it explicitly with <code>slow { ... }</code> and
+resumes vector mode at <code>}</code>. Slow code can't hold a rack, and reaches vector
+work only through calls whose uniform arguments are marked, so the promises
+above hold unchanged around it. The compiler guarantees vector lowering,
+not a particular elapsed time or the fastest possible algorithm.</p>
 <p>Today: whole programs compile on <code>wasm-simd128</code>, as <a href="/docs/slow-tier/">the slow
 tier</a> describes.</p>
 <h2 id="compilation-is-predictable">Compilation is predictable</h2>

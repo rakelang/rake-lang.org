@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <link rel="stylesheet" href="/styles/components.css?v=fec559f3">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Packs and runs | Rake","name":"Packs and runs | Rake","description":"Rake's runs: stacks and packs of columns, traversals a rack at a time, safe tails, general loops over views, address forming, and the wasm32 C boundary.","url":"https://rake-lang.org/docs/packs-and-runs/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -31,6 +31,7 @@
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
+      <a href="/docs/roadmap/">Roadmap</a>
     </nav>
   </header>
   <div class="page">
@@ -78,6 +79,9 @@ time, loops over views, and writes its results to memory. Runs are
 implemented for <code>wasm-simd128</code>. The x86 and AArch64 backends reject them, and
 the <a href="#planned-x86-64-boundary">x86-64 boundary</a> at the end of this page is a
 design.</p>
+<p>A run may enter scalar code explicitly with a <a href="/docs/slow-tier/#slow-blocks">slow block</a>.
+It returns to vector mode at the closing brace. The block can't capture racks
+or a traversal chunk, and it never scalarises the surrounding rack work.</p>
 <h2 id="stacks-and-packs">Stacks and packs</h2>
 <p>A <code>stack</code> declares the columns of structure-of-arrays storage, grouped by
 stored type. A <code>pack</code> of that stack is the columns themselves, supplied by

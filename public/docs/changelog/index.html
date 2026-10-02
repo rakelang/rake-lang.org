@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <link rel="stylesheet" href="/styles/components.css?v=fec559f3">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Changelog | Rake","name":"Changelog | Rake","description":"What changed in each Rake release, starting with 0.4.0-beta: integer racks, runs and whole programs on WebAssembly, and checked documentation examples.","url":"https://rake-lang.org/docs/changelog/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -31,6 +31,7 @@
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
+      <a href="/docs/roadmap/">Roadmap</a>
     </nav>
   </header>
   <div class="page">
@@ -77,6 +78,15 @@
 website. Beta releases may still change the source language and the binary
 boundaries between versions. A design in the documentation gets a version
 only when the compiler implements it and the tests cover it.</p>
+<h2 id="unreleased">Unreleased</h2>
+<ul>
+<li><code>slow { ... }</code> is a scoped scalar escape in runs and slow functions. It
+supports scalar loops, calls, state and memory views, nesting and a scalar
+tail result. Rack values can't cross the boundary. WebAssembly object
+verification permits only the helper calls selected by these explicit
+blocks, and keeps the surrounding vector checks.</li>
+<li>Tree-sitter and the browser tutorial recognise and teach slow blocks.</li>
+</ul>
 <h2 id="040-beta">0.4.0-beta</h2>
 <p>Changes since 0.3.0.</p>
 <h3 id="language-and-compiler">Language and compiler</h3>
@@ -184,7 +194,13 @@ and displays generated C or assembly beside source diagnostics.</li>
 </ul>
 
     </main>
-
+<nav class="page-contents" aria-label="On this page">
+<p class="page-contents-title">On this page</p>
+<ul>
+<li><a href="#unreleased">Unreleased</a></li>
+<li><a href="#040-beta">0.4.0-beta</a></li>
+</ul>
+</nav>
   </div>
   <footer class="site-footer">
     <p>Rake 0.4.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>

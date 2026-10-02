@@ -333,13 +333,28 @@ pre.code code {
 }
 
 @media (max-width: 40rem) {
+  .site-nav {
+    gap: var(--space-1) var(--space-3);
+  }
   .home-intro {
     grid-template-columns: 6rem minmax(0, 1fr);
     gap: var(--space-4);
-    align-items: start;
+    align-items: center;
+  }
+  .home-intro > div {
+    display: contents;
+  }
+  .home-intro h1 {
+    margin: 0;
   }
   .home-intro p {
+    grid-column: 1 / -1;
+    margin-bottom: 0;
     font-size: var(--size-text);
+  }
+  .home-intro .link-row {
+    grid-column: 1 / -1;
+    margin-top: 0;
   }
 }
 

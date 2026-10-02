@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <link rel="stylesheet" href="/styles/components.css?v=fec559f3">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Syntax reference | Rake","name":"Syntax reference | Rake","description":"Rake's syntax: layout, names, literals, definitions, types, statements and expressions, with the marks for uniforms, tines and fused stages explained.","url":"https://rake-lang.org/docs/syntax/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -31,6 +31,7 @@
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
+      <a href="/docs/roadmap/">Roadmap</a>
     </nav>
   </header>
   <div class="page">
@@ -82,10 +83,12 @@ target, and the compiler reports that separately from a syntax error.</p>
 the lines of that body are indented further than the line that opened it,
 all by the same amount. A body ends when a line returns to an outer
 indentation. Indentation uses spaces, and a tab in indentation is an error.</p>
-<p>Lines inside parentheses, brackets or braces continue the line they started
-on, so a long parameter list can be spread over several lines. A line that
-ends in <code>{</code> also needs a more deeply indented line after it, so a stack or
-record body spread over lines is indented.
+<p>Lines inside parentheses, brackets or data braces continue the line they
+started on, so a long parameter list can be spread over several lines. A
+multiline stack or record body is indented. A <code>slow { ... }</code> body restores
+statement layout, even inside a call: its statements are indented, and its
+closing brace returns to the opening line's indentation. Empty braces need
+no body. On one line, a slow block separates statements with semicolons.
 Blank lines and comment-only lines don't affect indentation.</p>
 <p><code>~~</code> starts a comment that runs to the end of the line. <code>(*</code> and <code>*)</code> enclose
 a block comment, and block comments nest.</p>
@@ -202,10 +205,11 @@ column layout, used through <code>pack Name</code>.</p>
 <tr><td><code>repeat &lt;i: T&gt; from &lt;0&gt; up to &lt;4&gt;:</code></td><td>a vector loop with constant bounds, unrolled when it is small</td></tr>
 <tr><td><code>for chunk in p using f32s up to &lt;n&gt;:</code></td><td>a traversal of a pack</td></tr>
 <tr><td><code>break</code>, <code>continue</code></td><td>inside a slow loop</td></tr>
+<tr><td><code>slow { statements; value }</code></td><td>a scoped scalar escape in a run or slow function, optionally producing a scalar</td></tr>
 <tr><td><code>e</code></td><td>a call evaluated for its effect</td></tr>
 </tbody></table>
 </div>
-<p>A name is bound once in its function and can't be rebound. A mutable location
+<p>A name is bound once in its scope and can't shadow an enclosing name. A mutable location
 changes with <code>&lt;-</code>. <a href="/docs/control-flow/">Control flow</a> defines the
 conditionals and loops, <a href="/docs/packs-and-runs/">Packs and runs</a> the traversal,
 and <a href="/docs/slow-tier/">the slow tier</a> the scalar statements.</p>

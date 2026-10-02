@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <link rel="stylesheet" href="/styles/components.css?v=fec559f3">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The compiler backend | Rake","name":"The compiler backend | Rake","description":"How rakec turns source into code: native IR, physical-target register allocation, WebAssembly SIMD instructions and object verification.","url":"https://rake-lang.org/docs/backend/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -31,6 +31,7 @@
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
+      <a href="/docs/roadmap/">Roadmap</a>
     </nav>
   </header>
   <div class="page">
@@ -127,7 +128,9 @@ the C on wasm, and the system assembler or clang only encodes it.</p>
 </code></pre>
 <p>The tier checker enforces the rules of <a href="/docs/slow-tier/">the slow tier</a>:
 slow code holds no racks, a scalar becomes a rack only at a marked argument,
-and vector code calls nothing and reads no module state. The C emitter forms a
+and only an explicit slow block in a run can call scalar code or read module
+state. The C emitter lifts each such block to a never-inlined scalar helper,
+capturing scalar values and pointer/count pairs, never racks. It forms a
 run's addresses, writes its loops, tails and checks, and inlines its rack
 expressions, which native lowering and wasm selection compile as they compile
 a crunch. <code>rakec --interpret</code> runs <code>main</code> in Rake's executable semantics,
@@ -165,7 +168,8 @@ only in reductions and scans, and exactly the fused multiply-adds that the
 compiler selected.</li>
 <li>For a <code>wasm-simd128</code> crunch or rake: only locals, constants and register
 instructions, with no calls, memory or branches.</li>
-<li>For a <code>wasm-simd128</code> run: no calls and no C stack, only the vector
+<li>For a <code>wasm-simd128</code> run: direct calls only to the helpers for its explicit
+slow blocks, verified by their object relocations, no C stack, only the vector
 instructions its source selected or their documented equivalents, and no
 more lane operations or loops than its source states.</li>
 </ul>

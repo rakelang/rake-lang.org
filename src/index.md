@@ -2,7 +2,9 @@
 <img class="home-intro-image" src="/images/wallpaper.webp" alt="The Rake mark, a rake's head drawn as a grid of tines, above furrows of raked sand" width="1024" height="1536">
 <div>
 <h1>Rake</h1>
-<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Each rack is one vector register on a physical target, or one vector value in the WebAssembly virtual machine. Rake emits vector instructions outside slow code, or refuses an unsupported operation.</p>
+<p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
+<p>Rust's type system and borrow checker enforce memory safety in safe code, with <code>unsafe</code> marking operations whose safety the programmer must establish. Rake's compiler enforces SIMD lowering for rack work: vector kernels compile to the selected target's vector instructions, or compilation fails. Enter <code>slow { ... }</code> for scalar work, then return to vector mode at the closing brace.</p>
+<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Each rack is one vector register on a physical target, or one vector value in the WebAssembly virtual machine.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
 <li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
@@ -109,9 +111,24 @@ exist.
 ### Scalar code stays scalar
 
 Programs need setup, records, state and calls to C as well as kernels. That
-code is marked `slow`, and it can't hold a rack. It reaches vector code only
-through calls whose uniform arguments are marked, so the guarantees above
-hold for the whole program.
+code is marked `slow`, and it can't hold a rack. Inside a run, `slow { ... }`
+is a scoped escape for scalar loops, calls and state updates. It can produce a
+scalar value, which becomes a rack only through an explicit broadcast:
+
+```rake
+run shift(values: []i32, out: mut []i32, <steps: i32>):
+  let rack = values[<0>]
+  let <offset: i32> = slow {
+    total: i32 := 0
+    for index from 0 up to steps:
+      total <- total + index
+    total
+  }
+  out[<0>] <- rack + <offset>
+```
+
+The loop computes a scalar offset. After `}`, one vector add applies it to
+every lane. [The slow tier](/docs/slow-tier/#slow-blocks) defines the boundary.
 
 ### Every claim is checked
 
@@ -179,3 +196,6 @@ nix develop --command dune exec rakec -- --interpret program.rk
 [The rakec command](/docs/rakec/) lists its modes and options. Rake is
 released under the MIT licence. This is a beta: the language and its binary
 boundaries may still change between versions.
+
+Slow blocks are available on `main` and in the playground, ahead of the next
+tagged release. The changelog separates these changes from 0.4.0-beta.

@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <link rel="stylesheet" href="/styles/components.css?v=fec559f3">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"The slow tier | Rake","name":"The slow tier | Rake","description":"Rake's slow tier: the scalar code of a whole program, its records, state, embedded data and calls to C, and the rules that keep vector code's promises.","url":"https://rake-lang.org/docs/slow-tier/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -31,6 +31,7 @@
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
+      <a href="/docs/roadmap/">Roadmap</a>
     </nav>
   </header>
   <div class="page">
@@ -76,10 +77,12 @@
 <p>A Rake program can hold its scalar orchestration as well as its vector
 kernels. Slow code is that orchestration: records, arrays, module state,
 embedded data, control flow, and calls to C. It is ordinary scalar code and is
-marked <code>slow</code> so that nobody mistakes it for vector code. Vector code
-(<code>crunch</code>, <code>rake</code>, <code>run</code>) keeps every promise it had: slow code can't hold a
-rack, and it reaches vector work only through a run or crunch call whose
-uniform arguments are marked <code>&lt;...&gt;</code>.</p>
+marked <code>slow</code> so that nobody mistakes it for vector code. A <code>slow { ... }</code>
+block is a lexical escape inside a run, like Rust's explicit <code>unsafe { ... }</code>
+boundary. The surrounding rack work retains its vector contract. A whole
+scalar function can instead be declared <code>slow name(...)</code>.</p>
+<p>Slow blocks are available in the current compiler source and playground. They
+were added after the 0.4.0-beta tag and will be included in the next release.</p>
 <p>A program with any slow, run, record, state, embed, const or extern
 definition is a whole program. On <code>wasm-simd128</code> it compiles to one C
 translation unit with <code>int main(void)</code>, which is what a C-only judge takes.
@@ -117,6 +120,46 @@ Whole programs are implemented for <code>wasm-simd128</code> and
 <p><code>rakec --interpret program.rk</code> runs <code>main</code> in Rake's executable semantics and
 prints its result. <code>rakec --emit-asm --target wasm-simd128 -o program.c program.rk</code> writes the C unit, and <code>--verify-native</code> compiles it and checks
 every crunch, rake and run in the object (see <a href="#verification">Verification</a>).</p>
+<h2 id="slow-blocks">Slow blocks</h2>
+<p>Enter scalar code at <code>slow {</code>, and return to the enclosing mode at <code>}</code>. A
+block can contain scalar loops, calls, records, arrays and access to module
+state. Its last expression produces a scalar value. A final semicolon
+discards that value, and a block without a final expression produces nothing.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">shift</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">steps</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">rack</span> <span class="tok-operator">=</span> <span class="tok-variable">values</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-keyword">let</span> <span class="tok-operator">&lt;</span><span class="tok-variable">offset</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-operator">=</span> <span class="tok-keyword">slow</span> <span class="tok-punctuation-bracket">{</span>
+    <span class="tok-variable">total</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span> <span class="tok-operator">:=</span> <span class="tok-number">0</span>
+    <span class="tok-keyword">for</span> <span class="tok-variable">index</span> <span class="tok-keyword">from</span> <span class="tok-number">0</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-variable">steps</span><span class="tok-punctuation-delimiter">:</span>
+      <span class="tok-variable">total</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">total</span> <span class="tok-operator">+</span> <span class="tok-variable">index</span>
+    <span class="tok-variable">total</span>
+  <span class="tok-punctuation-bracket">}</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">rack</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">offset</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">2</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-variable">shifted</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-function">shift</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">3</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">return</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span>
+</code></pre>
+<p>The scalar loop produces 0 + 1 + 2 = 3. One vector add then shifts the four
+lanes to 4, 5, 6 and 7, whose sum is 22. Inside the block, <code>steps</code> is a bare
+scalar name. Outside it, <code>&lt;offset&gt;</code> explicitly broadcasts the result.</p>
+<p>Blocks have lexical scope and may nest. Their locals end at <code>}</code> and can't
+shadow an enclosing binding, though sibling blocks may reuse a name. A block
+inside a slow function shares that function's mutable locations. A block in a
+run can read its uniforms and scalar-element views, and write a mutable view.
+It can't name a rack, mask, rack array or traversal chunk. Reduce or extract a
+rack to a uniform before entering the block. Block results are scalar or
+void, so a local array, record or borrowed view can't escape through the result.</p>
+<p>On one line, separate statements with semicolons: <code>slow { let x = 2; x + 1 }</code>
+produces 3. Multiline bodies use the same indentation as other Rake bodies.
+<code>slow {}</code> is empty. A <code>return</code> inside a slow function's block returns from
+that function, as in Rust. Runs have no early <code>return</code>: use the block's final
+expression to produce its result. In a run, <code>break</code> and <code>continue</code> inside a
+block refer only to scalar loops inside that block.</p>
+<p>Crunches, rakes and fused regions remain pure vector kernels and reject slow
+blocks. Put scalar orchestration in the run that calls them. Blocks and whole
+programs currently compile for WebAssembly only.</p>
 <h2 id="definitions">Definitions</h2>
 <div class="table-scroll"><table><thead><tr><th>Definition</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>slow name(parameters) -&gt; T:</code></td><td>a scalar function, with or without <code>-&gt; T</code></td></tr>
@@ -173,7 +216,7 @@ views: <code>Samples { value: values, quality: qualities }</code>.</p>
 <tr><td><code>e</code></td><td>a call evaluated for its effect</td></tr>
 </tbody></table>
 </div>
-<p>A name is bound once in a function. It can't shadow another binding or a
+<p>A name is bound once in its scope. It can't shadow an enclosing binding or a
 module definition. A counted loop's index is <code>i32</code> unless declared, its step
 must be positive, and it stops at the bound rather than stepping past it, so
 the index never overflows.</p>
@@ -249,24 +292,24 @@ traps before the run starts.</p>
 <li>Slow code reaches vector work only by calling a run, or a crunch or rake
 with uniform parameters, and every scalar that becomes a rack is marked
 <code>&lt;...&gt;</code> at the call. A <code>&lt;...&gt;</code> mark anywhere else in slow code is an error.</li>
-<li>Vector code can't call slow code or an extern, and can't read module state:
-a value it needs is passed as a parameter.</li>
+<li>Outside a slow block, vector code can't call slow code or an extern, and
+can't read module state. Enter <code>slow { ... }</code> explicitly to do that work.</li>
 <li>Inside vector code the existing rules are unchanged: uniform scalars are
 marked at their declaration and use, broadcasts are explicit, and a
 computation the target can't keep in racks is rejected.</li>
 </ul>
 <h2 id="how-the-tier-keeps-vector-codes-promises">How the tier keeps vector code's promises</h2>
 <ul>
-<li>One rack is one <code>v128</code>. Slow code holds no racks, so no rack is alive
-across a slow branch, loop or call, and nothing slow code does can split or
-spill one.</li>
+<li>One rack is one <code>v128</code>. A run may keep that virtual value alive across a
+slow block, but the block can't capture it or turn it into scalar lanes.
+The WebAssembly runtime owns physical register allocation across the call.</li>
 <li>Fused regions stay pure. A fused binding is vector code. Slow code can't
 appear in it, and the tier adds no operation to the fused contract.</li>
 <li>Rakes stay predicated. Slow code's <code>if</code> is scalar control flow around
 vector calls. It never selects lanes. Lane selection remains a tine, a
 <code>through</code>, a sweep or a mask <code>if</code>.</li>
-<li>Scalars and broadcasts stay explicit. A scalar crosses into vector code only
-at a marked argument, and vector code reads only its parameters.</li>
+<li>Scalars and broadcasts stay explicit. A scalar returned by a slow block
+meets a rack only at an explicit <code>&lt;...&gt;</code> broadcast.</li>
 <li>Properties are proved or rejected. Every crunch, rake and run in a whole
 program goes through the same checks and object verification as before, and
 slow code has its own checked semantics.</li>
@@ -297,6 +340,11 @@ Records, arrays and views are structs. State and embedded data are statics.
 Checked arithmetic, conversions, indexing and slices are small inline helpers
 that call <code>__builtin_trap</code>. Each run is an external, never-inlined <code>void</code>
 function.</p>
+<p>A slow block in scalar code becomes a GNU C statement expression, preserving
+its lexical scope and enclosing function's <code>return</code>. A block in a run becomes
+a never-inlined scalar helper. Its captured uniforms are scalar parameters,
+and its captured views are passed as pointer/count pairs, so the run needs no
+C stack frame. Rack values never cross that helper boundary.</p>
 <p>Slow functions keep aggregates larger than 256 bytes in Rake's frame stack: a
 static region of <code>RAKE_FRAME_BYTES</code> bytes (4 MiB unless defined otherwise when
 compiling the C) from which each call takes a frame and releases it on
@@ -306,8 +354,10 @@ static data, so kilobyte-sized local arrays that overflow it grow down into
 that data and overwrite it without a trap.</p>
 <h2 id="verification">Verification</h2>
 <p><code>rakec --verify-native</code> compiles the unit and disassembles it. Every crunch
-and rake must be locals, constants and register SIMD only. Every run must
-contain no <code>call</code>, <code>call_indirect</code> or <code>global.get</code> or <code>global.set</code> (so no C
+and rake must be locals, constants and register SIMD only. A run may call only
+the scalar helpers emitted for its explicit slow blocks. The verifier checks
+each direct call's relocation against those helper symbols. It rejects every
+other call, indirect or tail calls, and <code>global.get</code> or <code>global.set</code> (so no C
 stack frame, and no rack passing through memory Rake didn't name). Each SIMD
 instruction in it must be one its source operations select, or one of the
 documented equivalents Clang substitutes: constants folded into <code>v128.const</code>,
@@ -324,6 +374,7 @@ aggregates.</p>
 <p class="page-contents-title">On this page</p>
 <ul>
 <li><a href="#an-example">An example</a></li>
+<li><a href="#slow-blocks">Slow blocks</a></li>
 <li><a href="#definitions">Definitions</a></li>
 <li><a href="#types">Types</a></li>
 <li><a href="#statements">Statements</a></li>

@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <link rel="stylesheet" href="/styles/components.css?v=fec559f3">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Glossary | Rake","name":"Glossary | Rake","description":"The terms the Rake documentation uses, from racks, lanes, tines and sweeps to SIMD, SSA, register allocation, calling conventions and GPU subgroups.","url":"https://rake-lang.org/docs/glossary/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -31,6 +31,7 @@
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
+      <a href="/docs/roadmap/">Roadmap</a>
     </nav>
   </header>
   <div class="page">
@@ -87,6 +88,7 @@ documentation uses them.</p>
 <tr><td>rake</td><td>a function of racks with tines, through blocks and a sweep</td></tr>
 <tr><td>run</td><td>vector code over memory: views, packs and traversals</td></tr>
 <tr><td>slow code</td><td>scalar code, marked <code>slow</code>, that holds no racks</td></tr>
+<tr><td>slow block</td><td><code>slow { ... }</code>, a lexical scalar escape inside a run or slow function, optionally producing a scalar value</td></tr>
 <tr><td>fused binding</td><td><code>| name &lt;| e</code>, one stage of a pure fused computation</td></tr>
 <tr><td>stack</td><td>the declared columns of structure-of-arrays storage</td></tr>
 <tr><td>pack</td><td>the columns of a stack, supplied by the caller</td></tr>

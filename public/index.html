@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
-  <link rel="stylesheet" href="/styles/components.css?v=d3a1402b">
+  <link rel="stylesheet" href="/styles/components.css?v=fec559f3">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a language for SIMD kernels. Each rack is one vector value, and profiles require vector instructions or reject unsupported operations.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","version":"0.4.0-beta","license":"https://opensource.org/licenses/MIT","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
   <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "c903419e7004423687247c5a146f0133"}'></script>
@@ -31,6 +31,7 @@
       <a href="/docs/">Documentation</a>
       <a href="/docs/playground/">Playground</a>
       <a href="https://github.com/rakelang/rake">GitHub</a>
+      <a href="/docs/roadmap/">Roadmap</a>
     </nav>
   </header>
   <div class="page">
@@ -40,7 +41,9 @@
 <img class="home-intro-image" src="/images/wallpaper.webp" alt="The Rake mark, a rake's head drawn as a grid of tines, above furrows of raked sand" width="1024" height="1536">
 <div>
 <h1>Rake</h1>
-<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Each rack is one vector register on a physical target, or one vector value in the WebAssembly virtual machine. Rake emits vector instructions outside slow code, or refuses an unsupported operation.</p>
+<p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
+<p>Rust's type system and borrow checker enforce memory safety in safe code, with <code>unsafe</code> marking operations whose safety the programmer must establish. Rake's compiler enforces SIMD lowering for rack work: vector kernels compile to the selected target's vector instructions, or compilation fails. Enter <code>slow { ... }</code> for scalar work, then return to vector mode at the closing brace.</p>
+<p>Rake is a programming language for SIMD kernels, the inner loops that apply one operation to many numbers at once. Each rack is one vector register on a physical target, or one vector value in the WebAssembly virtual machine.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
 <li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
@@ -123,9 +126,21 @@ computes with it:</p>
 exist.</p>
 <h3 id="scalar-code-stays-scalar">Scalar code stays scalar</h3>
 <p>Programs need setup, records, state and calls to C as well as kernels. That
-code is marked <code>slow</code>, and it can't hold a rack. It reaches vector code only
-through calls whose uniform arguments are marked, so the guarantees above
-hold for the whole program.</p>
+code is marked <code>slow</code>, and it can't hold a rack. Inside a run, <code>slow { ... }</code>
+is a scoped escape for scalar loops, calls and state updates. It can produce a
+scalar value, which becomes a rack only through an explicit broadcast:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">shift</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">steps</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">rack</span> <span class="tok-operator">=</span> <span class="tok-variable">values</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span>
+  <span class="tok-keyword">let</span> <span class="tok-operator">&lt;</span><span class="tok-variable">offset</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-operator">=</span> <span class="tok-keyword">slow</span> <span class="tok-punctuation-bracket">{</span>
+    <span class="tok-variable">total</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span> <span class="tok-operator">:=</span> <span class="tok-number">0</span>
+    <span class="tok-keyword">for</span> <span class="tok-variable">index</span> <span class="tok-keyword">from</span> <span class="tok-number">0</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-variable">steps</span><span class="tok-punctuation-delimiter">:</span>
+      <span class="tok-variable">total</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">total</span> <span class="tok-operator">+</span> <span class="tok-variable">index</span>
+    <span class="tok-variable">total</span>
+  <span class="tok-punctuation-bracket">}</span>
+  <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">rack</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">offset</span><span class="tok-operator">&gt;</span></span>
+</code></pre>
+<p>The loop computes a scalar offset. After <code>}</code>, one vector add applies it to
+every lane. <a href="/docs/slow-tier/#slow-blocks">The slow tier</a> defines the boundary.</p>
 <h3 id="every-claim-is-checked">Every claim is checked</h3>
 <p><code>rakec --verify-native</code> disassembles what it built and checks it against the
 profile's rules: no hidden calls or stack work, one physical register per rack
@@ -179,6 +194,8 @@ tool it uses:</p>
 <p><a href="/docs/rakec/">The rakec command</a> lists its modes and options. Rake is
 released under the MIT licence. This is a beta: the language and its binary
 boundaries may still change between versions.</p>
+<p>Slow blocks are available on <code>main</code> and in the playground, ahead of the next
+tagged release. The changelog separates these changes from 0.4.0-beta.</p>
 
     </main>
 
