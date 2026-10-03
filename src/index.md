@@ -394,7 +394,7 @@ A `run` walks the stack and feeds each rack into a scratch or rake. That's its
 job beyond those two constructs: it handles the memory traversal, including
 the final partial rack. This run feeds our 600 positions into `signed_root`:
 
-<!-- rake-check: verify x86-avx2 wasm-simd128 with 2 -->
+<!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 with 2 -->
 ```rake
 pack Positions {
   f32: value;
@@ -433,7 +433,7 @@ individual `f32` values, rather than a million-lane `f32s` value.
 <text class="diagram-value" x="396" y="203">150 full racks</text>
 <text class="diagram-label" x="18" y="247">Wider racks process more lanes per instruction.</text>
 </svg>
-<figcaption>The rack counts follow from register width. Native AVX-512 streams use the 512-bit row, AVX2 streams use the 256-bit row, and SSE2 streams and WebAssembly use the 128-bit row. Native stack traversal on NEON remains WIP*.</figcaption>
+<figcaption>The rack counts follow from register width. Native AVX-512 streams use the 512-bit row, AVX2 streams use the 256-bit row, and SSE2, NEON and WebAssembly use the 128-bit row.</figcaption>
 </figure>
 
 512-bit SIMD handles twice as many `f32` lanes per instruction as AVX2, and
@@ -541,8 +541,8 @@ compiles, and [the roadmap](/docs/roadmap/) what comes next.
 The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
-include the SSE2, AVX2 and AVX-512 read-only `f32` stream subset. General native runs and
-NEON traversal remain WIP*. [The backend](/docs/backend/#whole-programs) explains
+include the SSE2, AVX2, AVX-512 and NEON read-only `f32` stream subset.
+General native runs remain WIP*. [The backend](/docs/backend/#whole-programs) explains
 which parts Rake emits and which parts use a platform C compiler.
 
 ## GPU execution: the design

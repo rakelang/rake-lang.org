@@ -87,9 +87,9 @@ register kernels into one native object. Its C unit embeds Rake-selected
 assembly, and the final object's kernels pass the existing instruction
 verifier. Slow callers can use uniform <code>f32</code> parameters and <code>f32</code> results.
 Imported C structs use their header's layout, and public slow functions have
-the platform C ABI. SSE2, AVX2 and AVX-512 stream traversals now process read-only <code>f32</code>
+the platform C ABI. SSE2, AVX2, AVX-512 and NEON stream traversals now process read-only <code>f32</code>
 columns with full and partial racks, with final-byte verification and
-independent C/guard-page checks. General native runs, NEON traversal and
+independent C/guard-page checks. General native runs and
 the remaining scalar kernel boundaries are still
 work in progress.</p>
 <p>We will extend <code>run</code>, stacks and whole programs from <code>wasm-simd128</code> to

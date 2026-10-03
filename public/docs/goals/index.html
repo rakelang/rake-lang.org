@@ -154,8 +154,10 @@ time. Conversions between layouts and memory
 operations are written in the source or set by a documented calling
 convention. A traversal's tail never reads or writes past the count, and its
 inactive lanes raise no exception and have no effect.</p>
-<p>Today: runs, stacks and traversals compile on <code>wasm-simd128</code>, with the
-boundary in <a href="/docs/packs-and-runs/">packs and runs</a>.</p>
+<p>Today: general runs, stacks and traversals compile on <code>wasm-simd128</code>.
+The development compiler adds read-only <code>f32</code> stream traversals on SSE2,
+AVX2, AVX-512 and NEON. <a href="/docs/packs-and-runs/">Packs and runs</a> defines
+their boundaries and checked tails.</p>
 <h2 id="scalar-code-stays-scalar">Scalar code stays scalar</h2>
 <p>A program's scalar work, its records, state, control flow and calls to C, is
 slow code, marked <code>slow</code>. A run enters it explicitly with <code>slow { ... }</code> and
@@ -168,8 +170,8 @@ tier</a> describes. The unreleased development compiler
 also compiles slow orchestration with register kernels into native objects.
 Their C unit embeds Rake-selected assembly, which remains opaque to the
 platform C compiler. Slow callers currently take uniform <code>f32</code> arguments and
-receive <code>f32</code> results. Native memory runs and other scalar kernel boundaries
-remain work in progress.</p>
+receive <code>f32</code> results. Native runs beyond the stream subset and other scalar
+kernel boundaries remain work in progress.</p>
 <h2 id="compilation-is-predictable">Compilation is predictable</h2>
 <p>On physical CPU profiles the compiler owns rack instruction selection,
 register allocation, instruction sequencing and assembly. The assembler only
