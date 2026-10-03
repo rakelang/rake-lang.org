@@ -177,7 +177,7 @@ not a particular elapsed time or the fastest possible algorithm.</p>
 tier</a> describes. The unreleased development compiler
 also compiles slow orchestration with register kernels into native objects.
 Their C unit embeds Rake-selected assembly, which remains opaque to the
-platform C compiler. Slow callers can pass uniform <code>f32</code>, <code>i32</code> and <code>u32</code>
+platform C compiler. Slow callers can pass uniform <code>f32</code>, <code>bool</code>, <code>i32</code> and <code>u32</code>
 arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results. Native runs beyond
 the stream subset and other scalar kernel boundaries remain work in progress.</p>
 <h2 id="compilation-is-predictable">Compilation is predictable</h2>
@@ -193,9 +193,10 @@ A benchmark result is reported with its source, profile, compiler version,
 command, input size and baseline.</p>
 <p>Today: on SSE2, AVX2, AVX-512 and NEON the compiler selects instructions,
 allocates registers without spills and writes the assembly, and
-<code>--emit-native-ir</code> and <code>--emit-asm</code> show its work. On <code>wasm-simd128</code> it
-selects the instructions and writes each as one intrinsic in C, and clang
-encodes them, choosing locals and occasionally an equivalent instruction,
+<code>--emit-native-ir</code> and <code>--emit-asm</code> show its work. <code>--emit-c</code> writes a C unit
+embedding that assembly. On <code>wasm-simd128</code> it selects the instructions, and
+<code>--emit-c</code> writes each as one intrinsic in C. Clang encodes them, choosing
+locals and occasionally an equivalent instruction,
 which <code>--verify-native</code> checks.</p>
 <h2 id="gpu-work-keeps-its-parallel-structure">GPU work keeps its parallel structure</h2>
 <p>A GPU rack will map its lanes onto a specified warp, wave or subgroup.

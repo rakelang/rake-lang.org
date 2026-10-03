@@ -564,6 +564,15 @@ saturates out-of-range values and converts NaNs to zero.
 General native runs remain WIP*. [The backend](/docs/backend/#whole-programs) explains
 which parts Rake emits and which parts use a platform C compiler.
 
+To compile a program with your own C toolchain, use `rakec --emit-c`. Its
+native C unit embeds the selected kernel assembly alongside the scalar
+code. On WebAssembly it uses SIMD intrinsics. C ABI interoperation is the
+calling and data-layout boundary: it lets Rake call C functions and exchange
+records, unions and typed callbacks, whether you request C source or an
+object file. [The compiler command](/docs/rakec/#c-output-and-c-interoperation)
+explains both outputs. `--emit-asm` is reserved for physical-target files
+containing register kernels only.
+
 ## GPU execution: the design
 
 A CPU rack fits in one vector register. On an NVIDIA GPU, the planned rack

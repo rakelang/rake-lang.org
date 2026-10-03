@@ -507,6 +507,14 @@ Float-to-integer conversion rounds to nearest with ties to even,
 saturates out-of-range values and converts NaNs to zero.
 General native runs remain WIP*. <a href="/docs/backend/#whole-programs">The backend</a> explains
 which parts Rake emits and which parts use a platform C compiler.</p>
+<p>To compile a program with your own C toolchain, use <code>rakec --emit-c</code>. Its
+native C unit embeds the selected kernel assembly alongside the scalar
+code. On WebAssembly it uses SIMD intrinsics. C ABI interoperation is the
+calling and data-layout boundary: it lets Rake call C functions and exchange
+records, unions and typed callbacks, whether you request C source or an
+object file. <a href="/docs/rakec/#c-output-and-c-interoperation">The compiler command</a>
+explains both outputs. <code>--emit-asm</code> is reserved for physical-target files
+containing register kernels only.</p>
 <h2 id="gpu-execution-the-design">GPU execution: the design</h2>
 <p>A CPU rack fits in one vector register. On an NVIDIA GPU, the planned rack
 will span a warp of 32 threads instead. Each thread holds one lane's value.

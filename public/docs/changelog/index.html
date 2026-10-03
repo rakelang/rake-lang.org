@@ -82,6 +82,14 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p><code>--emit-c</code> produces a C translation unit for WebAssembly, native whole
+programs or native register kernels. <code>--emit-asm</code> produces physical-target
+register-kernel assembly and directs whole-program and WebAssembly users to
+<code>--emit-c</code>. Native C output embeds Rake-selected assembly and delegates slow
+lowering to the platform C compiler. C ABI interoperation remains independent
+of the output format.</p>
+</li>
+<li>
 <p>Uniform conditions compose with <code>and</code>, <code>or</code> and <code>not</code> in physical register
 kernels and native streams. Chained immutable Boolean bindings retain that
 structure. Short-circuit masks sanitise skipped floating-point comparisons,

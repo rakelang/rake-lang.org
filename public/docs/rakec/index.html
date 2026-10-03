@@ -80,7 +80,8 @@
 <pre class="code code-sh"><code><span class="tok-function">rakec</span> program.rk                                   <span class="tok-comment"># parse and type-check</span>
 <span class="tok-function">rakec</span> <span class="tok-constant">--interpret</span> program.rk                       <span class="tok-comment"># run main and print its result</span>
 <span class="tok-function">rakec</span> <span class="tok-constant">--interpret</span> program.rk <span class="tok-constant">--</span> alpha <span class="tok-constant">--flag</span>        <span class="tok-comment"># pass process arguments</span>
-<span class="tok-function">rakec</span> <span class="tok-constant">--emit-asm</span> <span class="tok-constant">--target</span> x86-avx2 program.rk      <span class="tok-comment"># write program.s</span>
+<span class="tok-function">rakec</span> <span class="tok-constant">--emit-c</span> <span class="tok-constant">--target</span> x86-avx2 program.rk          <span class="tok-comment"># write program.c</span>
+<span class="tok-function">rakec</span> <span class="tok-constant">--emit-asm</span> <span class="tok-constant">--target</span> x86-avx2 kernels.rk        <span class="tok-comment"># write kernels.s</span>
 <span class="tok-function">rakec</span> <span class="tok-constant">--verify-native</span> <span class="tok-constant">--target</span> wasm-simd128 program.rk  <span class="tok-comment"># write a verified program.o</span>
 </code></pre>
 <h2 id="modes">Modes</h2>
@@ -88,7 +89,8 @@
 <tr><td>none</td><td>parses and type-checks the file, and prints a confirmation</td></tr>
 <tr><td><code>--interpret</code></td><td>runs <code>slow main</code> in Rake's executable semantics and prints its result, or the trap</td></tr>
 <tr><td><code>--emit-native-ir</code></td><td>the typed native IR after optimisation, and a whole program's tier IR</td></tr>
-<tr><td><code>--emit-asm</code></td><td>GNU assembly for native kernels; C for whole programs</td></tr>
+<tr><td><code>--emit-c</code></td><td>a C translation unit for the selected profile</td></tr>
+<tr><td><code>--emit-asm</code></td><td>GNU assembly for physical-target register kernels</td></tr>
 <tr><td><code>--emit-obj</code></td><td>an object file, assembled or compiled from that output</td></tr>
 <tr><td><code>--verify-native</code></td><td>the object, after disassembling and checking it</td></tr>
 <tr><td><code>--emit-tokens</code>, <code>--emit-ast</code></td><td>the tokens or the syntax tree, for debugging the front end</td></tr>
@@ -97,19 +99,36 @@
 <tr><td><code>--version</code>, <code>--help</code></td><td>the version, or a summary of this page</td></tr>
 </tbody></table>
 </div>
-<p><code>--emit-asm</code>, <code>--emit-obj</code> and <code>--verify-native</code> write to the input's name
-with <code>.s</code>, <code>.c</code> or <code>.o</code> unless <code>-o path</code> gives another. <code>-o</code> isn't allowed
+<p><code>--emit-c</code>, <code>--emit-asm</code>, <code>--emit-obj</code> and <code>--verify-native</code> write to the input's
+filename with <code>.c</code>, <code>.s</code> or <code>.o</code> unless <code>-o path</code> gives another. <code>-o</code> isn't allowed
 with the check, token and syntax-tree modes. A whole program, one with slow
 code, runs, records, state, embedded files, constants or externs, compiles for
 the wasm profiles in 0.6.0-beta. The unreleased development compiler also
-supports native slow orchestration with register kernels. Their <code>--emit-asm</code>
-output is <code>.c</code>, with opaque Rake-selected assembly, and their <code>--emit-obj</code>
+supports native slow orchestration with register kernels. Their <code>--emit-c</code>
+output embeds Rake-selected assembly, and their <code>--emit-obj</code>
 output is a platform C object with verified kernels. <code>--verify-native</code> checks
 those kernels too. Native slow-only units have no vector function to verify,
 so they use <code>--emit-obj</code>. SSE2, AVX2, AVX-512 and NEON additionally support the limited
 <a href="/docs/packs-and-runs/#native-cpu-streams">native stream traversal</a>. Other native runs remain work in progress. A
-native kernel called from slow code supports uniform <code>f32</code>, <code>i32</code> and <code>u32</code>
+native kernel called from slow code supports uniform <code>f32</code>, <code>bool</code>, <code>i32</code> and <code>u32</code>
 parameters and returns <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code>.</p>
+<h2 id="c-output-and-c-interoperation">C output and C interoperation</h2>
+<p><code>--emit-c</code> gives you source to compile with your C toolchain. On physical CPU
+profiles it contains Rake-selected kernel assembly alongside the C for slow
+code. The C compiler lowers that slow code and implements its platform ABI.
+The embedded assembly retains Rake's vector instructions and allocated
+registers. On WebAssembly, the C unit expresses selected virtual instructions
+through <code>wasm_simd128.h</code> intrinsics.</p>
+<p>C ABI interoperation describes the binary boundary between functions,
+regardless of which source language produced them. Rake can call C functions,
+export slow functions and exchange header-backed records, unions and typed
+callbacks. Those abilities apply when Rake emits an object directly too.
+<a href="/docs/slow-tier/#definitions">The slow tier</a> explains the declarations.</p>
+<p>Use <code>--emit-asm</code> for a physical-target file containing only register kernels.
+It rejects whole programs and WebAssembly instead of writing C under an
+assembly option. Emitted source still needs compilation. <code>--verify-native</code>
+checks the vector functions in the resulting object against the selected
+profile, as <a href="/docs/backend/">the backend</a> explains.</p>
 <h2 id="options">Options</h2>
 <div class="table-scroll"><table><thead><tr><th>Option</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>--target p</code></td><td>the profile: <code>native</code> (the default), <code>x86-sse2</code>, <code>x86-avx2</code>, <code>x86-avx512</code>, <code>aarch64-neon</code>, <code>wasm-simd128</code>, <code>wasm-simd128-relaxed</code>, or the WIP scalar fallback</td></tr>
@@ -175,6 +194,7 @@ failed. A trap from <code>--interpret</code> gives the location and the reason, 
 <p class="page-contents-title">On this page</p>
 <ul>
 <li><a href="#modes">Modes</a></li>
+<li><a href="#c-output-and-c-interoperation">C output and C interoperation</a></li>
 <li><a href="#options">Options</a></li>
 <li><a href="#tools-and-environment">Tools and environment</a></li>
 <li><a href="#diagnostics">Diagnostics</a></li>

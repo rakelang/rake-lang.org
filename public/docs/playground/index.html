@@ -161,8 +161,9 @@ and the platform toolchain outside the browser.</p>
 <h2 id="how-it-works">How it works</h2>
 <p>The compiler runs in the page. <code>rakec</code> is OCaml, and <code>js_of_ocaml</code> compiles
 its front end, interpreter and emitters for the browser, so the playground
-calls the same code behind <code>rakec --interpret</code> and <code>rakec --emit-asm</code> that
-runs on a workstation. The parts that start clang and the assembler stay out
+uses the interpreter and target emitters behind <code>rakec --interpret</code>,
+<code>rakec --emit-c</code> and <code>rakec --emit-asm</code> on a workstation.
+The parts that start clang and the assembler stay out
 of the browser build. Compilation and execution happen in a worker. A program
 that runs for more than three seconds is stopped without freezing the editor.
 The Lanes tab reads the

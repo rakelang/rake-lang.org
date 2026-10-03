@@ -96,6 +96,10 @@ final-byte verification and independent C/guard-page checks. Traversals also tak
 within the platform's C register limits. General native runs and
 the remaining scalar kernel boundaries are still
 work in progress.</p>
+<p><code>--emit-c</code> now explicitly produces the C translation unit. <code>--emit-asm</code>
+produces physical-target register-kernel assembly. C output and C ABI
+interoperation are separate: the former selects an artifact format, while the
+latter defines calls, types and layout across the program boundary.</p>
 <p>We will extend <code>run</code>, stacks and whole programs from <code>wasm-simd128</code> to
 SSE2, AVX2, AVX-512 and NEON. That work includes native traversal, full-rack
 loads and stores, masked tails with benign operands, stable C boundaries and

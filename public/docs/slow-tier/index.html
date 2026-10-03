@@ -94,7 +94,7 @@ register kernels on x86-64 and AArch64. SSE2, AVX2, AVX-512 and NEON additionall
 runs remain work in progress.</p>
 <h3 id="native-kernel-calls">Native kernel calls</h3>
 <p>On the development compiler, a native register kernel called from slow code
-takes uniform <code>f32</code>, <code>i32</code> or <code>u32</code> parameters and returns <code>f32</code>, <code>bool</code>, <code>i32</code>
+takes uniform <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> parameters and returns <code>f32</code>, <code>bool</code>, <code>i32</code>
 or <code>u32</code>. Rake selects and allocates
 the kernel's instructions. The generated C contains its opaque assembly,
 and the final object is checked against the selected profile. The platform C
@@ -172,7 +172,7 @@ interpreter supplies <code>program</code> at <code>argv[0]</code> and no additio
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">7</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">4.0</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">+</span> <span class="tok-variable">calls</span>
 </code></pre>
 <p><code>rakec --interpret program.rk</code> runs <code>main</code> in Rake's executable semantics and
-prints its result. <code>rakec --emit-asm --target wasm-simd128 -o program.c program.rk</code> writes the C unit, and <code>--verify-native</code> compiles it and checks
+prints its result. <code>rakec --emit-c --target wasm-simd128 -o program.c program.rk</code> writes the C unit, and <code>--verify-native</code> compiles it and checks
 every scratch, rake and run in the object (see <a href="#verification">Verification</a>).</p>
 <h2 id="slow-blocks">Slow blocks</h2>
 <p>Enter scalar code at <code>slow {</code>, and return to the enclosing mode at <code>}</code>. A

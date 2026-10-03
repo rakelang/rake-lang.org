@@ -125,8 +125,11 @@ that profile forms no fused multiply-adds.</p>
 rejects the function and reports the operation. Nothing falls back to scalar
 code or a helper call. The x86 and AArch64 allocators place every live rack
 in one register and reject a function that would need more registers than the
-profile has, or arguments on the stack. <code>--emit-asm</code> prints the assembly, or
-the C on wasm, and the system assembler or clang only encodes it.</p>
+profile has, or arguments on the stack. <code>--emit-asm</code> prints physical-target
+register-kernel assembly. <code>--emit-c</code> prints the WebAssembly intrinsics or a
+native C unit embedding the selected assembly. The assembler encodes physical
+kernel instructions, while clang compiles WebAssembly intrinsics to virtual
+instructions. Explicit slow code uses the platform C compiler.</p>
 <p>In the development compiler, <code>abs</code> on <code>f32s</code> clears each lane's sign bit. SSE2 and AVX2
 use <code>andps</code> and <code>vandps</code> with a literal magnitude mask. AVX-512F uses <code>vpandd</code>,
 and NEON uses a literal rack and <code>and</code>. These are full-width bitwise operations,
