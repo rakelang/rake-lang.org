@@ -6,7 +6,13 @@ fn main() {
     let grammar = std::env::var("TREE_SITTER_RAKE_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../tree-sitter-rake")
+            // Cargo may reuse this build-script executable from another
+            // checkout. Resolve the current package directory when it runs.
+            PathBuf::from(
+                std::env::var_os("CARGO_MANIFEST_DIR")
+                    .expect("Cargo must supply the current package directory"),
+            )
+            .join("../../../tree-sitter-rake")
         });
     let source = grammar.join("src");
     cc::Build::new()
