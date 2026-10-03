@@ -116,7 +116,7 @@ unavailable on every profile.</p>
 <p>The table shows operations on <code>f32s</code> racks in the development compiler.
 Physical profiles gained <code>abs</code>, <code>min</code>, <code>max</code> and integral rounding after the 0.6.0-beta tag,
 so the tagged compiler still rejects them on those profiles. Native float
-extraction, insertion, static shuffles, mask reductions, uniform <code>f32</code>
+extraction, insertion, static shuffles, mask reductions, uniform
 conditionals and NEON folds are also development
 features after that tag.</p>
 <div class="table-scroll"><table><thead><tr><th>Operation</th><th class="align-center"><code>x86-sse2</code></th><th class="align-center"><code>x86-avx2</code></th><th class="align-center"><code>x86-avx512</code></th><th class="align-center"><code>aarch64-neon</code></th><th class="align-center"><code>wasm-simd128</code></th></tr></thead><tbody>
@@ -128,7 +128,8 @@ features after that tag.</p>
 <tr><td><code>floor</code> <code>ceil</code> <code>trunc</code> <code>nearest</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>exp</code> <code>log</code> <code>log2</code> <code>tanh</code></td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td></tr>
 <tr><td><code>if</code> on a direct uniform <code>f32</code> comparison</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
-<tr><td><code>if</code> on an integer or Boolean uniform condition</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td></tr>
+<tr><td><code>if</code> on a direct uniform <code>i32</code> or <code>u32</code> comparison</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>if</code> on a Boolean uniform condition</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>sum</code> <code>product</code> <code>minimum</code> <code>maximum</code>, and the scans</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>extract</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
@@ -151,6 +152,8 @@ does <code>if mask then a else b</code>. <code>if &lt;c&gt; then a else b</code>
 chooses one rack for every participating lane. Native uniform comparisons use
 vector broadcasts and comparisons, with benign operands for untaken branch
 work. <a href="/docs/control-flow/">Control flow</a> gives the supported forms.
+Boolean uniforms expand their value bit into an all-lane mask before native
+selection, including results of <code>all</code> and <code>any</code>.
 <code>abs</code> takes the magnitude of each lane,
 including changing −0 to +0. Native profiles clear the sign bit with a vector
 bitwise operation, without floating-point arithmetic or exceptions.</p>
@@ -193,6 +196,7 @@ on SSE2 and NEON, eight on AVX2, or sixteen on AVX-512F.</p>
 <tr><td><code>all</code>, <code>any</code>, <code>bitmask</code> of a comparison</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>integer literal broadcast</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>marked <code>i32</code> or <code>u32</code> uniform arguments and broadcasts</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>if</code> on a direct comparison of marked uniforms</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>static one- and two-rack <code>shuffle</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>runtime shift counts, conversions, extraction and insertion</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
 </tbody></table>
@@ -513,13 +517,18 @@ lane. The result uses register
 zero of the same class, or <code>xmm0</code> for a scalar <code>f32</code>.
 <code>all</code> and <code>any</code> return C <code>bool</code> in <code>al</code>, with the full <code>eax</code> set to zero or
 one. <code>bitmask</code> returns <code>uint32_t</code> in <code>eax</code>.</p>
-<p>The development compiler also takes <code>i32</code> and <code>u32</code> uniforms through the
+<p>The development compiler also takes <code>i32</code>, <code>u32</code> and <code>bool</code> uniforms through the
 six C integer argument registers: <code>edi</code>, <code>esi</code>, <code>edx</code>, <code>ecx</code>, <code>r8d</code> and <code>r9d</code>.
 This counter advances independently of the SIMD counter. At entry, Rake
 imports each integer's 32 bits into an allocated vector register. <code>&lt;value&gt;</code>
-then broadcasts those bits across the rack. The object verifier checks each
+then broadcasts a numeric uniform's bits across the rack. The object verifier checks each
 declared import at entry and refuses further integer-register transfers in
-the body. An <code>i32</code> or <code>u32</code> result returns its low 32 bits in <code>eax</code>.</p>
+the body. An <code>i32</code> or <code>u32</code> result returns its low 32 bits in <code>eax</code>.
+For a C <code>bool</code> argument, packed shifts retain only the Boolean value bit,
+ignoring unspecified upper register bits. A Boolean condition then expands
+that bit into a vector mask. This follows the
+<a href="https://gitlab.com/x86-psABIs/x86-64-ABI">System V AMD64 ABI</a> and
+<a href="https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst">AAPCS64</a>.</p>
 <div class="table-scroll"><table><thead><tr><th>Profile</th><th>Rack arguments</th><th>Rack result</th><th>C caller flags</th></tr></thead><tbody>
 <tr><td><code>x86-sse2</code></td><td><code>xmm0</code>–<code>xmm7</code></td><td><code>xmm0</code></td><td><code>-msse2</code></td></tr>
 <tr><td><code>x86-avx2</code></td><td><code>ymm0</code>–<code>ymm7</code></td><td><code>ymm0</code></td><td><code>-mavx2 -mfma</code></td></tr>
@@ -543,7 +552,7 @@ in <code>esi</code>. Both uniforms participate in unsigned lane arithmetic:</p>
 <p>On <code>aarch64-neon</code>, SIMD parameters take <code>v0</code> to <code>v7</code> in their order of appearance, a uniform
 <code>f32</code> in the low lane of its register, and rack and <code>f32</code> results return in
 <code>v0</code>. The integer results of <code>all</code>, <code>any</code> and <code>bitmask</code> return in <code>w0</code>, following
-the C <code>bool</code> or <code>uint32_t</code> ABI. Integer uniforms take <code>w0</code> to <code>w7</code> with a
+the C <code>bool</code> or <code>uint32_t</code> ABI. Integer and Boolean uniforms take <code>w0</code> to <code>w7</code> with a
 separate counter, then move into allocated vector registers at entry.
 Signed and unsigned 32-bit results also return in <code>w0</code>.
 The register allocator uses <code>v0</code> to <code>v7</code> and
@@ -556,14 +565,15 @@ a <code>float</code>, a 64-bit uniform a <code>uint64_t</code>, and any other un
 <code>bitmask</code> result a <code>uint32_t</code>. A slow caller's boundary wrapper uses
 <code>int32_t</code> for signed <code>i32</code> values, preserving the same bits.</p>
 <p>Each uniform keeps its brackets at its declaration, <code>&lt;scale: f32&gt;</code>, and at its
-use, <code>&lt;scale&gt;</code>. The use is where the broadcast happens: <code>vbroadcastss</code> on
-AVX2 and AVX-512, <code>shufps</code> on SSE2, <code>dup</code> on NEON and a splat on wasm.</p>
+use, <code>&lt;scale&gt;</code>. For numeric uniforms, the use is where the broadcast happens:
+<code>vbroadcastss</code> on AVX2 and AVX-512, <code>shufps</code> on SSE2, <code>dup</code> on NEON and a
+splat on wasm.</p>
 <p>A run's boundary is in <a href="/docs/packs-and-runs/#wasm32-boundary">packs and runs</a>,
 and a whole program's in <a href="/docs/slow-tier/">the slow tier</a>. The x86 and AArch64
 backends in the 0.6.0-beta tag compile neither runs nor slow code. The
 unreleased development compiler adds native C programs with slow orchestration
 and Rake-selected register kernels. Slow callers can pass uniform <code>f32</code>,
-<code>i32</code> or <code>u32</code> arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results.
+<code>i32</code>, <code>u32</code> or <code>bool</code> arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results.
 SSE2, AVX2, AVX-512 and NEON also support the
 <a href="/docs/packs-and-runs/#native-cpu-streams">native stream subset</a>.
 General native runs and other scalar kernel boundaries remain work in progress.</p>
