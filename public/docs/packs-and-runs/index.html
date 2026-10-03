@@ -122,12 +122,14 @@ the compiler rejects any other use of it, so a byte column can't turn into a
 hidden scalar loop. <code>widen</code> preserves the value, extending by the stored
 type's sign:</p>
 <div class="table-scroll"><table><thead><tr><th>Stored column</th><th>32-bit domains (<code>f32s</code>, <code>i32s</code>, <code>u32s</code>)</th><th>64-bit domains (<code>i64s</code>, <code>u64s</code>)</th></tr></thead><tbody>
-<tr><td><code>u8</code>, <code>u16</code></td><td><code>u32s</code></td><td>not implemented</td></tr>
-<tr><td><code>i8</code>, <code>i16</code></td><td><code>i32s</code></td><td>not implemented</td></tr>
+<tr><td><code>u8</code>, <code>u16</code></td><td><code>u32s</code></td><td>WIP*</td></tr>
+<tr><td><code>i8</code>, <code>i16</code></td><td><code>i32s</code></td><td>WIP*</td></tr>
 <tr><td><code>u32</code></td><td>the column itself</td><td><code>u64s</code></td></tr>
 <tr><td><code>i32</code></td><td>the column itself</td><td><code>i64s</code></td></tr>
 </tbody></table>
 </div>
+<p><em>WIP: work in progress. WebAssembly supports the implemented domains above.
+Native streams currently implement only the 32-bit domains.</em></p>
 <p>A column wider than the domain's lanes is rejected. A traversal using <code>u8s</code>
 reads sixteen byte records at once, and a <code>u8</code> column is its rack directly.</p>
 <h2 id="count-and-tail">Count and tail</h2>
@@ -135,7 +137,9 @@ reads sixteen byte records at once, and a <code>u8</code> column is its rack dir
 that isn't a multiple of the lane count ends with a tail chunk whose mask is
 <code>lane &lt; count mod lanes</code>. Its transfers touch only active elements: lane-sized
 loads and stores on WebAssembly, count-guarded lane transfers on SSE2 and
-NEON, and masked vector transfers on AVX2 and AVX-512. These transfers avoid
+NEON, and masked vector transfers for 32-bit AVX2 columns and AVX-512
+columns. Compact AVX2 columns use count-guarded lane transfers before packed
+widening. These transfers avoid
 elements past the count. In the tail, a column's inactive lanes hold
 zero, so a shuffle that moves one into an active lane reads zero. Rack
 expressions run under the tail's mask, and a mutable location updates only
@@ -233,9 +237,12 @@ wasm32 traversal counts in 32 bits. Every column the traversal reads, the
 output, and every column of a stack it stores into must hold at least <code>count</code>
 elements. Slow code calling a run checks these and traps, and a C caller must
 meet them. A run reads each column pointer from its descriptor once.</p>
-<p>Read-only inputs may alias each other. An output either overlaps no input or
-starts at exactly the same address as one input column, for an in-place
-update. Each chunk loads all the columns it reads before storing its result,
+<p>Read-only inputs may alias each other. An output may overlap an input only
+when their element widths match and both start at exactly the same address,
+for an in-place update. Otherwise their storage must be disjoint. A 32-bit
+output cannot reuse a compact byte or 16-bit input's storage: its wider
+stores would overwrite records before the next chunk reads them. Each
+chunk loads all the columns it reads before storing its result,
 so an in-place update sees the chunk's inputs as they were. The C declaration
 has no <code>restrict</code>, because that exact aliasing is allowed.</p>
 <p>From slow code, a run is a statement. A run declared <code>-&gt; T</code> takes its output
@@ -252,13 +259,58 @@ uniform <code>f32</code>, <code>i32</code>, <code>u32</code> or <code>bool</code
 One traversal using <code>f32s</code>, <code>i32s</code> or <code>u32s</code> yields a stream of the matching
 scalar type from a read-only stack, or updates one <code>f32</code>, <code>i32</code> or <code>u32</code>
 column in its mutable input or destination. Its body loads one to four
-columns of these types and combines immutable lane expressions, including
+columns of these types, or compact columns explicitly widened to 32 bits,
+and combines immutable lane expressions, including
 calls to rakes and scratches. A float mask can select integer values, and an
 integer mask can select floats: each column keeps its own element type while
 sharing the traversal's lane count. General loops, multiple column stores,
-widening, other scalar parameter types, reductions, scans, extraction, insertion and shuffles
+other scalar parameter types, numerical integer/float conversions, reductions,
+scans, extraction, insertion and shuffles
 remain work in progress and fail compilation. Unused stored columns may have
 other scalar types.</p>
+<h3 id="compact-columns">Compact columns</h3>
+<p>A stack can keep a small field in byte or 16-bit storage while its run
+computes with 32-bit lanes. <code>widen(row.field)</code> sign-extends <code>i8</code> or <code>i16</code>
+to <code>i32s</code>, and zero-extends <code>u8</code> or <code>u16</code> to <code>u32s</code>. This preserves the
+stored value. The field stays compact in memory, and its pointer advances
+by one or two bytes per record instead of four.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">CompactReadings</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">i8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">adjustment</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-type-builtin">i16</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">offset</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">quality</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-type-builtin">u16</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">weight</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">combine_readings</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">CompactReadings</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">row</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">i32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">let</span> <span class="tok-variable">adjustment</span> <span class="tok-operator">=</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">adjustment</span><span class="tok-punctuation-bracket">)</span>
+    <span class="tok-keyword">let</span> <span class="tok-variable">offset</span> <span class="tok-operator">=</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">offset</span><span class="tok-punctuation-bracket">)</span>
+    <span class="tok-keyword">let</span> <span class="tok-variable">quality</span> <span class="tok-operator">=</span> <span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">quality</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
+    <span class="tok-keyword">let</span> <span class="tok-variable">weight</span> <span class="tok-operator">=</span> <span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">weight</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
+    <span class="tok-keyword">yield</span> <span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">adjustment</span> <span class="tok-operator">+</span> <span class="tok-variable">offset</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">+</span> <span class="tok-variable">quality</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">+</span> <span class="tok-variable">weight</span>
+</code></pre>
+<p>The unsigned fields fit in a signed 32-bit lane, so their bitcasts above
+preserve their numerical values too. In general <code>bitcast</code> changes only the
+interpretation of bits: an unsigned 32-bit value above 2³¹−1 becomes a
+negative signed value. It does not convert integers to floats.</p>
+<p>The C boundary keeps the original column types and a 32-bit result:</p>
+<pre class="code code-c"><code><span class="tok-keyword">struct</span> <span class="tok-type">rake_stack_CompactReadings_v1</span> {
+    <span class="tok-keyword">const</span> <span class="tok-type">int8_t</span>   <span class="tok-operator">*</span><span class="tok-property">adjustment</span><span class="tok-delimiter">;</span>
+    <span class="tok-keyword">const</span> <span class="tok-type">int16_t</span>  <span class="tok-operator">*</span><span class="tok-property">offset</span><span class="tok-delimiter">;</span>
+    <span class="tok-keyword">const</span> <span class="tok-type">uint8_t</span>  <span class="tok-operator">*</span><span class="tok-property">quality</span><span class="tok-delimiter">;</span>
+    <span class="tok-keyword">const</span> <span class="tok-type">uint16_t</span> <span class="tok-operator">*</span><span class="tok-property">weight</span><span class="tok-delimiter">;</span>
+}<span class="tok-delimiter">;</span>
+<span class="tok-type">void</span> <span class="tok-function">combine_readings</span>(<span class="tok-keyword">const</span> <span class="tok-keyword">struct</span> <span class="tok-type">rake_stack_CompactReadings_v1</span> <span class="tok-operator">*</span><span class="tok-variable">input</span>,
+    <span class="tok-type">int64_t</span> <span class="tok-variable">count</span>, <span class="tok-type">int32_t</span> <span class="tok-operator">*</span><span class="tok-variable">result</span>)<span class="tok-delimiter">;</span>
+</code></pre>
+<p>The compute domain controls how many records each rack visits. An AVX2
+<code>i32s</code> traversal processes eight records, loading eight bytes from a byte
+column or sixteen bytes from a 16-bit column before widening into one
+256-bit rack. It doesn't process 32 byte records merely because the stored
+field is small. SSE2 and NEON visit four records, and AVX-512 visits sixteen.
+Outputs and updated columns remain <code>f32</code>, <code>i32</code> or <code>u32</code>. Other widening
+widths and compact outputs are work in progress.</p>
+<h3 id="calling-the-stream">Calling the stream</h3>
 <p>On Linux x86-64 the stream follows System V: the descriptor is in <code>rdi</code>, the
 count in <code>rsi</code>, and, when there are no integer uniforms, the output in <code>rdx</code>.
 It returns <code>void</code> under its source
@@ -376,8 +428,11 @@ both stacks' columns hold the count. Independent C callers supply valid
 storage for the read and written columns, and may leave unused pointers null.</p>
 <p>The compiler owns the loop and advances by four elements on SSE2 and NEON,
 eight on AVX2 or sixteen on AVX-512F. Full racks use unaligned vector loads
-and stores. AVX2 touches only active elements in the last rack through
-<code>vmaskmovps</code>. AVX-512F uses <code>vmovups</code> with the <code>k2</code> memory mask, independently
+and stores, with packed extension for compact input columns. AVX2 touches
+only active 32-bit elements in the last rack through <code>vmaskmovps</code>. Its compact
+tail first assembles the existing bytes or 16-bit elements with guarded
+lane transfers, then widens the packed value. AVX-512F uses <code>vmovups</code> or a
+masked extending load with the <code>k2</code> memory mask, independently
 of the expression selector's <code>k1</code>.</p>
 <p>SSE2 has no fault-suppressing float load or store. For its last one to three
 elements, uniform count guards select the individual memory transfers. The
@@ -407,6 +462,10 @@ checks signed and unsigned integer columns against independently computed
 wrapping bits, including multiplication, absolute values, literal shifts,
 unsigned clamps and mixed float/integer selection. Integer streams and
 column updates exercise exact aliasing and a separately shaped destination.
+Compact-column checks cover signed and unsigned byte and 16-bit boundaries,
+wrapping sums, unsigned products and separate destinations. Every compact
+input ends at a guard page for each count from zero through 65, so an
+over-read fails independently of the numerical result.
 C and Rake callers also check scale, bias and threshold arguments, including
 a quiet-NaN threshold, and eight uniform arguments preserved across racks.
 Mutable-descriptor checks cover the first and fourth columns, an unread

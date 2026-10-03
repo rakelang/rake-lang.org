@@ -198,13 +198,26 @@ on SSE2 and NEON, eight on AVX2, or sixteen on AVX-512F.</p>
 <tr><td>marked <code>i32</code> or <code>u32</code> uniform arguments and broadcasts</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>if</code> on a direct comparison of marked uniforms</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>static one- and two-rack <code>shuffle</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
-<tr><td>runtime shift counts, conversions, extraction and insertion</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
+<tr><td><code>bitcast</code> between <code>i32s</code> and <code>u32s</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td>runtime shift counts, numerical conversions, extraction and insertion</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
 </tbody></table>
 </div>
 <p>These operations stay in full vector registers. Integer masks can select
 float racks, and float masks can select integer racks. The
 <a href="/docs/packs-and-runs/#native-cpu-streams">native stream subset</a> accepts <code>f32</code>,
-<code>i32</code> and <code>u32</code> columns while preserving each column's type.</p>
+<code>i32</code> and <code>u32</code> columns while preserving each column's type.
+Explicit <code>widen</code> also loads signed byte and 16-bit columns into <code>i32s</code>, or
+unsigned ones into <code>u32s</code>. The stored type determines sign or zero extension.
+The <a href="/docs/packs-and-runs/#native-cpu-streams">traversal contract</a> covers its
+compact memory transfers and partial racks.</p>
+<p><code>bitcast(u32s, values)</code> reinterprets an <code>i32s</code> rack's bits as unsigned words,
+and <code>bitcast(i32s, values)</code> does the reverse. A lane containing −1 becomes
+4294967295 without changing a bit. The native allocator needs no instruction
+when it can reuse the input register, or a vector register copy when the
+input remains live. This does not implement numerical integer/float conversion.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">unsigned_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
 <p>An integer literal passed to a typed scratch or rake parameter takes that
 parameter's element type. A <code>u32</code> parameter can therefore receive
 <code>&lt;4294967295&gt;</code>, while an untyped literal retains the signed <code>i32</code> range.
@@ -307,8 +320,9 @@ lanes then <code>b</code>'s, each saturated to the 16-bit range.</li>
 to even and saturating to the 32-bit range. NaN becomes zero.</li>
 <li><code>bitcast(i32s, x)</code> keeps the bits of a rack and changes its element type.</li>
 </ul>
-<p>Each is one instruction except <code>to_i32</code>, which is <code>f32x4.nearest</code> then
-<code>i32x4.trunc_sat_f32x4_s</code>.</p>
+<p>On WebAssembly each numerical conversion above is one instruction except
+<code>to_i32</code>, which is <code>f32x4.nearest</code> then <code>i32x4.trunc_sat_f32x4_s</code>. A bitcast
+reuses the same <code>v128</code> bits without a numerical conversion instruction.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">accumulate</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">sums</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">pair</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i16s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">weights</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i16s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">sums</span> <span class="tok-operator">+</span> <span class="tok-function">dot</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">pair</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">weights</span><span class="tok-punctuation-bracket">)</span>
 

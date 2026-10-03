@@ -158,6 +158,9 @@ inactive lanes raise no exception and have no effect.</p>
 The development compiler adds <code>f32</code>, <code>i32</code> and <code>u32</code> stream traversals and single-column
 stack updates on SSE2, AVX2, AVX-512 and NEON. An update can write its input
 stack or a separate destination with a different record layout.
+Explicit <code>widen</code> also reads signed and unsigned byte or 16-bit columns into
+32-bit working racks. Each column advances by its stored element width,
+and a partial rack reads only participating records. Outputs stay 32-bit.
 <a href="/docs/packs-and-runs/">Packs and runs</a> defines
 their boundaries and checked tails.</p>
 <h2 id="scalar-code-stays-scalar">Scalar code stays scalar</h2>

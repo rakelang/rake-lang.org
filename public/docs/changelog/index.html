@@ -82,6 +82,30 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Native streams explicitly widen <code>i8</code> and <code>i16</code> columns into <code>i32s</code>, or
+<code>u8</code> and <code>u16</code> columns into <code>u32s</code>, on SSE2, AVX2, AVX-512F and NEON.
+Packed extension preserves signed values, with guarded compact transfers
+in partial racks. Independent C checks all four stored types, wrapping
+sums, unsigned products, single-column updates and separate destinations
+for every count from zero through 65, with arrays ending at guard pages.
+Outputs remain 32-bit, and general native runs remain WIP.</p>
+</li>
+<li>
+<p>Native <code>bitcast</code> between <code>i32s</code> and <code>u32s</code> preserves lane bits in register
+kernels and streams. Allocation reuses a dying input or copies it through
+a vector register, without numerical conversion. The interpreter now keeps
+the selected profile's width through bitcasts and integer broadcasts.</p>
+</li>
+<li>
+<p>WebAssembly object verification accepts narrower packed comparisons and
+extending multiplies only when source-derived operand bounds justify them.
+Compact column types and literals establish those bounds. Unproved
+arithmetic drops them. Independently compiled packed objects reject without
+the bounds and pass with them. LLVM's six extending-load spellings are
+normalised to their WebAssembly instruction identifiers. Compact streams
+pass numerical and object checks in both addressing modes.</p>
+</li>
+<li>
 <p>Native streams traverse <code>f32</code>, <code>i32</code> and <code>u32</code> columns on SSE2, AVX2,
 AVX-512F and NEON. One to four same-width columns can contribute to a
 stream or single-column update, retaining each column's type and the
@@ -89,7 +113,7 @@ existing guarded-tail contract. Independent C checks signed wrapping
 arithmetic, unsigned boundaries, literal shifts, mixed float/integer
 masks, exact aliasing and separate destination layouts. C and Rake callers
 check the boundary, and all five CPU-profile interpreters check the same
-source. Widening and cross-lane traversal operations remain WIP.
+source. Cross-lane traversal operations remain WIP.
 Embedded kernel assembly restores the text section before slow functions,
 so platform startup adapters remain executable code.</p>
 </li>

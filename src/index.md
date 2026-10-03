@@ -550,6 +550,10 @@ include the SSE2, AVX2, AVX-512 and NEON `f32`, `i32` and `u32` traversal subset
 or one column update in a mutable input or destination stack. These runs
 accept `f32`, `i32`, `u32` and `bool` uniforms within the profile's register
 limits.
+Explicit `widen` also reads signed or unsigned byte and 16-bit columns into
+32-bit working racks, keeping their storage compact and their tails checked.
+Bitcasts between `i32s` and `u32s` preserve lane bits. Numerical integer/float
+conversions remain WIP* on native profiles.
 General native runs remain WIP*. [The backend](/docs/backend/#whole-programs) explains
 which parts Rake emits and which parts use a platform C compiler.
 
