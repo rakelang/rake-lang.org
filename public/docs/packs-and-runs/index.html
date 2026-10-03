@@ -96,7 +96,7 @@ unsized columns into racks for the rakes and scratches in its body:</p>
 
 <span class="tok-keyword">run</span> <span class="tok-function">scale_values</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">for</span> <span class="tok-variable">chunk</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
-    <span class="tok-keyword">let</span> <span class="tok-variable">quality</span> <span class="tok-operator">=</span> <span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">quality</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
+    <span class="tok-keyword">let</span> <span class="tok-variable">quality</span> <span class="tok-operator">=</span> <span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">quality</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
     <span class="tok-keyword">yield</span> <span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">scale</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-variable">quality</span>
 </code></pre>
 <p>The declaration above describes one <code>Samples</code> record: an <code>f32</code> value and a
@@ -311,13 +311,13 @@ field is small. SSE2 and NEON visit four records, and AVX-512 visits sixteen.
 Outputs and updated columns remain <code>f32</code>, <code>i32</code> or <code>u32</code>. Other widening
 widths and compact outputs are work in progress.</p>
 <h3 id="numerical-conversions">Numerical conversions</h3>
-<p><code>to_f32</code> converts an <code>i32s</code> rack to floating-point values, and <code>to_i32</code>
+<p><code>to_f32</code> converts an <code>i32s</code> or <code>u32s</code> rack to floating-point values, and <code>to_i32</code>
 rounds floats to signed integers with ties to even and saturation. Both
-compile in native streams, including a compact signed column widened before
-conversion. The <code>u8</code> and <code>u16</code> values above also fit in signed 32-bit lanes,
-so <code>to_f32(bitcast(i32s, widen(row.quality)))</code> preserves their numerical
-values. A general <code>u32</code> column may exceed that signed range, and unsigned
-numerical conversion remains WIP*.</p>
+compile in native streams, including compact signed and unsigned columns
+widened before conversion. <code>to_f32(widen(row.quality))</code> preserves the
+unsigned values without a signedness bitcast. A full-width <code>u32</code> column
+can exceed the signed range, so its conversion uses the unsigned operation.
+Float-to-unsigned conversion remains WIP*.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Measurements</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>

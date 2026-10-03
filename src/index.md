@@ -453,7 +453,7 @@ pack Particles {
 
 run advance(particles: stack Particles, <count: i64>, <dt: f32>) -> f32:
   for particle in particles using f32s up to <count>:
-    let age = to_f32(bitcast(i32s, widen(particle.age)))
+    let age = to_f32(widen(particle.age))
     yield particle.position + particle.velocity * <dt> / (age + <1.0>)
 ```
 
