@@ -56,7 +56,7 @@ Commit `public/` with the sources it was built from, then deploy it to the
 Cloudflare Pages project `rake-lang`:
 
 ```sh
-nix run nixpkgs#wrangler -- pages deploy public --project-name=rake-lang --branch=main
+nix run --inputs-from . nixpkgs#wrangler -- pages deploy public --project-name=rake-lang --branch=main
 ```
 
 The GitHub workflow runs the same command on a push to `main`. After

@@ -114,7 +114,7 @@ async function start(root: HTMLElement): Promise<void> {
     const wholeProgram = /(^|\n)(slow|run|record|state|embed|extern|const)\s/m.test(starter);
     if (wholeProgram) target.value = "wasm-simd128";
     required<HTMLElement>(root, "[data-target-note]").textContent = wholeProgram
-      ? "Memory runs use WebAssembly. Native slow code and f32 kernel calls are available in this development compiler. Results come from Rake's interpreter."
+      ? "WebAssembly covers general memory runs. AVX2 and AVX-512 also support read-only f32 streams. Native slow code and f32 kernel calls are available. Results come from Rake's interpreter."
       : "Inspect vector code for SSE2, AVX2, AVX-512, NEON or WebAssembly. Results come from Rake's interpreter.";
     history.replaceState(null, "", `#lesson-${lessonIndex + 1}`);
     highlight();

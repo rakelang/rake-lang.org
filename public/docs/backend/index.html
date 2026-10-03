@@ -160,7 +160,7 @@ explicit slow code -&gt; scalar C and C ABI declarations ───────�
                                                                         |
                                                               register-kernel verifier
 </code></pre>
-<p>This development path supports the limited AVX2 stream traversal below.
+<p>This development path supports the limited AVX2 and AVX-512 stream traversal below.
 General native runs remain work in progress. Slow callers can pass
 uniform <code>f32</code> arguments and receive <code>f32</code> results from register kernels.
 The platform compiler lowers explicit slow code and supplies the System V
@@ -206,7 +206,7 @@ work uses vector instructions wherever the selected profile implements the
 operation. A run may also contain the uniform address, loop and bounds work
 written in its source. It never replaces rack work with scalar lane loops.</p>
 <h2 id="native-traversal-selection">Native traversal selection</h2>
-<p>An AVX2 stream's loop, addresses, full-rack transfers and masked tail are
+<p>An AVX2 or AVX-512 stream's loop, addresses, full-rack transfers and masked tail are
 selected by Rake. Its lane expression goes through the same SSA selector
 and no-spill allocator as a register kernel. The tail is lowered under its
 participation mask, so inactive operands cannot raise arithmetic exceptions.
@@ -218,7 +218,7 @@ embedded literals. Unresolved relocations fail verification, preventing
 unverified helpers or external constants from changing that graph. Guard
 pages and an independent C oracle check the memory and numerical semantics.
 This stage supports one to four <code>f32</code> read columns and an <code>f32</code> output.
-<a href="/docs/packs-and-runs/#native-avx2-streams">Native AVX2 streams</a> defines
+<a href="/docs/packs-and-runs/#native-x86-streams">Native x86 streams</a> defines
 the accepted subset and caller obligations.</p>
 <h2 id="object-verification">Object verification</h2>
 <p><code>--verify-native</code> disassembles the object and checks each function against
@@ -246,7 +246,7 @@ relocations, linking and start-up. Debug information and exception unwinding
 aren't produced. The x86 and AArch64 backends in 0.6.0-beta compile scratches
 and rakes only. The development compiler adds native mixed programs through
 the limited scalar C boundary above. General runs compile on WebAssembly;
-AVX2 implements the stream subset. Other native run profiles remain WIP.</p>
+AVX2 and AVX-512 implement the stream subset. Other native run profiles remain WIP.</p>
 <h2 id="planned-gpu-pipeline">Planned GPU pipeline</h2>
 <p>GPU profiles will add lane-to-invocation mapping, uniformity and collective
 participation to the existing checked lowering. They will preserve useful

@@ -282,8 +282,8 @@ and a whole program's in <a href="/docs/slow-tier/">the slow tier</a>. The x86 a
 backends in the 0.6.0-beta tag compile neither runs nor slow code. The
 unreleased development compiler adds native C programs with slow orchestration
 and Rake-selected register kernels. Slow callers can pass uniform <code>f32</code>
-arguments and receive <code>f32</code> results. AVX2 also supports the
-<a href="/docs/packs-and-runs/#native-avx2-streams">native stream subset</a>.
+arguments and receive <code>f32</code> results. AVX2 and AVX-512 also support the
+<a href="/docs/packs-and-runs/#native-x86-streams">native stream subset</a>.
 General native runs and other scalar kernel boundaries remain work in progress.</p>
 <h2 id="verification">Verification</h2>
 <p><code>--verify-native</code> assembles the emitted code, or compiles the emitted C,

@@ -433,7 +433,7 @@ individual `f32` values, rather than a million-lane `f32s` value.
 <text class="diagram-value" x="396" y="203">150 full racks</text>
 <text class="diagram-label" x="18" y="247">Wider racks process more lanes per instruction.</text>
 </svg>
-<figcaption>The rack counts follow from register width. The current native AVX2 stream uses the 256-bit row, and WebAssembly uses the 128-bit row. Native stack traversal on the other profiles remains WIP*.</figcaption>
+<figcaption>The rack counts follow from register width. Native AVX-512 streams use the 512-bit row, AVX2 streams use the 256-bit row, and WebAssembly uses the 128-bit row. Native stack traversal on SSE2 and NEON remains WIP*.</figcaption>
 </figure>
 
 512-bit SIMD handles twice as many `f32` lanes per instruction as AVX2, and
@@ -541,7 +541,7 @@ compiles, and [the roadmap](/docs/roadmap/) what comes next.
 The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
-include the AVX2 read-only `f32` stream subset. General native runs and other
+include the AVX2 and AVX-512 read-only `f32` stream subset. General native runs and other
 profiles' traversal remain WIP*. [The backend](/docs/backend/#whole-programs) explains
 which parts Rake emits and which parts use a platform C compiler.
 
