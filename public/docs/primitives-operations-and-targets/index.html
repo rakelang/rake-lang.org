@@ -82,10 +82,10 @@ defines the profiles, the operations each one compiles, the floating-point
 rules and the calling conventions of scratches and rakes.</p>
 <h2 id="profiles">Profiles</h2>
 <div class="table-scroll"><table><thead><tr><th>Profile</th><th>Register</th><th class="align-right"><code>f32</code> lanes</th><th>Status</th></tr></thead><tbody>
-<tr><td><code>x86-sse2</code></td><td>one 128-bit XMM register, SSE2</td><td class="align-right">4</td><td><code>f32s</code> scratches and rakes, as GNU assembly</td></tr>
-<tr><td><code>x86-avx2</code></td><td>one 256-bit YMM register, AVX2 and FMA3</td><td class="align-right">8</td><td><code>f32s</code> scratches and rakes, as GNU assembly</td></tr>
-<tr><td><code>x86-avx512</code></td><td>one 512-bit ZMM register, AVX-512F</td><td class="align-right">16</td><td><code>f32s</code> scratches and rakes, as GNU assembly</td></tr>
-<tr><td><code>aarch64-neon</code></td><td>one 128-bit vector register, AAPCS64</td><td class="align-right">4</td><td><code>f32s</code> scratches and rakes, as GNU assembly</td></tr>
+<tr><td><code>x86-sse2</code></td><td>one 128-bit XMM register, SSE2</td><td class="align-right">4</td><td><code>f32s</code> and the 32-bit integer subset below, as GNU assembly</td></tr>
+<tr><td><code>x86-avx2</code></td><td>one 256-bit YMM register, AVX2 and FMA3</td><td class="align-right">8</td><td><code>f32s</code> and the 32-bit integer subset below, as GNU assembly</td></tr>
+<tr><td><code>x86-avx512</code></td><td>one 512-bit ZMM register, AVX-512F</td><td class="align-right">16</td><td><code>f32s</code> and the 32-bit integer subset below, as GNU assembly</td></tr>
+<tr><td><code>aarch64-neon</code></td><td>one 128-bit vector register, AAPCS64</td><td class="align-right">4</td><td><code>f32s</code> and the 32-bit integer subset below, as GNU assembly</td></tr>
 <tr><td><code>wasm-simd128</code></td><td>one <code>v128</code></td><td class="align-right">4</td><td>float and integer scratches and rakes, runs and whole programs, as C</td></tr>
 <tr><td><code>wasm-simd128-relaxed</code></td><td>one <code>v128</code></td><td class="align-right">4</td><td><code>wasm-simd128</code> and the relaxed SIMD operations</td></tr>
 <tr><td><code>scalar</code></td><td>none</td><td class="align-right">1</td><td>WIP*, without the one-register guarantee</td></tr>
@@ -178,9 +178,34 @@ Infinities stay unchanged and NaNs become quiet NaNs.</p>
 rounding. It says the program depends on that rounding, which <code>wasm-simd128</code>
 can't provide, so it rejects <code>fma</code> rather than computing it with two.</p>
 <h2 id="integer-racks">Integer racks</h2>
-<p>Integer racks are implemented for <code>wasm-simd128</code> only. On its 128-bit
-register a <code>u8s</code> rack has 16 lanes, <code>i16s</code> 8, <code>i32s</code> and <code>u32s</code> 4, and <code>i64s</code>
-and <code>u64s</code> 2. Integer arithmetic on racks wraps.</p>
+<p>Integer arithmetic on racks wraps. The development compiler adds a native
+<code>i32s</code> and <code>u32s</code> subset after the 0.6.0-beta tag. Both types have four lanes
+on SSE2 and NEON, eight on AVX2, or sixteen on AVX-512F.</p>
+<div class="table-scroll"><table><thead><tr><th>Native operation</th><th class="align-center"><code>i32s</code></th><th class="align-center"><code>u32s</code></th></tr></thead><tbody>
+<tr><td>wrapping <code>+</code> and <code>-</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>bit_and</code>, <code>bit_or</code>, <code>bit_xor</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td>six signed comparisons</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<tr><td>select an integer rack with a lane mask</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>all</code>, <code>any</code>, <code>bitmask</code> of a comparison</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<tr><td>integer literal broadcast</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td>integer uniform arguments, multiplication, negation, extrema, shifts, conversions and lane transfers</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
+</tbody></table>
+</div>
+<p>These operations stay in full vector registers. Integer masks can select
+float racks, and float masks can select integer racks. Native streams still
+accept float columns only.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">increment</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-variable">values</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">greater</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">a</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">b</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">if</span> <span class="tok-variable">a</span> <span class="tok-operator">&gt;</span> <span class="tok-variable">b</span> <span class="tok-keyword">then</span> <span class="tok-variable">a</span> <span class="tok-keyword">else</span> <span class="tok-variable">b</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">negative_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">bitmask</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span> <span class="tok-operator">&lt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p>WebAssembly supports a wider integer operation set, shown in the next table.
+On its 128-bit register a <code>u8s</code> rack has 16 lanes, <code>i16s</code> 8, <code>i32s</code> and
+<code>u32s</code> 4, and <code>i64s</code> and <code>u64s</code> 2.</p>
 <div class="table-scroll"><table><thead><tr><th>Operation</th><th class="align-center"><code>u8s</code></th><th class="align-center"><code>i16s</code></th><th class="align-center"><code>i32s</code></th><th class="align-center"><code>u32s</code></th><th class="align-center"><code>i64s</code></th><th class="align-center"><code>u64s</code></th></tr></thead><tbody>
 <tr><td><code>+</code> <code>-</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>*</code></td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
@@ -325,7 +350,8 @@ integer result. General scalar arithmetic on these results inside a native
 scratch remains WIP*. Cross-lane reductions are forbidden in a <code>through</code>
 block. Native stream mask reductions remain WIP* until their partial-rack
 participation contract is implemented.</p>
-<p>Integer comparison masks remain available on WebAssembly only:</p>
+<p>The native profiles also reduce <code>i32s</code> comparison masks. Masks from other
+integer element types remain available on WebAssembly only:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">occupied_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">tiles</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u8s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">bitmask</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">tiles</span> <span class="tok-operator">!=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
@@ -379,7 +405,9 @@ the stack, so a function that would need to is rejected.</p>
 <p>On x86, the function is a hidden global symbol following the System V
 convention. Parameters take the eight SSE-class argument registers in source
 order. A uniform <code>f32</code> occupies the low lane of an XMM register. A rack or
-mask uses XMM on SSE2, YMM on AVX2, or ZMM on AVX-512. The result uses register
+mask uses XMM on SSE2, YMM on AVX2, or ZMM on AVX-512. Native <code>i32s</code> and
+<code>u32s</code> use the same register class as <code>f32s</code>, with a 32-bit integer in each
+lane. The result uses register
 zero of the same class, or <code>xmm0</code> for a scalar <code>f32</code>.
 <code>all</code> and <code>any</code> return C <code>bool</code> in <code>al</code>, with the full <code>eax</code> set to zero or
 one. <code>bitmask</code> returns <code>uint32_t</code> in <code>eax</code>.</p>

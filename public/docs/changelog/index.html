@@ -82,6 +82,15 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Native <code>i32s</code> and <code>u32s</code> support wrapping add/subtract and bitwise
+AND/OR/XOR on SSE2, AVX2, AVX-512F and NEON. Signed <code>i32s</code> comparisons
+produce masks for selection and mask reductions. Mixed integer/float
+selection preserves the vector C ABI. An independent C oracle checks
+overflow bits, signed extremes, tines/gaps and still-live inputs. Assembled
+negative fixtures reject narrowed vectors, scalar work and integer memory
+operations. Other integer operations and native integer streams remain WIP.</p>
+</li>
+<li>
 <p>Direct uniform <code>f32</code> comparisons support whole-rack conditional expressions
 on all four physical profiles. Broadcast operands use ordered vector
 comparisons and selection, with benign operands in untaken branches.

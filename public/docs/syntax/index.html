@@ -193,10 +193,10 @@ calls nest at most 32 deep and recursion is rejected.</p>
 <tr><td><code>mut T</code></td><td>a parameter the callee writes</td></tr>
 </tbody></table>
 </div>
-<p><code>f32s</code> racks work on every production profile. The integer racks <code>u8s</code>,
-<code>i16s</code>, <code>i32s</code>, <code>u32s</code>, <code>i64s</code> and <code>u64s</code> are implemented for <code>wasm-simd128</code>
-only. The types <code>i8s</code>, <code>u16s</code>, <code>f64s</code> and <code>bools</code> parse but have no
-implementation yet.</p>
+<p><code>f32s</code> racks work on every production profile. WebAssembly implements the
+integer racks <code>u8s</code>, <code>i16s</code>, <code>i32s</code>, <code>u32s</code>, <code>i64s</code> and <code>u64s</code>. The development
+compiler also supports <a href="/docs/primitives-operations-and-targets/#integer-racks">a native 32-bit integer subset</a>.
+The types <code>i8s</code>, <code>u16s</code>, <code>f64s</code> and <code>bools</code> parse but have no implementation yet.</p>
 <h2 id="statements">Statements</h2>
 <div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>let name = e</code>, <code>let name: T = e</code></td><td>an immutable binding</td></tr>

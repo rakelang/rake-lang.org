@@ -103,8 +103,10 @@ and the sweep chooses the value that leaves each lane.</p>
 </code></pre>
 <p>A rake's body has any setup bindings, any local tines, at least one through
 block, and its final sweep, in that order. Global tines are defined outside
-the rake. Its racks are <code>f32s</code>, and rakes compile on SSE2, AVX2, AVX-512,
-NEON and WebAssembly. A scratch, rake or run can call one.</p>
+the rake. Rakes compile on SSE2, AVX2, AVX-512, NEON and WebAssembly. The
+example uses <code>f32s</code>. The development compiler also accepts <code>i32s</code> and <code>u32s</code>
+results with <a href="/docs/primitives-operations-and-targets/#integer-racks">the native integer operation subset</a>.
+A scratch, rake or run can call one.</p>
 <h2 id="tines">Tines</h2>
 <p><code>tine #valid(values: f32s) means values &gt;= &lt;0.0&gt;</code> defines a reusable
 predicate with an explicit input. Applying <code>#valid(values)</code> computes one

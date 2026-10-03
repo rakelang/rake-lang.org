@@ -529,14 +529,19 @@ readers who come from C or Python.
 
 | Profile | Rack | Compiles |
 | --- | --- | --- |
-| `x86-sse2` | one 128-bit register, 4 `f32` lanes | scratches and rakes over `f32s`, as assembly |
-| `x86-avx2` | one 256-bit register, 8 `f32` lanes | scratches and rakes over `f32s`, as assembly |
-| `x86-avx512` | one 512-bit register, 16 `f32` lanes | scratches and rakes over `f32s`, as assembly |
-| `aarch64-neon` | one 128-bit register, 4 `f32` lanes | scratches and rakes over `f32s`, as assembly |
+| `x86-sse2` | one 128-bit register, 4 32-bit lanes | float racks and a 32-bit integer subset, as assembly |
+| `x86-avx2` | one 256-bit register, 8 32-bit lanes | float racks and a 32-bit integer subset, as assembly |
+| `x86-avx512` | one 512-bit register, 16 32-bit lanes | float racks and a 32-bit integer subset, as assembly |
+| `aarch64-neon` | one 128-bit register, 4 32-bit lanes | float racks and a 32-bit integer subset, as assembly |
 | `wasm-simd128` | one `v128`, 4 `f32` lanes | float and integer racks, runs and whole programs, as C |
 
 [Primitives, operations, and targets](/docs/primitives-operations-and-targets/) lists what each profile
 compiles, and [the roadmap](/docs/roadmap/) what comes next.
+
+The development compiler's native integer subset supports wrapping add/subtract
+and bitwise AND/OR/XOR on `i32s` and `u32s`. Signed `i32s` comparisons produce
+masks for selection and mask reductions. Other integer operations and native
+integer streams remain WIP*.
 
 The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.

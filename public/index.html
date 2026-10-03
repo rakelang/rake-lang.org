@@ -474,15 +474,19 @@ body. <a href="/docs/playground/#reading-rake">The tutorial</a> explains each ma
 readers who come from C or Python.</p>
 <h2 id="targets">Targets</h2>
 <div class="table-scroll"><table><thead><tr><th>Profile</th><th>Rack</th><th>Compiles</th></tr></thead><tbody>
-<tr><td><code>x86-sse2</code></td><td>one 128-bit register, 4 <code>f32</code> lanes</td><td>scratches and rakes over <code>f32s</code>, as assembly</td></tr>
-<tr><td><code>x86-avx2</code></td><td>one 256-bit register, 8 <code>f32</code> lanes</td><td>scratches and rakes over <code>f32s</code>, as assembly</td></tr>
-<tr><td><code>x86-avx512</code></td><td>one 512-bit register, 16 <code>f32</code> lanes</td><td>scratches and rakes over <code>f32s</code>, as assembly</td></tr>
-<tr><td><code>aarch64-neon</code></td><td>one 128-bit register, 4 <code>f32</code> lanes</td><td>scratches and rakes over <code>f32s</code>, as assembly</td></tr>
+<tr><td><code>x86-sse2</code></td><td>one 128-bit register, 4 32-bit lanes</td><td>float racks and a 32-bit integer subset, as assembly</td></tr>
+<tr><td><code>x86-avx2</code></td><td>one 256-bit register, 8 32-bit lanes</td><td>float racks and a 32-bit integer subset, as assembly</td></tr>
+<tr><td><code>x86-avx512</code></td><td>one 512-bit register, 16 32-bit lanes</td><td>float racks and a 32-bit integer subset, as assembly</td></tr>
+<tr><td><code>aarch64-neon</code></td><td>one 128-bit register, 4 32-bit lanes</td><td>float racks and a 32-bit integer subset, as assembly</td></tr>
 <tr><td><code>wasm-simd128</code></td><td>one <code>v128</code>, 4 <code>f32</code> lanes</td><td>float and integer racks, runs and whole programs, as C</td></tr>
 </tbody></table>
 </div>
 <p><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a> lists what each profile
 compiles, and <a href="/docs/roadmap/">the roadmap</a> what comes next.</p>
+<p>The development compiler's native integer subset supports wrapping add/subtract
+and bitwise AND/OR/XOR on <code>i32s</code> and <code>u32s</code>. Signed <code>i32s</code> comparisons produce
+masks for selection and mask reductions. Other integer operations and native
+integer streams remain WIP*.</p>
 <p>The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
