@@ -75,9 +75,10 @@
 </nav>
     <main class="content">
 <h1 id="control-flow">Control flow</h1>
-<p>Rake has two kinds of choice. A uniform condition, one <code>bool</code> for every lane,
-chooses which code runs. A mask, one <code>bool</code> for each lane, chooses each lane's
-value, and every lane's code runs. Tines, through blocks and sweeps are the
+<p>Rake has two kinds of choice. A uniform condition chooses the same branch for
+every lane. A mask chooses a branch independently in each lane.
+In vector code, both choices use vector selection. Slow code can branch
+around statements. Tines, through blocks and sweeps are the
 named form of the second kind, defined in <a href="/docs/tines-and-through/">tines, through and
 sweeps</a>. This page defines conditional
 expressions, loops and branches.</p>
@@ -90,18 +91,32 @@ inactive lane's computation doesn't happen, as in a through block, so
 operands are replaced with benign values on targets with floating-point
 exceptions. On WebAssembly, the expression below is two subtractions, a
 comparison and one <code>v128.bitselect</code>. A mask conditional compiles on
-<code>x86-avx2</code>, <code>aarch64-neon</code> and <code>wasm-simd128</code>:</p>
+every production profile:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">distance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">v</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">w</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">if</span> <span class="tok-variable">v</span> <span class="tok-operator">&gt;</span> <span class="tok-variable">w</span> <span class="tok-keyword">then</span> <span class="tok-variable">v</span> <span class="tok-operator">-</span> <span class="tok-variable">w</span> <span class="tok-keyword">else</span> <span class="tok-variable">w</span> <span class="tok-operator">-</span> <span class="tok-variable">v</span>
 </code></pre>
-<p>A uniform condition chooses one whole rack. In vector code both branches are
-rack expressions that the target computes before selecting one, so computing
-the branch not taken has no effect. In slow code, only the chosen branch is
-evaluated. A uniform conditional in vector code compiles on <code>wasm-simd128</code>
-only:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">pick</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">near</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">far</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">late</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+<p>A uniform condition chooses one whole rack. The development compiler accepts
+a direct comparison of uniform <code>f32</code> values on every production profile.
+A comparison can also use a literal or an extracted <code>f32</code> bound as a uniform.
+The physical profiles broadcast the operands, compare them as vectors and
+select the same branch in every participating lane. Both branches have
+instructions, with benign operands substituted for untaken work that could
+raise floating-point exceptions. A surrounding <code>through</code> or traversal tail
+also limits participation.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">pick</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">near</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">far</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">distance</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">limit</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">if</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">distance</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">&lt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">limit</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">then</span> <span class="tok-variable">near</span> <span class="tok-keyword">else</span> <span class="tok-variable">far</span>
+</code></pre>
+<p>Comparisons with a NaN are false, including <code>!=</code>, so an unordered condition
+chooses the <code>else</code> arm. These native conditionals are development additions
+after the 0.6.0-beta tag. Integer and Boolean uniform conditions in vector
+code remain WIP (work in progress) on the physical profiles.</p>
+<p>WebAssembly retains one scalar condition and a whole-rack selection. It
+computes both pure branches before selecting, and has no floating-point
+exception flags. It also supports integer and Boolean conditions:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">pick_late</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">near</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">far</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">late</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">if</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">late</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">then</span> <span class="tok-variable">near</span> <span class="tok-keyword">else</span> <span class="tok-variable">far</span>
 </code></pre>
+<p>In slow code, only the chosen branch is evaluated.</p>
 <p>In vector code, a branch can't read memory. A load, gather or element read is
 bound with <code>let</code> before the conditional, so it visibly happens whichever way
 the condition goes:</p>

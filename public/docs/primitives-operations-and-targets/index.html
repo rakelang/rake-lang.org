@@ -116,7 +116,8 @@ unavailable on every profile.</p>
 <p>The table shows operations on <code>f32s</code> racks in the development compiler.
 Physical profiles gained <code>abs</code>, <code>min</code>, <code>max</code> and integral rounding after the 0.6.0-beta tag,
 so the tagged compiler still rejects them on those profiles. Native float
-extraction, insertion, static shuffles, mask reductions and NEON folds are also development
+extraction, insertion, static shuffles, mask reductions, uniform <code>f32</code>
+conditionals and NEON folds are also development
 features after that tag.</p>
 <div class="table-scroll"><table><thead><tr><th>Operation</th><th class="align-center"><code>x86-sse2</code></th><th class="align-center"><code>x86-avx2</code></th><th class="align-center"><code>x86-avx512</code></th><th class="align-center"><code>aarch64-neon</code></th><th class="align-center"><code>wasm-simd128</code></th></tr></thead><tbody>
 <tr><td><code>+</code> <code>-</code> <code>*</code> <code>/</code>, negation, <code>sqrt</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
@@ -126,7 +127,8 @@ features after that tag.</p>
 <tr><td><code>min</code> <code>max</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>floor</code> <code>ceil</code> <code>trunc</code> <code>nearest</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>exp</code> <code>log</code> <code>log2</code> <code>tanh</code></td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td></tr>
-<tr><td><code>if</code> on a uniform condition</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td></tr>
+<tr><td><code>if</code> on a direct uniform <code>f32</code> comparison</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>if</code> on an integer or Boolean uniform condition</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td></tr>
 <tr><td><code>sum</code> <code>product</code> <code>minimum</code> <code>maximum</code>, and the scans</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>extract</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
@@ -146,7 +148,10 @@ no rack form: a mask comes from a comparison. <code>sin</code>, <code>cos</code>
 profile.</p>
 <p><code>select(mask, a, b)</code> takes <code>a</code> in the mask's lanes and <code>b</code> elsewhere, and so
 does <code>if mask then a else b</code>. <code>if &lt;c&gt; then a else b</code> with a uniform condition
-chooses one rack for every lane. <code>abs</code> takes the magnitude of each lane,
+chooses one rack for every participating lane. Native uniform comparisons use
+vector broadcasts and comparisons, with benign operands for untaken branch
+work. <a href="/docs/control-flow/">Control flow</a> gives the supported forms.
+<code>abs</code> takes the magnitude of each lane,
 including changing −0 to +0. Native profiles clear the sign bit with a vector
 bitwise operation, without floating-point arithmetic or exceptions.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">magnitudes</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
