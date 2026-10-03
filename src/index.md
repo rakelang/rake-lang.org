@@ -552,9 +552,10 @@ accept `f32`, `i32`, `u32` and `bool` uniforms within the profile's register
 limits.
 Explicit `widen` also reads signed or unsigned byte and 16-bit columns into
 32-bit working racks, keeping their storage compact and their tails checked.
-Bitcasts between `i32s` and `u32s` preserve lane bits. `to_f32` and `to_i32`
-numerically convert signed 32-bit integer and float racks, including in
-streams. Float-to-integer conversion rounds to nearest with ties to even,
+Bitcasts between `i32s` and `u32s` preserve lane bits. `to_f32` converts
+signed or unsigned integer racks numerically, and `to_i32` or `to_u32`
+converts floats to the corresponding integer type, including in streams.
+Float-to-integer conversion rounds to nearest with ties to even,
 saturates out-of-range values and converts NaNs to zero.
 General native runs remain WIP*. [The backend](/docs/backend/#whole-programs) explains
 which parts Rake emits and which parts use a platform C compiler.

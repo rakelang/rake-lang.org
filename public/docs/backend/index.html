@@ -285,7 +285,7 @@ halves with their packed signed instruction, multiply the high half by
 65,536 and add them. Both halves and the multiplication are exact, so the
 addition supplies the one nearest-even rounding. Three allocated vector
 temporaries hold the halves and a constant. The input may remain live.
-The reverse conversion sanitises NaNs to zero, checks the signed range with
+<code>to_i32</code> sanitises NaNs to zero, checks the signed range with
 packed masks, and converts the remaining values with <code>cvtps2dq</code>,
 <code>vcvtps2dq</code> or <code>fcvtns .4s</code>. Vector selections restore the saturated
 endpoints. Four allocated temporary vector registers hold its masks and
@@ -294,6 +294,15 @@ integer or float operands become zero before conversion, including
 in partial streams. The final-object verifier checks full-width conversion
 operands and rejects scalar or narrowed forms. Independent C bit arithmetic
 checks rounding and saturation separately from these instructions.</p>
+<p><code>to_u32</code> sanitises NaNs and negative values to zero, then checks the upper
+bound 2³². AVX-512F converts the remaining range with <code>vcvtps2udq</code>, and
+NEON uses <code>fcvtnu .4s</code>. SSE2 and AVX2 split the range at 2³¹: subtracting
+that value from the upper half is exact for binary32, so a packed signed
+conversion followed by a high-bit XOR preserves nearest-even rounding.
+Vector masks restore 4294967295 in overflow lanes. Four allocated
+temporaries hold masks, safe values and constants, while the original input
+may remain live. There is no scalar loop over lanes. WebAssembly selects
+<code>f32x4.nearest</code> followed by <code>i32x4.trunc_sat_f32x4_u</code>.</p>
 <h2 id="whole-programs">Whole programs</h2>
 <pre class="code code-text"><code>source
   -&gt; parser and type checker

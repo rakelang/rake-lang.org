@@ -4043,7 +4043,7 @@ async function start2(root2) {
     next.disabled = lessonIndex === lessons.length - 1;
     const wholeProgram = /(^|\n)(slow|run|record|state|embed|extern|const)\s/m.test(starter);
     if (wholeProgram) target.value = "wasm-simd128";
-    required(root2, "[data-target-note]").textContent = wholeProgram ? "WebAssembly covers general memory runs. SSE2, AVX2, AVX-512 and NEON support f32, i32 or u32 streams and single-column stack updates, including explicit byte/16-bit widening, i32s/u32s bitcasts, signed integer/float conversions and unsigned integer-to-float conversion. General native runs and cross-lane traversal operations remain work in progress. Results come from Rake's interpreter." : "Inspect vector code for SSE2, AVX2, AVX-512, NEON or WebAssembly. Results come from Rake's interpreter.";
+    required(root2, "[data-target-note]").textContent = wholeProgram ? "WebAssembly covers general memory runs. SSE2, AVX2, AVX-512 and NEON support f32, i32 or u32 streams and single-column stack updates, including explicit byte/16-bit widening, i32s/u32s bitcasts, and signed or unsigned integer/float conversions in both directions. General native runs and cross-lane traversal operations remain work in progress. Results come from Rake's interpreter." : "Inspect vector code for SSE2, AVX2, AVX-512, NEON or WebAssembly. Results come from Rake's interpreter.";
     history.replaceState(null, "", `#lesson-${lessonIndex + 1}`);
     highlight();
     if (ready) void compile();
