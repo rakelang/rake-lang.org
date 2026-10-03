@@ -484,9 +484,11 @@ readers who come from C or Python.</p>
 <p><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a> lists what each profile
 compiles, and <a href="/docs/roadmap/">the roadmap</a> what comes next.</p>
 <p>The development compiler's native integer subset supports wrapping add/subtract
-and bitwise AND/OR/XOR on <code>i32s</code> and <code>u32s</code>. Signed <code>i32s</code> comparisons produce
-masks for selection and mask reductions. The operation reference lists the
-other implemented integer operations and the remaining WIP* coverage.</p>
+and bitwise AND/OR/XOR on <code>i32s</code> and <code>u32s</code>. Signed and unsigned comparisons
+produce masks for selection and mask reductions. Literal and runtime-uniform
+bit shifts work on every physical profile. A runtime <code>u32</code> count uses its low
+five bits, so a count of 32 leaves each lane unchanged. The operation reference
+lists the other implemented integer operations and the remaining WIP* coverage.</p>
 <p>The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs

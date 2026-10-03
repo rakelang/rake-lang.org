@@ -484,7 +484,7 @@ and embedded literals. Any difference or unresolved relocation is rejected.
 <code>test/native_stream_test.sh</code> checks independent C results, exact in-place
 output and guarded tails of every remainder for one to four columns. It also
 checks signed and unsigned integer columns against independently computed
-wrapping bits, including multiplication, absolute values, literal shifts,
+wrapping bits, including multiplication, absolute values, literal and runtime shifts,
 unsigned clamps and mixed float/integer selection. Integer streams and
 column updates exercise exact aliasing and a separately shaped destination.
 Compact-column checks cover signed and unsigned byte and 16-bit boundaries,

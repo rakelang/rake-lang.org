@@ -539,9 +539,11 @@ readers who come from C or Python.
 compiles, and [the roadmap](/docs/roadmap/) what comes next.
 
 The development compiler's native integer subset supports wrapping add/subtract
-and bitwise AND/OR/XOR on `i32s` and `u32s`. Signed `i32s` comparisons produce
-masks for selection and mask reductions. The operation reference lists the
-other implemented integer operations and the remaining WIP* coverage.
+and bitwise AND/OR/XOR on `i32s` and `u32s`. Signed and unsigned comparisons
+produce masks for selection and mask reductions. Literal and runtime-uniform
+bit shifts work on every physical profile. A runtime `u32` count uses its low
+five bits, so a count of 32 leaves each lane unchanged. The operation reference
+lists the other implemented integer operations and the remaining WIP* coverage.
 
 The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.

@@ -229,8 +229,15 @@ profiles use direct unsigned extrema instructions. Independent C checks
 values across bit 31, full-width unsigned literals, nested clamps and
 masked selection while retaining live inputs. Interpreter and WebAssembly
 goldens check unsigned extrema and literal broadcasts too.
-Runtime shift counts, other integer operations and native streams at other lane widths
-remain work in progress.</p>
+Runtime uniform <code>u32</code> shift counts now compile on all four physical profiles,
+in register kernels and native streams. Vector normalisation takes the count
+modulo 32, with one temporary included in allocation pressure. Independent C
+checks every resulting count, high input bits, extracted counts, masked
+selection and retained inputs. Guarded streams cover updates, separate
+destinations and counts across multiple racks. Final-object fixtures require
+the selected normalisation sequence and reject narrowed data operands.
+Other integer operations and native streams at other lane widths remain
+work in progress.</p>
 <p>Native register kernels now take signed and unsigned 32-bit uniforms through
 the platform's integer argument registers. Entry imports use allocated vector
 registers, and rack arithmetic uses broadcasts of their exact bits. Independent

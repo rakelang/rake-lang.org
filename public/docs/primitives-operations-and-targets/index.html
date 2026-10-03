@@ -203,7 +203,7 @@ on SSE2 and NEON, eight on AVX2, or sixteen on AVX-512F.</p>
 <tr><td><code>bitcast</code> between <code>i32s</code> and <code>u32s</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>to_f32</code> (<code>i32s</code> or <code>u32s</code> to <code>f32s</code>)</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>literal-index <code>extract</code> and <code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
-<tr><td>runtime shift counts</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
+<tr><td>runtime uniform <code>u32</code> shift counts, modulo 32</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 </tbody></table>
 </div>
 <p>These operations stay in full vector registers. Integer masks can select
@@ -397,8 +397,13 @@ instruction operands to preserve <code>a &amp; ~b</code>.</p>
 with literal counts from 0 to 31. Zero leaves the rack unchanged.
 SSE2, AVX2 and AVX-512F use full-width packed shifts, and NEON uses
 <code>shl</code>, <code>ushr</code> or <code>sshr</code> on four 32-bit lanes. The signed-right operation
-copies each lane's high bit, even when the rack's element type is unsigned.
-Runtime uniform counts remain WIP* on physical profiles.</p>
+copies each lane's high bit, even when the rack's element type is unsigned.</p>
+<p>A runtime <code>&lt;amount: u32&gt;</code> also works on every physical profile, in register
+kernels and native streams. Its low five bits give the count, so 32 means
+zero and 4294967295 means 31. The compiler normalises a temporary vector
+register before the packed shift, leaving the input rack and count available
+for later use. The final-object verifier checks that normalisation and the
+full-width data operands together.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">high_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">shift_bits_right</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">24</span><span class="tok-punctuation-bracket">)</span>
 
@@ -407,6 +412,9 @@ Runtime uniform counts remain WIP* on physical profiles.</p>
 
 <span class="tok-keyword">scratch</span> <span class="tok-function">shifted</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">shift_bits_left</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">7</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">shifted_by</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">amount</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">shift_bits_left</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">amount</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>These shift bits within a lane. The reserved identifiers <code>shift_left</code>,
 <code>shift_right</code>, <code>rotate_left</code> and <code>rotate_right</code> are for moving whole lanes,

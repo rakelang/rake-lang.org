@@ -135,7 +135,7 @@ against independent scalar C. One to four input columns end at guard pages,
 as does the output, for counts from zero through 65. The checks cover every
 tail remainder, exact in-place output, inactive-lane arithmetic and an unread
 byte column in the descriptor. Signed and unsigned 32-bit columns check
-wrapping multiplication, absolute values, unsigned clamps, literal shifts
+wrapping multiplication, absolute values, unsigned clamps, literal and runtime shifts
 and mixed float/integer masks against scalar bit arithmetic. Their streams,
 in-place updates and separate destinations use the same guarded counts.
 C and Rake callers pass scale, bias
@@ -269,8 +269,10 @@ WebAssembly fixture exercise direct integer conditions too.
 Independently assembled fixtures require exact
 entry imports and reject wrong, missing, repeated and body-local transfers.
 Bit-shift checks cover every literal count from 0 to 31 on signed and unsigned
-racks. Unsigned scalar bit operations independently compute sign extension,
-and composition checks preserve live inputs across shifts and lane masks.
+racks, and runtime <code>u32</code> counts with high bits set, normalised modulo 32.
+Counts arrive through both the integer C ABI and lane extraction. Unsigned
+scalar bit operations independently compute sign extension, and composition
+checks preserve live inputs and the original count across shifts and lane masks.
 Static integer shuffles compare every output lane with independent C index
 arithmetic for reverse, rotation, repeated, identity, interleaved and mixed
 selections. Both signed and unsigned racks cross the vector C ABI. Fused
@@ -280,8 +282,9 @@ and cross-register subdivisions at four, eight and sixteen lanes.
 Independently assembled machine objects check
 rejection of narrowed integer vectors, scalar arithmetic
 and memory work inside a register kernel. SSE2 also rejects direct SSE4.1
-extrema and SSSE3 absolute-value instructions. Shift fixtures reject runtime counts and out-of-range
-immediates as well as narrowed and scalar instructions.</p>
+extrema and SSSE3 absolute-value instructions. Shift fixtures require the
+selected normalisation sequence for runtime counts and reject unnormalised
+counts, out-of-range immediates, narrowed data and scalar instructions.</p>
 <p>The shared absolute-value oracle supplies explicit binary32 input and output
 bits for signed zeros, subnormals, infinities and quiet and signalling NaNs.
 Both direct and masked rack calls preserve magnitude bits without raising

@@ -259,10 +259,22 @@ full-width VEX/EVEX forms on AVX2 and AVX-512F. NEON uses <code>shl</code>, <cod
 <code>sshr</code> with <code>.4s</code> operands. Instruction selection consumes a literal count
 from 0 to 31. A zero count needs only a register copy, elided when the
 destination reuses the input. The final-object verifier checks register
-widths and immediate bounds, rejecting register-supplied counts and memory
-operands in these register kernels. Native runtime shift counts remain
-work in progress.
-Signed comparisons use <code>pcmpeqd</code> and
+widths and immediate bounds.</p>
+<p>Runtime <code>u32</code> counts are taken modulo 32. All four physical profiles allocate
+one temporary vector register for normalisation, preserving live inputs and
+the original count. SSE2, AVX2 and AVX-512F shift each 64-bit word left and
+then logically right by 59, retaining the count's low five bits and clearing
+the rest of its low 64-bit word. The packed 32-bit shift reads that word
+through XMM even when its data rack uses YMM or ZMM. Only the uniform count
+uses this narrower operand. NEON broadcasts the count's low word and shifts
+left then logically right by 27. For a right shift, it negates the resulting
+0–31 count before <code>ushl</code> or <code>sshl</code> on four 32-bit lanes.</p>
+<p>The final-object verifier accepts these runtime forms only as the complete
+normalisation-and-shift sequence, with full-width data operands and the
+number of shifts derived from Rake's allocated instructions. Unnormalised,
+narrowed or undeclared runtime shifts fail verification. Native streams use
+the same selection and retain the count across full and partial racks.</p>
+<p>Signed comparisons use <code>pcmpeqd</code> and
 <code>pcmpgtd</code> on SSE2 and AVX2, with operand reversal or mask inversion for the
 other predicates. AVX-512F uses <code>vpcmpd</code> and expands its <code>k1</code> result into a
 full rack without requiring AVX-512DQ. NEON uses <code>cmeq</code>, <code>cmgt</code> and <code>cmge</code>,

@@ -82,6 +82,17 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Native <code>i32s</code> and <code>u32s</code> shifts accept runtime uniform <code>u32</code> counts on
+SSE2, AVX2, AVX-512F and NEON, including native streams. Vector operations
+normalise the count modulo 32 in one allocated temporary, preserving live
+inputs and the original count. Final-object checks require the complete
+selected sequence with full-width data operands. Independent C checks all
+counts, high count bits, extracted values, masked calls and retained
+inputs. Guarded streams check full racks, tails, column updates and
+separate destinations. Mixed-program checks cover the scalar C boundary
+and WebAssembly.</p>
+</li>
+<li>
 <p>Literal-index <code>extract</code> and <code>insert</code> support <code>i32s</code> and <code>u32s</code> on SSE2,
 AVX2, AVX-512F and NEON. They reuse the float lane transfers without
 numerical conversion. Scalar integer values cross the platform's integer
@@ -217,7 +228,7 @@ Typed calls check integer literals against the parameter's range, and
 explicitly typed rack bindings broadcast their uniforms. Native scalar
 integer constants stay in vector registers until the C return transfer.
 Executable semantics and WebAssembly checks cover unsigned boundary bits
-and wrapping uniform arithmetic. Runtime shift counts remain work in progress.</p>
+and wrapping uniform arithmetic.</p>
 </li>
 <li>
 <p><code>u32s</code> <code>min</code> and <code>max</code> compile on SSE2, AVX2, AVX-512F, NEON and
@@ -275,8 +286,8 @@ the signed <code>i32</code> range.</p>
 all four physical profiles. Full-width packed instructions implement left,
 logical-right and signed-right shifts. A zero count leaves the rack unchanged.
 Independent C checks every count, sign extension, masked use and retained
-inputs. Final-object checks reject narrowed or scalar shifts, runtime
-counts and out-of-range immediates. Native uniform counts remain WIP.</p>
+inputs. Final-object checks reject narrowed or scalar shifts and
+out-of-range immediates. Runtime counts use the normalisation sequence above.</p>
 </li>
 <li>
 <p>Native signed <code>i32s</code> <code>min</code> and <code>max</code> compile on all four physical profiles.
