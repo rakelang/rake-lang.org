@@ -138,7 +138,7 @@ below makes every lane choose <code>near</code> when at least one lane is positi
   <span class="tok-function">pick_enabled</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">near</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">far</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-boolean">true</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>These native Boolean conditions and C <code>bool</code> parameters are development
-additions after the 0.6.0-beta tag. The native <code>f32</code> stream subset also takes
+additions after the 0.6.0-beta tag. The native <code>f32</code>, <code>i32</code> and <code>u32</code> stream subset also takes
 <code>i32</code>, <code>u32</code> and <code>bool</code> uniforms within its
 <a href="/docs/packs-and-runs/#native-cpu-streams">C register boundary</a>.</p>
 <p>In slow code, only the chosen branch is evaluated.</p>

@@ -82,6 +82,25 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Native streams traverse <code>f32</code>, <code>i32</code> and <code>u32</code> columns on SSE2, AVX2,
+AVX-512F and NEON. One to four same-width columns can contribute to a
+stream or single-column update, retaining each column's type and the
+existing guarded-tail contract. Independent C checks signed wrapping
+arithmetic, unsigned boundaries, literal shifts, mixed float/integer
+masks, exact aliasing and separate destination layouts. C and Rake callers
+check the boundary, and all five CPU-profile interpreters check the same
+source. Widening and cross-lane traversal operations remain WIP.
+Embedded kernel assembly restores the text section before slow functions,
+so platform startup adapters remain executable code.</p>
+</li>
+<li>
+<p>WebAssembly partial stores keep their scalar remainder opaque to clang,
+retaining integer arithmetic on a rack before lane stores. This applies
+in both addressing modes. Unsigned comparisons at the high-bit boundary
+select their packed sign-mask sequence explicitly. Independent expected
+masks and the strict final-object verifier check both changes.</p>
+</li>
+<li>
 <p>WebAssembly uniform choices broadcast a Boolean mask and select rack bits.
 This retains the rack choice through partial stores. Clang previously moved
 scalar choices after a one-lane extraction, which the strict object verifier
@@ -96,7 +115,7 @@ comparisons and Boolean choices retain protected full-rack and tail
 semantics. Independent C checks interleaved argument types, signed and
 unsigned boundaries, unused Boolean argument bits, eight persistent
 uniforms, in-place updates and separate destinations ending at guard pages.
-Stack arguments and streams over integer columns remain work in progress.</p>
+Stack arguments remain work in progress.</p>
 </li>
 <li>
 <p>Boolean uniforms choose whole racks on all four physical profiles, including
@@ -133,8 +152,7 @@ Typed calls check integer literals against the parameter's range, and
 explicitly typed rack bindings broadcast their uniforms. Native scalar
 integer constants stay in vector registers until the C return transfer.
 Executable semantics and WebAssembly checks cover unsigned boundary bits
-and wrapping uniform arithmetic. Streams over integer columns and runtime
-shift counts remain work in progress.</p>
+and wrapping uniform arithmetic. Runtime shift counts remain work in progress.</p>
 </li>
 <li>
 <p><code>u32s</code> <code>min</code> and <code>max</code> compile on SSE2, AVX2, AVX-512F, NEON and
@@ -225,7 +243,7 @@ produce masks for selection and mask reductions. Mixed integer/float
 selection preserves the vector C ABI. An independent C oracle checks
 overflow bits, signed extremes, tines/gaps and still-live inputs. Assembled
 negative fixtures reject narrowed vectors, scalar work and integer memory
-operations. Other integer operations and native integer streams remain WIP.</p>
+operations. Other integer operations remain WIP.</p>
 </li>
 <li>
 <p>Direct uniform <code>f32</code> comparisons support whole-rack conditional expressions

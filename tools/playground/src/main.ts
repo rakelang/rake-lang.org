@@ -114,7 +114,7 @@ async function start(root: HTMLElement): Promise<void> {
     const wholeProgram = /(^|\n)(slow|run|record|state|embed|extern|const)\s/m.test(starter);
     if (wholeProgram) target.value = "wasm-simd128";
     required<HTMLElement>(root, "[data-target-note]").textContent = wholeProgram
-      ? "WebAssembly covers general memory runs. SSE2, AVX2, AVX-512 and NEON support f32 streams and single-column stack updates with f32, i32, u32 or bool uniforms. Streams over integer columns remain work in progress. Native slow code can call these streams and register kernels. Results come from Rake's interpreter."
+      ? "WebAssembly covers general memory runs. SSE2, AVX2, AVX-512 and NEON support f32, i32 or u32 streams and single-column stack updates with f32, i32, u32 or bool uniforms. Widening and cross-lane native traversal operations remain work in progress. Native slow code can call these streams and register kernels. Results come from Rake's interpreter."
       : "Inspect vector code for SSE2, AVX2, AVX-512, NEON or WebAssembly. Results come from Rake's interpreter.";
     history.replaceState(null, "", `#lesson-${lessonIndex + 1}`);
     highlight();

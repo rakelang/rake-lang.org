@@ -540,13 +540,13 @@ compiles, and [the roadmap](/docs/roadmap/) what comes next.
 
 The development compiler's native integer subset supports wrapping add/subtract
 and bitwise AND/OR/XOR on `i32s` and `u32s`. Signed `i32s` comparisons produce
-masks for selection and mask reductions. Other integer operations and native
-integer streams remain WIP*.
+masks for selection and mask reductions. The operation reference lists the
+other implemented integer operations and the remaining WIP* coverage.
 
 The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
-include the SSE2, AVX2, AVX-512 and NEON `f32` traversal subset: stream output
+include the SSE2, AVX2, AVX-512 and NEON `f32`, `i32` and `u32` traversal subset: stream output
 or one column update in a mutable input or destination stack. These runs
 accept `f32`, `i32`, `u32` and `bool` uniforms within the profile's register
 limits.

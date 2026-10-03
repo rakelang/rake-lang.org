@@ -485,12 +485,12 @@ readers who come from C or Python.</p>
 compiles, and <a href="/docs/roadmap/">the roadmap</a> what comes next.</p>
 <p>The development compiler's native integer subset supports wrapping add/subtract
 and bitwise AND/OR/XOR on <code>i32s</code> and <code>u32s</code>. Signed <code>i32s</code> comparisons produce
-masks for selection and mask reductions. Other integer operations and native
-integer streams remain WIP*.</p>
+masks for selection and mask reductions. The operation reference lists the
+other implemented integer operations and the remaining WIP* coverage.</p>
 <p>The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
-include the SSE2, AVX2, AVX-512 and NEON <code>f32</code> traversal subset: stream output
+include the SSE2, AVX2, AVX-512 and NEON <code>f32</code>, <code>i32</code> and <code>u32</code> traversal subset: stream output
 or one column update in a mutable input or destination stack. These runs
 accept <code>f32</code>, <code>i32</code>, <code>u32</code> and <code>bool</code> uniforms within the profile's register
 limits.

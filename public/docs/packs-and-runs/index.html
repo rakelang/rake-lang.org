@@ -131,7 +131,7 @@ type's sign:</p>
 <p>A column wider than the domain's lanes is rejected. A traversal using <code>u8s</code>
 reads sixteen byte records at once, and a <code>u8</code> column is its rack directly.</p>
 <h2 id="count-and-tail">Count and tail</h2>
-<p>The count is a uniform <code>i64</code>. A count of zero or less reads nothing. A count
+<p>The count is a uniform integer. A count of zero or less reads nothing. A count
 that isn't a multiple of the lane count ends with a tail chunk whose mask is
 <code>lane &lt; count mod lanes</code>. Its transfers touch only active elements: lane-sized
 loads and stores on WebAssembly, count-guarded lane transfers on SSE2 and
@@ -200,9 +200,11 @@ there, so those two checks cover every iteration.</p>
 that the address doesn't wrap, and loop strength reduction hides that. The
 default <code>--wasm-addressing barrier</code> gives each pointer an empty <code>asm</code>
 statement with one <code>i32</code> operand at the top of every iteration. That keeps
-the pointer opaque, so the offsets fold. <code>--wasm-addressing plain</code> emits the
-intrinsics alone. The barriers name only scalar pointers, because a <code>v128</code>
-operand to <code>asm</code> crashes some wasm32 builds of clang.</p>
+the pointer opaque, so the offsets fold. <code>--wasm-addressing plain</code> omits
+these pointer barriers. Both modes keep a partial store's remainder opaque
+with an empty scalar <code>asm</code>, so clang retains the rack arithmetic before
+selecting its active lane stores. These barriers take scalar operands,
+because a <code>v128</code> operand to <code>asm</code> crashes some wasm32 builds of clang.</p>
 <h2 id="wasm32-boundary">wasm32 boundary</h2>
 <p>On <code>wasm-simd128</code> a run is an external C function that is never inlined,
 named as in the source and returning <code>void</code>. Its C parameters follow the
@@ -247,10 +249,13 @@ mutable stacks and rack parameters, in both addressing modes.</p>
 <p>The unreleased development compiler supports an input stack and an <code>i32</code> or
 <code>i64</code> count, optionally followed by a mutable destination stack, then up to eight
 uniform <code>f32</code>, <code>i32</code>, <code>u32</code> or <code>bool</code> arguments within the C register limits.
-One <code>f32s</code> traversal yields an <code>f32</code> stream from a
-read-only stack, or updates one column in its mutable input or destination.
-Its body loads one to four <code>f32</code> columns and combines immutable lane expressions,
-including calls to rakes and scratches. General loops, multiple column stores,
+One traversal using <code>f32s</code>, <code>i32s</code> or <code>u32s</code> yields a stream of the matching
+scalar type from a read-only stack, or updates one <code>f32</code>, <code>i32</code> or <code>u32</code>
+column in its mutable input or destination. Its body loads one to four
+columns of these types and combines immutable lane expressions, including
+calls to rakes and scratches. A float mask can select integer values, and an
+integer mask can select floats: each column keeps its own element type while
+sharing the traversal's lane count. General loops, multiple column stores,
 widening, other scalar parameter types, reductions, scans, extraction, insertion and shuffles
 remain work in progress and fail compilation. Unused stored columns may have
 other scalar types.</p>
@@ -278,6 +283,23 @@ descriptor in <code>x0</code>, count in <code>x1</code> and, without integer uni
 <p>The C arguments retain source order, with the output last:</p>
 <pre class="code code-c"><code><span class="tok-type">void</span> <span class="tok-function">scaled_values</span>(<span class="tok-keyword">const</span> <span class="tok-keyword">struct</span> <span class="tok-type">rake_stack_Values_v1</span> <span class="tok-operator">*</span><span class="tok-variable">input</span>,
     <span class="tok-type">int64_t</span> <span class="tok-variable">count</span>, <span class="tok-type">float</span> <span class="tok-variable">scale</span>, <span class="tok-type">float</span> <span class="tok-variable">bias</span>, <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">result</span>)<span class="tok-delimiter">;</span>
+</code></pre>
+<p>An integer column follows the same traversal. This run adds an offset to
+each signed magnitude using the <a href="/docs/primitives-operations-and-targets/#integer-racks">wrapping integer arithmetic</a>:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">IntegerValues</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">signed_magnitudes</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">IntegerValues</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">offset</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">row</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">i32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">yield</span> <span class="tok-function">abs</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">offset</span><span class="tok-operator">&gt;</span></span>
+</code></pre>
+<p><code>using i32s</code> visits four records on SSE2 or NEON, eight on AVX2 and sixteen
+on AVX-512. Its C descriptor and output use <code>int32_t</code>, preserving every lane's
+bits through the boundary:</p>
+<pre class="code code-c"><code><span class="tok-keyword">struct</span> <span class="tok-type">rake_stack_IntegerValues_v1</span> { <span class="tok-keyword">const</span> <span class="tok-type">int32_t</span> <span class="tok-operator">*</span><span class="tok-property">value</span><span class="tok-delimiter">;</span> }<span class="tok-delimiter">;</span>
+<span class="tok-type">void</span> <span class="tok-function">signed_magnitudes</span>(<span class="tok-keyword">const</span> <span class="tok-keyword">struct</span> <span class="tok-type">rake_stack_IntegerValues_v1</span> <span class="tok-operator">*</span><span class="tok-variable">input</span>,
+    <span class="tok-type">int32_t</span> <span class="tok-variable">count</span>, <span class="tok-type">int32_t</span> <span class="tok-variable">offset</span>, <span class="tok-type">int32_t</span> <span class="tok-operator">*</span><span class="tok-variable">result</span>)<span class="tok-delimiter">;</span>
 </code></pre>
 <p>The floating-point arguments arrive in <code>xmm0</code> through <code>xmm7</code> on x86, or
 <code>s0</code> through <code>s7</code> on AArch64. Rake preserves them in caller-clobbered registers
@@ -375,13 +397,17 @@ and <a href="https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rs
 define those unused argument bits as unspecified. Counts of zero or less
 touch no pointer, so null pointers are allowed then.
 For a positive count, each read column and the output must hold that many
-floats. The same overlap rules as the wasm32 boundary apply.</p>
+elements of its declared type. The same overlap rules as the wasm32 boundary apply.</p>
 <p>The final-object verifier compares the complete traversal function with the
 separately assembled selection, including branch offsets, memory operands
 and embedded literals. Any difference or unresolved relocation is rejected.
 <code>test/native_stream_test.sh</code> checks independent C results, exact in-place
 output and guarded tails of every remainder for one to four columns. It also
-checks C and Rake callers with scale, bias and threshold arguments, including
+checks signed and unsigned integer columns against independently computed
+wrapping bits, including multiplication, absolute values, literal shifts,
+unsigned clamps and mixed float/integer selection. Integer streams and
+column updates exercise exact aliasing and a separately shaped destination.
+C and Rake callers also check scale, bias and threshold arguments, including
 a quiet-NaN threshold, and eight uniform arguments preserved across racks.
 Mutable-descriptor checks cover the first and fourth columns, an unread
 destination column, unchanged independent columns and null unused pointers.

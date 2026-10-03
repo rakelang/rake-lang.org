@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
   <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Playground and tutorial | Rake","name":"Playground and tutorial | Rake","description":"An interactive Rake tutorial in twelve lessons, with each concept demonstrated in the result, lane trace, compiler output or diagnostic message.","url":"https://rake-lang.org/docs/playground/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
-<script type="module" src="/scripts/playground.js?v=7afd28df"></script>
+<script type="module" src="/scripts/playground.js?v=b3535504"></script>
 </head>
 <body class="layout-playground">
   <header class="site-header">
@@ -52,7 +52,7 @@
 <span id="lesson-12" hidden></span>
 <section class="playground-app" data-rake-playground
   data-worker="/scripts/playground-worker.js?v=185e0038"
-  data-compiler="/scripts/rake-compiler.js?v=3206ecf2"
+  data-compiler="/scripts/rake-compiler.js?v=9605f77e"
   data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
   data-rake-language="/scripts/tree-sitter-rake.wasm?v=ab9d92ea"
   data-rake-highlights="/scripts/rake-highlights.scm?v=e7f8b2a0">
@@ -147,7 +147,7 @@ development compiler supports native slow orchestration with uniform <code>f32</
 <code>i32</code> and <code>u32</code> kernel arguments and <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results.
 Lessons start on WebAssembly when they contain a whole program. WebAssembly
 covers general memory runs. SSE2, AVX2, AVX-512 and NEON
-also compile <code>f32</code> stream traversals and single-column stack updates. Other
+also compile <code>f32</code>, <code>i32</code> and <code>u32</code> stream traversals and single-column stack updates. Other
 native memory runs give the compiler's work-in-progress diagnostic. Updates
 can use a separate destination stack with a different record layout. Every result and
 lane trace comes from Rake's interpreter, using the selected profile's <code>f32</code>
