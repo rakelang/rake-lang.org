@@ -52,7 +52,7 @@
 <span id="lesson-12" hidden></span>
 <section class="playground-app" data-rake-playground
   data-worker="/scripts/playground-worker.js?v=185e0038"
-  data-compiler="/scripts/rake-compiler.js?v=d864e3bd"
+  data-compiler="/scripts/rake-compiler.js?v=86ad5c64"
   data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
   data-rake-language="/scripts/tree-sitter-rake.wasm?v=ab9d92ea"
   data-rake-highlights="/scripts/rake-highlights.scm?v=e7f8b2a0">
@@ -144,7 +144,7 @@ tabs under it:</p>
 all the lanes at once, the idea the whole tutorial builds on.</p>
 <p>The target menu offers WebAssembly, SSE2, AVX2, AVX-512 and NEON. The browser
 development compiler supports native slow orchestration with uniform <code>f32</code>
-kernel calls too. Lessons start on WebAssembly when they contain a whole
+kernel calls returning <code>f32</code>, <code>bool</code> or <code>u32</code> too. Lessons start on WebAssembly when they contain a whole
 program. WebAssembly covers general memory runs. SSE2, AVX2, AVX-512 and NEON
 also compile <code>f32</code> stream traversals and single-column stack updates. Other
 native memory runs give the compiler's work-in-progress diagnostic. Updates

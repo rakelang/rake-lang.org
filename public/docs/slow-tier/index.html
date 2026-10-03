@@ -94,7 +94,7 @@ register kernels on x86-64 and AArch64. SSE2, AVX2, AVX-512 and NEON additionall
 runs remain work in progress.</p>
 <h3 id="native-kernel-calls">Native kernel calls</h3>
 <p>On the development compiler, a native register kernel called from slow code
-takes uniform <code>f32</code> parameters and returns <code>f32</code>. Rake selects and allocates
+takes uniform <code>f32</code> parameters and returns <code>f32</code>, <code>bool</code> or <code>u32</code>. Rake selects and allocates
 the kernel's instructions. The generated C contains its opaque assembly,
 and the final object is checked against the selected profile. The platform C
 compiler lowers the slow caller and supplies the scalar calling convention.
@@ -109,6 +109,18 @@ Other native scalar kernel boundaries remain work in progress.</p>
 kernel may also broadcast its uniforms and reduce a rack where the selected
 profile supports those operations. The reference interpreter uses the chosen
 profile's rack width when <code>--target</code> is supplied.</p>
+<p>Mask reductions can also return through this boundary:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">all_positive</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">bool</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">all</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">value</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">if</span> <span class="tok-function">all_positive</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">3.5</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">return</span> <span class="tok-number">1</span>
+  <span class="tok-keyword">return</span> <span class="tok-number">0</span>
+</code></pre>
+<p>The kernel broadcasts the scalar across its rack, compares all lanes, and
+returns one Boolean. The comparison and reduction remain vector work. Slow
+code receives C <code>bool</code> and can branch on it.</p>
 <h3 id="process-arguments">Process arguments</h3>
 <p>The development compiler after 0.6.0-beta accepts either <code>slow main() -&gt; i32</code>
 or a process entry with an argument count and a pointer to byte strings:</p>

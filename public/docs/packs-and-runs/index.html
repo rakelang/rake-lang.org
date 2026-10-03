@@ -250,9 +250,9 @@ uniform <code>f32</code> arguments. One <code>f32s</code> traversal yields an <c
 read-only stack, or updates one column in its mutable input or destination.
 Its body loads one to four <code>f32</code> columns and combines immutable lane expressions,
 including calls to rakes and scratches. General loops, multiple column stores,
-widening, other parameter types, reductions and scans remain work in
-progress and fail compilation. Unused stored columns may have other scalar
-types.</p>
+widening, other parameter types, reductions, scans, extraction, insertion and shuffles
+remain work in progress and fail compilation. Unused stored columns may have
+other scalar types.</p>
 <p>On Linux x86-64 the stream follows System V: the descriptor is in <code>rdi</code>, the
 count in <code>rsi</code>, and the output in <code>rdx</code>. It returns <code>void</code> under its source
 identifier, uses no stack frame and calls nothing. The AVX profiles execute

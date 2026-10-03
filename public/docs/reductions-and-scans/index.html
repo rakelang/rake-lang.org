@@ -85,6 +85,7 @@ rather than operators, so they are easy to find in code and to read aloud.</p>
 <tr><td><code>maximum(x)</code></td><td><code>f32s</code></td><td><code>f32</code></td><td>strict maximum</td></tr>
 <tr><td><code>all(m)</code></td><td>mask</td><td><code>bool</code></td><td>and</td></tr>
 <tr><td><code>any(m)</code></td><td>mask</td><td><code>bool</code></td><td>or</td></tr>
+<tr><td><code>bitmask(m)</code></td><td>mask</td><td><code>u32</code></td><td>one bit per lane</td></tr>
 <tr><td><code>scan_sum(x)</code></td><td><code>f32s</code></td><td><code>f32s</code></td><td>binary32 addition</td></tr>
 <tr><td><code>scan_product(x)</code></td><td><code>f32s</code></td><td><code>f32s</code></td><td>binary32 multiplication</td></tr>
 <tr><td><code>scan_minimum(x)</code></td><td><code>f32s</code></td><td><code>f32s</code></td><td>strict minimum</td></tr>
@@ -116,7 +117,7 @@ one as a uniform, and arithmetic on reductions there is scalar work:</p>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">10.0</span> <span class="tok-operator">+</span> <span class="tok-variable">width</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <h2 id="lane-order">Lane order</h2>
-<p>For a rack <code>x</code> of <code>N</code> lanes:</p>
+<p>For an arithmetic rack <code>x</code> of <code>N</code> lanes:</p>
 <pre class="code code-text"><code>p[0] = x[0]
 p[i] = step(p[i - 1], x[i])    for i from 1 to N - 1
 </code></pre>
@@ -125,6 +126,9 @@ every scan is inclusive. The fold always runs from lane 0 upwards. No
 implementation may use a tree, reassociate, contract, or keep a wider
 intermediate, so each addition and multiplication rounds to binary32 in turn.
 A rack always has lanes, so there is no empty case and no identity value.</p>
+<p>Mask reductions use associative bitwise operations, so their implementation
+may combine lane groups in a tree. <code>all</code> and <code>any</code> give the same truth value
+in any order. <code>bitmask</code> preserves each lane's bit position.</p>
 <h2 id="strict-minimum-and-maximum">Strict minimum and maximum</h2>
 <p>Each step of <code>minimum</code>, <code>maximum</code>, <code>scan_minimum</code> and <code>scan_maximum</code>:</p>
 <ol>
@@ -142,17 +146,17 @@ signed-zero rule differs.</p>
 under a mask. They are rejected in a <code>through</code> block and in a traversal,
 where the tail's mask would apply. They are also outside fused bindings: a
 reduction leaves the rack, and a scan orders its lanes.</p>
-<div class="table-scroll"><table><thead><tr><th>Profile</th><th class="align-center">Reductions and scans</th><th class="align-center"><code>all</code>, <code>any</code></th></tr></thead><tbody>
-<tr><td><code>x86-sse2</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
-<tr><td><code>x86-avx2</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
-<tr><td><code>x86-avx512</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
-<tr><td><code>aarch64-neon</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<div class="table-scroll"><table><thead><tr><th>Profile</th><th class="align-center">Reductions and scans</th><th class="align-center"><code>all</code>, <code>any</code>, <code>bitmask</code> on float masks</th></tr></thead><tbody>
+<tr><td><code>x86-sse2</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>x86-avx2</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>x86-avx512</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>aarch64-neon</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>wasm-simd128</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 </tbody></table>
 </div>
-<p><em>WIP: work in progress. The compiler rejects these operations on these profiles.</em></p>
 <p>NEON reductions and scans are available in the development compiler after
-0.6.0-beta. The tagged compiler still rejects them.</p>
+0.6.0-beta. Native mask reductions are also development features after that
+tag. The tagged compiler still rejects them.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">running_total</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">scan_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
@@ -168,6 +172,14 @@ For strict extrema, <code>fmin</code> or <code>fmax</code> supplies the numerica
 by a quiet comparison and selection of <code>0x7fc00000</code> if it is NaN.
 The allocator accounts for these intermediate registers, and the object
 verifier permits their lane transfers only in selected cross-lane functions.</p>
+<p>Native mask reductions use two packed permutation-and-combine stages on
+SSE2 and NEON, three on AVX2, or four on AVX-512F. <code>all</code> combines with AND,
+and <code>any</code> with OR, then converts the result to zero or one with a vector
+mask. <code>bitmask</code> first assigns each true lane its bit weight, then combines
+the weights with OR. One temporary vector register is included in the
+no-spill allocation check. Only the completed result crosses into the C
+integer return register. Independent C checks every possible lane mask at
+each physical width, including complement and composed masks.</p>
 <p>On <code>wasm-simd128</code>, each of a reduction's three steps moves lane <code>i</code>
 to lane 0 with one <code>i8x16.shuffle</code> and combines it with the running value. A
 scan keeps the running prefix in a rack and, for lanes 1 to 3, combines the
