@@ -184,22 +184,28 @@ on SSE2 and NEON, eight on AVX2, or sixteen on AVX-512F.</p>
 <div class="table-scroll"><table><thead><tr><th>Native operation</th><th class="align-center"><code>i32s</code></th><th class="align-center"><code>u32s</code></th></tr></thead><tbody>
 <tr><td>wrapping <code>+</code>, <code>-</code> and <code>*</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>signed negation</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<tr><td>signed <code>abs</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
 <tr><td>signed <code>min</code> and <code>max</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
-<tr><td><code>bit_and</code>, <code>bit_or</code>, <code>bit_xor</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>bit_and</code>, <code>bit_or</code>, <code>bit_xor</code>, <code>bit_andnot</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>bit shifts with literal counts from 0 to 31</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
-<tr><td>six signed comparisons</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<tr><td>six lane comparisons (signed or unsigned)</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>select an integer rack with a lane mask</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
-<tr><td><code>all</code>, <code>any</code>, <code>bitmask</code> of a comparison</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<tr><td><code>all</code>, <code>any</code>, <code>bitmask</code> of a comparison</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>integer literal broadcast</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
-<tr><td>integer uniform arguments, runtime shift counts, conversions and lane transfers</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
+<tr><td>static one- and two-rack <code>shuffle</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td>integer uniform arguments, runtime shift counts, conversions, extraction and insertion</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
 </tbody></table>
 </div>
 <p>These operations stay in full vector registers. Integer masks can select
 float racks, and float masks can select integer racks. Native streams still
-accept float columns only.
-Signed negation wraps too: negating −2³¹ gives −2³¹ because +2³¹ doesn't fit
-in a signed 32-bit lane. Unary minus takes signed integer racks only.
-Multiplication keeps the low 32 bits of each lane's product. AVX2, AVX-512F
+accept float columns only.</p>
+<p>Signed negation wraps too: negating −2³¹ gives −2³¹ because +2³¹ doesn't fit
+in a signed 32-bit lane. Unary minus takes signed integer racks only.</p>
+<p><code>abs</code> also wraps at that boundary: <code>abs(−2³¹)</code> retains the same lane bits
+and the signed result is −2³¹. SSE2 computes <code>(x xor sign) - sign</code>, with
+the sign extended across each lane and one allocated temporary vector
+register. AVX2 and AVX-512F use <code>vpabsd</code>, and NEON uses <code>abs .4s</code>.</p>
+<p>Multiplication keeps the low 32 bits of each lane's product. AVX2, AVX-512F
 and NEON each use one packed multiply instruction. SSE2 uses two packed
 even-lane multiplies and four shuffles to restore all four lanes in order.
 It needs two temporary vector registers, and refuses a rack expression that
@@ -209,11 +215,19 @@ would require spills. None of these profiles uses a scalar loop for <code>*</cod
 instruction. SSE2 compares the lanes with <code>pcmpgtd</code> and selects their bits
 using vector logical operations, with one allocated mask register.
 Unsigned extrema remain work in progress.</p>
+<p>Both <code>i32s</code> and <code>u32s</code> support all six lane comparisons. An unsigned lane
+orders 2³¹ above 2³¹−1 and 2³²−1 above both. SSE2 and AVX2 flip bit 31 in
+two allocated temporary racks, then compare the transformed lanes as signed
+integers. AVX-512F uses <code>vpcmpud</code>, and NEON uses <code>cmhi</code> or <code>cmhs</code> for
+unsigned ordering. Equality compares the original lane bits.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">increment</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">values</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1</span><span class="tok-operator">&gt;</span></span>
 
 <span class="tok-keyword">scratch</span> <span class="tok-function">negate</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator">-</span><span class="tok-variable">values</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">magnitude</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">abs</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 
 <span class="tok-keyword">scratch</span> <span class="tok-function">product</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">a</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">b</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">a</span> <span class="tok-operator">*</span> <span class="tok-variable">b</span>
@@ -226,6 +240,9 @@ Unsigned extrema remain work in progress.</p>
 
 <span class="tok-keyword">scratch</span> <span class="tok-function">negative_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">bitmask</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span> <span class="tok-operator">&lt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">unsigned_high_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">bitmask</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2147483648</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>WebAssembly supports a wider integer operation set, shown in the next table.
 On its 128-bit register a <code>u8s</code> rack has 16 lanes, <code>i16s</code> 8, <code>i32s</code> and
@@ -236,12 +253,13 @@ On its 128-bit register a <code>u8s</code> rack has 16 lanes, <code>i16s</code> 
 <tr><td>negation</td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
 <tr><td><code>abs</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
 <tr><td><code>min</code> <code>max</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
-<tr><td>comparisons, and so <code>select</code> and <code>bitmask</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<tr><td>comparisons, and so <code>select</code> and <code>bitmask</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
 <tr><td>bitwise operations and bit shifts</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>shuffle</code> <code>extract</code> <code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 </tbody></table>
 </div>
-<p><code>u8s</code> lanes compare unsigned, and the other integer racks compare signed.
+<p><code>u8s</code> and <code>u32s</code> lanes compare unsigned, and the other supported integer
+comparisons are signed.
 <code>abs</code> of a <code>u8s</code> rack treats its lanes as signed bytes. No integer rack
 divides, and the reductions and scans take float racks only. An integer
 literal beside an integer rack is broadcast in the rack's element type, as in
@@ -277,6 +295,14 @@ end, filling with zeros. <code>shift_bits_right(x, n)</code> moves them towards 
 end, filling with zeros, and <code>shift_bits_right_signed(x, n)</code> fills with the
 sign bit. The count is an integer literal below the lane's width in bits, or
 a uniform <code>u32</code> taken modulo that width.</p>
+<p>The physical profiles implement <code>bit_andnot(a, b)</code> on <code>i32s</code> and <code>u32s</code>
+with a full-width packed instruction. SSE2 uses <code>andnps</code>, AVX2 uses
+<code>vandnps</code>, AVX-512F uses <code>vpandnd</code>, and NEON uses <code>bic .16b</code>.
+The x86 instructions complement their first source, so Rake reverses the
+instruction operands to preserve <code>a &amp; ~b</code>.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">clear_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">removed</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">bit_andnot</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">removed</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
 <p>The physical profiles support all three bit shifts on <code>i32s</code> and <code>u32s</code>
 with literal counts from 0 to 31. Zero leaves the rack unchanged.
 SSE2, AVX2 and AVX-512F use full-width packed shifts, and NEON uses
@@ -344,12 +370,15 @@ indices, one for each lane. <code>shuffle(a, b, [i0, i1, ...])</code> chooses fr
 with <code>b</code>'s lanes numbered after <code>a</code>'s as if the two racks were laid end to
 end. Indices may repeat or omit input lanes. The list must contain exactly
 the output rack's lane count, and each index must be within its one or two
-input racks. The physical profiles support <code>f32s</code>. WebAssembly also supports
-its integer rack types.</p>
+input racks. The physical profiles support <code>f32s</code>, <code>i32s</code> and <code>u32s</code>.
+WebAssembly also supports its other integer rack types.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">reversed</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">shuffle</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">2</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 
 <span class="tok-keyword">scratch</span> <span class="tok-function">interleaved</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">a</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">b</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">shuffle</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">a</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">b</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">5</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">interleaved_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">a</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">b</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">shuffle</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">a</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">b</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">5</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>These lists produce four lanes on the 128-bit profiles. AVX2 needs eight
@@ -357,10 +386,15 @@ indices, and AVX-512 needs sixteen. The compiler reports a width mismatch
 or an out-of-range index at the shuffle's source line.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">rotated</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">shuffle</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">2</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">5</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">6</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">7</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">rotated_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">shuffle</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">2</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">5</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">6</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">7</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>This rotation crosses the AVX2 register's 128-bit subdivisions. Shuffles
 preserve each selected lane's bits, including signed zeros and signalling
-NaN payloads, without floating-point arithmetic or exceptions. The selected
+NaN payloads, without floating-point arithmetic or exceptions. Integer
+shuffles use the same bit-preserving transfers, including lanes whose high
+bit is set. The selected
 native sequences keep their temporary values in vector registers and count
 those registers in the no-spill allocation check.
 Native stream shuffles remain WIP* until their partial-rack participation
@@ -389,7 +423,7 @@ integer result. General scalar arithmetic on these results inside a native
 scratch remains WIP*. Cross-lane reductions are forbidden in a <code>through</code>
 block. Native stream mask reductions remain WIP* until their partial-rack
 participation contract is implemented.</p>
-<p>The native profiles also reduce <code>i32s</code> comparison masks. Masks from other
+<p>The native profiles also reduce <code>i32s</code> and <code>u32s</code> comparison masks. Masks from other
 integer element types remain available on WebAssembly only:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">occupied_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">tiles</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u8s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">bitmask</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">tiles</span> <span class="tok-operator">!=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
