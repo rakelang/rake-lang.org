@@ -82,6 +82,16 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Signed <code>to_f32</code> and <code>to_i32</code> compile on SSE2, AVX2, AVX-512F and NEON,
+in register kernels and streams. Packed operations preserve nearest-even
+rounding, saturating float-to-integer results and NaN-to-zero conversion.
+Masked operands become zero before conversion. Independent integer-bit
+oracles check boundary and raw values, retained inputs, exception flags
+and guarded tails. Final-object fixtures reject scalar and narrowed
+instructions. The interpreter now clamps infinities and out-of-range
+values before scalar integer conversion.</p>
+</li>
+<li>
 <p>Native streams explicitly widen <code>i8</code> and <code>i16</code> columns into <code>i32s</code>, or
 <code>u8</code> and <code>u16</code> columns into <code>u32s</code>, on SSE2, AVX2, AVX-512F and NEON.
 Packed extension preserves signed values, with guarded compact transfers

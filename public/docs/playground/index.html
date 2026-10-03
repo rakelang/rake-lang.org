@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
   <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Playground and tutorial | Rake","name":"Playground and tutorial | Rake","description":"An interactive Rake tutorial in twelve lessons, with each concept demonstrated in the result, lane trace, compiler output or diagnostic message.","url":"https://rake-lang.org/docs/playground/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
-<script type="module" src="/scripts/playground.js?v=7e027418"></script>
+<script type="module" src="/scripts/playground.js?v=bcb88c62"></script>
 </head>
 <body class="layout-playground">
   <header class="site-header">
@@ -52,7 +52,7 @@
 <span id="lesson-12" hidden></span>
 <section class="playground-app" data-rake-playground
   data-worker="/scripts/playground-worker.js?v=185e0038"
-  data-compiler="/scripts/rake-compiler.js?v=23ab5157"
+  data-compiler="/scripts/rake-compiler.js?v=90b4fa07"
   data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
   data-rake-language="/scripts/tree-sitter-rake.wasm?v=ab9d92ea"
   data-rake-highlights="/scripts/rake-highlights.scm?v=e7f8b2a0">
@@ -149,8 +149,9 @@ Lessons start on WebAssembly when they contain a whole program. WebAssembly
 covers general memory runs. SSE2, AVX2, AVX-512 and NEON
 also compile <code>f32</code>, <code>i32</code> and <code>u32</code> stream traversals and single-column stack updates.
 Stored byte and 16-bit columns can be explicitly widened into signed or
-unsigned 32-bit racks. General native memory runs and numerical integer/float
-conversions give the compiler's work-in-progress diagnostic. Updates
+unsigned 32-bit racks. <code>to_f32</code> and <code>to_i32</code> convert between signed 32-bit
+integer and float racks, including in streams. General native memory runs
+give the compiler's work-in-progress diagnostic. Updates
 can use a separate destination stack with a different record layout. Every result and
 lane trace comes from Rake's interpreter, using the selected profile's <code>f32</code>
 rack width. The browser displays C or assembly without executing that
@@ -427,12 +428,12 @@ output, which slow code passes as the last argument. Change the count passed
 to <code>advance</code> from <code>&lt;6&gt;</code> to <code>&lt;5&gt;</code> and run. The second chunk in the Lanes tab
 now has one live lane and three empty ones. The tail loads and stores only
 the record that exists.</p>
-<p>This lesson uses WebAssembly because <code>to_f32</code> converts the widened ages to
-floats. Native profiles support the byte-column widening and the <code>i32s</code>/<code>u32s</code>
-bitcast, while their numerical integer/float conversion remains work in
-progress. A native run can already compare those ages as integers to select
-float values, or produce a 32-bit integer stream. <a href="/docs/packs-and-runs/#compact-columns">Compact
-columns</a> shows a complete native example.</p>
+<p>This lesson starts on WebAssembly, with four records per rack. It also
+compiles on SSE2 and NEON with four, AVX2 with eight, or AVX-512 with sixteen.
+On AVX2 and AVX-512, both counts above fit in one partial rack. Select a
+profile to inspect that difference. <code>widen</code> extends each byte age to an
+unsigned 32-bit lane, <code>bitcast</code> retains those bits as signed integers, and
+<code>to_f32</code> converts the values to floats for the calculation.</p>
 <h2 id="10-a-whole-program">10. A whole program</h2>
 <p>Slow code holds a program's records, state and control flow. A <code>record</code> groups
 fields, <code>state games: i32 := 0</code> keeps a value for the life of the program,

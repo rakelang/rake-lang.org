@@ -161,6 +161,9 @@ stack or a separate destination with a different record layout.
 Explicit <code>widen</code> also reads signed and unsigned byte or 16-bit columns into
 32-bit working racks. Each column advances by its stored element width,
 and a partial rack reads only participating records. Outputs stay 32-bit.
+Signed integer/float numerical conversions preserve those 32-bit lanes,
+with masked protection, nearest-even rounding and saturating float-to-integer
+results.
 <a href="/docs/packs-and-runs/">Packs and runs</a> defines
 their boundaries and checked tails.</p>
 <h2 id="scalar-code-stays-scalar">Scalar code stays scalar</h2>
