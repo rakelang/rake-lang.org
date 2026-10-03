@@ -4043,7 +4043,7 @@ async function start2(root2) {
     next.disabled = lessonIndex === lessons.length - 1;
     const wholeProgram = /(^|\n)(slow|run|record|state|embed|extern|const)\s/m.test(starter);
     if (wholeProgram) target.value = "wasm-simd128";
-    required(root2, "[data-target-note]").textContent = wholeProgram ? "WebAssembly covers general memory runs. AVX2 and AVX-512 also support read-only f32 streams. Native slow code and f32 kernel calls are available. Results come from Rake's interpreter." : "Inspect vector code for SSE2, AVX2, AVX-512, NEON or WebAssembly. Results come from Rake's interpreter.";
+    required(root2, "[data-target-note]").textContent = wholeProgram ? "WebAssembly covers general memory runs. SSE2, AVX2 and AVX-512 also support read-only f32 streams. Native slow code and f32 kernel calls are available. Results come from Rake's interpreter." : "Inspect vector code for SSE2, AVX2, AVX-512, NEON or WebAssembly. Results come from Rake's interpreter.";
     history.replaceState(null, "", `#lesson-${lessonIndex + 1}`);
     highlight();
     if (ready) void compile();

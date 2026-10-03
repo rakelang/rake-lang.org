@@ -219,6 +219,11 @@ zero. Like a reduction, its result is a scalar.</p>
 <p>Float arithmetic is IEEE 754 binary32, rounded to nearest with ties to even.
 Every comparison with a NaN operand is false, <code>!=</code> included, so <code>a != b</code>
 means that <code>a</code> and <code>b</code> are ordered and different.</p>
+<p>Native x86 comparisons don't raise invalid-operation exceptions for quiet
+NaNs. SSE2 implements <code>&lt;</code> and <code>&lt;=</code> by checking for ordered operands, making
+unordered operands benign, then comparing the racks. Its <code>&lt;=</code> sequence
+retains an additional mask register, which the allocator includes in its
+pressure check. Signalling NaNs can still raise an invalid-operation exception.</p>
 <p><code>wasm-simd128</code> contracts nothing, so the target and <code>rakec --interpret</code>
 agree on every result bit that isn't a NaN. <code>x86-avx2</code>, <code>x86-avx512</code> and <code>aarch64-neon</code>
 contract a multiply and an add into one fused multiply-add when both are in
@@ -282,7 +287,7 @@ and a whole program's in <a href="/docs/slow-tier/">the slow tier</a>. The x86 a
 backends in the 0.6.0-beta tag compile neither runs nor slow code. The
 unreleased development compiler adds native C programs with slow orchestration
 and Rake-selected register kernels. Slow callers can pass uniform <code>f32</code>
-arguments and receive <code>f32</code> results. AVX2 and AVX-512 also support the
+arguments and receive <code>f32</code> results. SSE2, AVX2 and AVX-512 also support the
 <a href="/docs/packs-and-runs/#native-x86-streams">native stream subset</a>.
 General native runs and other scalar kernel boundaries remain work in progress.</p>
 <h2 id="verification">Verification</h2>

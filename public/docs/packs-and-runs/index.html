@@ -78,8 +78,8 @@
 <p>A run is vector code over memory. It traverses columnar data a rack at a
 time, loops over views, and writes its results to memory. Runs are
 implemented for <code>wasm-simd128</code>. The unreleased compiler also implements the
-<a href="#native-x86-streams">AVX2 and AVX-512 stream subset</a>. General native runs
-and streams on SSE2 and NEON remain work in progress.</p>
+<a href="#native-x86-streams">SSE2, AVX2 and AVX-512 stream subset</a>. General native runs
+and NEON streams remain work in progress.</p>
 <p>A run may enter scalar code explicitly with a <a href="/docs/slow-tier/#slow-blocks">slow block</a>.
 It returns to vector mode at the closing brace. The block can't capture racks
 or a traversal chunk, and it never scalarises the surrounding rack work.</p>
@@ -252,28 +252,33 @@ progress and fail compilation. Unused stored columns may have other scalar
 types.</p>
 <p>On Linux x86-64 the stream follows System V: the descriptor is in <code>rdi</code>, the
 count in <code>rsi</code>, and the output in <code>rdx</code>. It returns <code>void</code> under its source
-identifier, uses no stack frame, calls nothing, and executes <code>vzeroupper</code>
-before returning:</p>
+identifier, uses no stack frame and calls nothing. The AVX profiles execute
+<code>vzeroupper</code> before returning:</p>
 <pre class="code code-c"><code><span class="tok-type">void</span> <span class="tok-function">roots</span>(
     <span class="tok-keyword">const</span> <span class="tok-keyword">struct</span> <span class="tok-type">rake_stack_Samples_v1</span> <span class="tok-operator">*</span><span class="tok-variable">input</span>, <span class="tok-comment">/* rdi */</span>
     <span class="tok-type">int64_t</span> <span class="tok-variable">count</span>,                            <span class="tok-comment">/* rsi */</span>
     <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">result</span>                             <span class="tok-comment">/* rdx */</span>
 )<span class="tok-delimiter">;</span>
 </code></pre>
-<p>The compiler owns the loop and increments its element index by eight on
-AVX2 or sixteen on AVX-512F. Full racks use unaligned vector loads and stores.
-The last one uses <code>vmaskmovps</code> on AVX2, or <code>vmovups</code> with an opmask on
-AVX-512F, so it touches only active elements. The AVX-512 memory mask uses
-<code>k2</code>, independently of the expression selector's <code>k1</code>. Inactive operands are
-made benign before exception-capable arithmetic. There is no scalar cleanup
-loop. Counts of zero or less touch no pointer, so null pointers are allowed
-then. For a positive count, each read column and the output must hold that
-many floats. The same overlap rules as the wasm32 boundary apply.</p>
+<p>The compiler owns the loop and increments its element index by four on SSE2,
+eight on AVX2 or sixteen on AVX-512F. Full racks use unaligned vector loads
+and stores. AVX2 touches only active elements in the last rack through
+<code>vmaskmovps</code>. AVX-512F uses <code>vmovups</code> with the <code>k2</code> memory mask, independently
+of the expression selector's <code>k1</code>.</p>
+<p>SSE2 has no fault-suppressing float load or store. For its last one to three
+elements, uniform count guards select the individual memory transfers. The
+compiler assembles those elements into one XMM rack, evaluates the expression
+once with vector arithmetic, and stores only its active elements. There is
+no scalar arithmetic cleanup loop. Inactive operands are made benign before
+exception-capable arithmetic on all three profiles.</p>
+<p>Counts of zero or less touch no pointer, so null pointers are allowed then.
+For a positive count, each read column and the output must hold that many
+floats. The same overlap rules as the wasm32 boundary apply.</p>
 <p>The final-object verifier compares the complete traversal function with the
 separately assembled selection, including branch offsets, memory operands
 and embedded literals. Any difference or unresolved relocation is rejected.
 <code>test/native_stream_test.sh</code> checks independent C results, exact in-place
-output and guarded tails of every remainder for one, two and four columns.
+output and guarded tails of every remainder for one to four columns.
 It runs AVX-512 on capable hardware or through Intel SDE. The AVX2 demonstration
 in <code>demo/safe-root/run.sh</code> also checks a million-element pass plus a
 three-element tail. Its timings compare both optimised and explicitly scalar

@@ -4,7 +4,7 @@
 <h1>Rake</h1>
 <p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
 <p>Rust's type system and borrow checker enforce memory safety in safe code. An <code>unsafe</code> block marks operations whose safety the programmer must establish. Rake's compiler checks that vector calculations become vector instructions. You get that guarantee without needing to manually review the assembly that the compiler generated, because it does that for you. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
-<p>Rake is a SIMD, or vector, programming language. It's built for calculations that apply the same operation to many numbers at once. Its current profiles target CPUs and WebAssembly. The planned GPU profiles will preserve parallel work across warp lanes and check the execution costs their contracts specify.</p>
+<p>Rake is a SIMD, or vector, programming language. It's built for calculations that apply the same operation to many numbers at once. Its current profiles target CPUs and WebAssembly. The planned GPU profiles will preserve parallel work across warp lanes and check execution costs against an explicit contract.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
 <li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
@@ -433,7 +433,7 @@ individual `f32` values, rather than a million-lane `f32s` value.
 <text class="diagram-value" x="396" y="203">150 full racks</text>
 <text class="diagram-label" x="18" y="247">Wider racks process more lanes per instruction.</text>
 </svg>
-<figcaption>The rack counts follow from register width. Native AVX-512 streams use the 512-bit row, AVX2 streams use the 256-bit row, and WebAssembly uses the 128-bit row. Native stack traversal on SSE2 and NEON remains WIP*.</figcaption>
+<figcaption>The rack counts follow from register width. Native AVX-512 streams use the 512-bit row, AVX2 streams use the 256-bit row, and SSE2 streams and WebAssembly use the 128-bit row. Native stack traversal on NEON remains WIP*.</figcaption>
 </figure>
 
 512-bit SIMD handles twice as many `f32` lanes per instruction as AVX2, and
@@ -541,8 +541,8 @@ compiles, and [the roadmap](/docs/roadmap/) what comes next.
 The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
-include the AVX2 and AVX-512 read-only `f32` stream subset. General native runs and other
-profiles' traversal remain WIP*. [The backend](/docs/backend/#whole-programs) explains
+include the SSE2, AVX2 and AVX-512 read-only `f32` stream subset. General native runs and
+NEON traversal remain WIP*. [The backend](/docs/backend/#whole-programs) explains
 which parts Rake emits and which parts use a platform C compiler.
 
 ## GPU execution: the design

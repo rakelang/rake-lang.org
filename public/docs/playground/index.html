@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
   <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Playground and tutorial | Rake","name":"Playground and tutorial | Rake","description":"An interactive Rake tutorial in twelve lessons, with each concept demonstrated in the result, lane trace, compiler output or diagnostic message.","url":"https://rake-lang.org/docs/playground/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
-<script type="module" src="/scripts/playground.js?v=06a55a0c"></script>
+<script type="module" src="/scripts/playground.js?v=3d781d01"></script>
 </head>
 <body class="layout-playground">
   <header class="site-header">
@@ -52,7 +52,7 @@
 <span id="lesson-12" hidden></span>
 <section class="playground-app" data-rake-playground
   data-worker="/scripts/playground-worker.js?v=185e0038"
-  data-compiler="/scripts/rake-compiler.js?v=fe89ef1f"
+  data-compiler="/scripts/rake-compiler.js?v=146e1b4f"
   data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
   data-rake-language="/scripts/tree-sitter-rake.wasm?v=ab9d92ea"
   data-rake-highlights="/scripts/rake-highlights.scm?v=e7f8b2a0">
@@ -145,7 +145,7 @@ all the lanes at once, the idea the whole tutorial builds on.</p>
 <p>The target menu offers WebAssembly, SSE2, AVX2, AVX-512 and NEON. The browser
 development compiler supports native slow orchestration with uniform <code>f32</code>
 kernel calls too. Lessons start on WebAssembly when they contain a whole
-program. WebAssembly covers general memory runs. AVX2 and AVX-512 also compile
+program. WebAssembly covers general memory runs. SSE2, AVX2 and AVX-512 also compile
 read-only <code>f32</code> stream traversals. Other native memory runs give the compiler's
 work-in-progress diagnostic. Every result and
 lane trace comes from Rake's interpreter, using the selected profile's <code>f32</code>
