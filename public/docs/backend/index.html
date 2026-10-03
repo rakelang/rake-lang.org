@@ -212,6 +212,15 @@ all zero or all one bits. <code>if &lt;enabled&gt;</code> then uses the same mas
 lowering as a comparison, including when <code>all</code> or <code>any</code> produced the Boolean.
 The broadcast and shifts use full-width vector instructions on every
 physical profile.</p>
+<p>Uniform conditions also compose with <code>and</code>, <code>or</code> and <code>not</code>. Their mask
+operations remain in vector registers. Short-circuit logic restricts the
+right-hand comparison's participation to lanes where its result is needed,
+intersecting that mask with any outer through or stream-tail mask. Skipped
+floating-point operands are sanitised before comparison, so a signalling NaN
+raises invalid only when that comparison participates. Native traversals
+lower immutable Boolean bindings once, retaining their computed masks for reuse.
+WebAssembly can broadcast a Boolean condition into a mask with <code>i32.sub</code>
+and <code>i32x4.splat</code> before combining it with another condition.</p>
 <p>Native 32-bit integer racks share the float racks' register widths and C
 vector argument slots. Add and subtract select packed <code>paddd</code> and <code>psubd</code>
 on SSE2, their full-width VEX/EVEX forms on AVX2 and AVX-512F, or NEON

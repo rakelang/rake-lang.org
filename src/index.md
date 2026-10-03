@@ -552,6 +552,8 @@ include the SSE2, AVX2, AVX-512 and NEON `f32`, `i32` and `u32` traversal subset
 or one column update in a mutable input or destination stack. These runs
 accept `f32`, `i32`, `u32` and `bool` uniforms within the profile's register
 limits.
+Uniform conditions can use `and`, `or` and `not`. A run can bind an
+intermediate Boolean and reuse it in later conditions.
 Explicit `widen` also reads signed or unsigned byte and 16-bit columns into
 32-bit working racks, keeping their storage compact and their tails checked.
 Bitcasts between `i32s` and `u32s` preserve lane bits. `to_f32` converts

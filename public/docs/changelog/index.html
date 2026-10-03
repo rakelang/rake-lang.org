@@ -82,6 +82,16 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Uniform conditions compose with <code>and</code>, <code>or</code> and <code>not</code> in physical register
+kernels and native streams. Chained immutable Boolean bindings retain that
+structure. Short-circuit masks sanitise skipped floating-point comparisons,
+including inside through masks and partial racks. Independent C checks
+exact choices and signalling-NaN exception flags, with guarded stream
+inputs and column updates. Mixed-program and WebAssembly checks cover the
+composed condition too. WebAssembly C emission also keeps parameter
+identifiers distinct from C keywords, generated temporaries and typedefs.</p>
+</li>
+<li>
 <p>Native <code>i32s</code> and <code>u32s</code> shifts accept runtime uniform <code>u32</code> counts on
 SSE2, AVX2, AVX-512F and NEON, including native streams. Vector operations
 normalise the count modulo 32 in one allocated temporary, preserving live

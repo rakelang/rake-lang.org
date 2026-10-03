@@ -188,6 +188,12 @@ Independent C checks exact choices, every reduced lane mask, fused expressions
 and protected roots nested inside through masks. Deliberately set upper
 argument bits check the C ABI boundary. Float streams also accept Boolean
 uniforms, with guard-page checks for nested protected branches and tails.</p>
+<p>Compound uniform conditions now use <code>and</code>, <code>or</code> and <code>not</code> in register kernels
+and native streams. Streams also retain chained immutable Boolean bindings.
+Short-circuit comparisons keep their inactive floating-point operands benign.
+Independent C checks lane choices and signalling-NaN exception flags,
+including outer masks and guarded tails. Other scalar expressions in native
+runs remain work in progress.</p>
 <p>We will bring the physical profiles up to the language's published operation
 set. The development compiler now supports 32-bit integer wrapping add/subtract/multiply
 and bitwise AND/OR/XOR/AND-NOT on all four physical profiles, along with signed
