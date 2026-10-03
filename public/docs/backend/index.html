@@ -200,7 +200,32 @@ remain work in progress on physical profiles.</p>
 vector argument slots. Add and subtract select packed <code>paddd</code> and <code>psubd</code>
 on SSE2, their full-width VEX/EVEX forms on AVX2 and AVX-512F, or NEON
 <code>add</code> and <code>sub</code> with four 32-bit lanes. Bitwise operations use the existing
-register-only logical instructions. Signed comparisons use <code>pcmpeqd</code> and
+register-only logical instructions. Signed integer negation subtracts each
+lane from zero. The x86 profiles clear a separate destination register before
+packed subtraction, preserving the source until it's consumed. NEON selects
+one full-width <code>neg vD.4s, vS.4s</code> instruction.
+Multiplication keeps the low 32 bits for signed and unsigned racks. AVX2 and
+AVX-512F select full-width <code>vpmulld</code>, and NEON selects <code>mul .4s</code>. SSE2
+multiplies the even lanes with <code>pmuludq</code>, then multiplies the odd lanes in two
+allocated temporaries. Four <code>shufps</code> instructions put the low product words
+back in lane order. Those temporaries participate in the no-spill register
+allocation. The final-object verifier permits these shuffles for the selected
+SSE2 multiply and checks full-register multiply operands on every profile.
+Signed lane-wise extrema select <code>vpminsd</code> or <code>vpmaxsd</code> on AVX2 and AVX-512F,
+or <code>smin .4s</code> and <code>smax .4s</code> on NEON. SSE2 uses <code>pcmpgtd</code> in an allocated
+mask register, followed by vector logical selection. Both input racks remain
+available until the selection finishes, including when the destination
+reuses a dying input. The verifier checks full-width extrema operands and
+rejects the SSE4.1 <code>pminsd</code> and <code>pmaxsd</code> instructions in the SSE2 profile.
+Literal bit shifts use packed <code>pslld</code>, <code>psrld</code> or <code>psrad</code> on SSE2 and their
+full-width VEX/EVEX forms on AVX2 and AVX-512F. NEON uses <code>shl</code>, <code>ushr</code> or
+<code>sshr</code> with <code>.4s</code> operands. Instruction selection consumes a literal count
+from 0 to 31. A zero count needs only a register copy, elided when the
+destination reuses the input. The final-object verifier checks register
+widths and immediate bounds, rejecting register-supplied counts and memory
+operands in these register kernels. Native runtime shift counts remain
+work in progress.
+Signed comparisons use <code>pcmpeqd</code> and
 <code>pcmpgtd</code> on SSE2 and AVX2, with operand reversal or mask inversion for the
 other predicates. AVX-512F uses <code>vpcmpd</code> and expands its <code>k1</code> result into a
 full rack without requiring AVX-512DQ. NEON uses <code>cmeq</code>, <code>cmgt</code> and <code>cmge</code>,
