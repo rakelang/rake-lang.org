@@ -113,12 +113,15 @@ accepted by the current compiler.</p>
 <p><code>lanes</code>, the lane count, and <code>@</code>, the lane index, are reserved and
 unavailable on every profile.</p>
 <h2 id="float-racks">Float racks</h2>
-<p>These operations on <code>f32s</code> racks compile on each profile:</p>
+<p>The table shows operations on <code>f32s</code> racks in the development compiler.
+Physical profiles gained <code>abs</code> after the 0.6.0-beta tag, so the tagged
+compiler still rejects it on those profiles.</p>
 <div class="table-scroll"><table><thead><tr><th>Operation</th><th class="align-center"><code>x86-sse2</code></th><th class="align-center"><code>x86-avx2</code></th><th class="align-center"><code>x86-avx512</code></th><th class="align-center"><code>aarch64-neon</code></th><th class="align-center"><code>wasm-simd128</code></th></tr></thead><tbody>
 <tr><td><code>+</code> <code>-</code> <code>*</code> <code>/</code>, negation, <code>sqrt</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>comparisons, <code>and</code> <code>or</code> <code>not</code> on masks, <code>select</code>, <code>if</code> on a mask</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>fma(a, b, c)</code></td><td class="align-center">ISA limit†</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">ISA limit†</td></tr>
-<tr><td><code>min</code> <code>max</code> <code>abs</code> <code>floor</code> <code>ceil</code> <code>trunc</code> <code>nearest</code></td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td></tr>
+<tr><td><code>abs</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>min</code> <code>max</code> <code>floor</code> <code>ceil</code> <code>trunc</code> <code>nearest</code></td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td></tr>
 <tr><td><code>exp</code> <code>log</code> <code>log2</code> <code>tanh</code></td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td></tr>
 <tr><td><code>if</code> on a uniform condition</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td></tr>
 <tr><td><code>sum</code> <code>product</code> <code>minimum</code> <code>maximum</code>, and the scans</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">yes</td></tr>
@@ -137,7 +140,13 @@ no rack form: a mask comes from a comparison. <code>sin</code>, <code>cos</code>
 profile.</p>
 <p><code>select(mask, a, b)</code> takes <code>a</code> in the mask's lanes and <code>b</code> elsewhere, and so
 does <code>if mask then a else b</code>. <code>if &lt;c&gt; then a else b</code> with a uniform condition
-chooses one rack for every lane. On <code>wasm-simd128</code>, <code>min(a, b)</code> and
+chooses one rack for every lane. <code>abs</code> takes the magnitude of each lane,
+including changing −0 to +0. Native profiles clear the sign bit with a vector
+bitwise operation, without floating-point arithmetic or exceptions.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">magnitudes</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">abs</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p>On <code>wasm-simd128</code>, <code>min(a, b)</code> and
 <code>max(a, b)</code> are IEEE 754 minimum and maximum: NaN if either lane is NaN, and
 −0 below +0. <code>floor</code>, <code>ceil</code>, <code>trunc</code> and <code>nearest</code> round to an integral
 value, <code>nearest</code> with ties to even. <code>fma(a, b, c)</code> is <code>a * b + c</code> with one

@@ -244,11 +244,13 @@ misaligned arrays, sentinels after the output, null pointers for empty
 counts, in-place output, storage ending at the last page of linear memory,
 mutable stacks and rack parameters, in both addressing modes.</p>
 <h2 id="native-cpu-streams">Native CPU streams</h2>
-<p>The unreleased development compiler supports a read-only stack and an <code>i64</code>
-count, followed by one <code>f32s</code> traversal that yields an <code>f32</code> stream. Its body
-loads one to four <code>f32</code> columns and combines immutable lane expressions,
-including calls to rakes and scratches. General loops, writable stacks,
-widening, additional parameters, reductions and scans remain work in
+<p>The unreleased development compiler supports an input stack and an <code>i32</code> or
+<code>i64</code> count, optionally followed by a mutable destination stack, then up to eight
+uniform <code>f32</code> arguments. One <code>f32s</code> traversal yields an <code>f32</code> stream from a
+read-only stack, or updates one column in its mutable input or destination.
+Its body loads one to four <code>f32</code> columns and combines immutable lane expressions,
+including calls to rakes and scratches. General loops, multiple column stores,
+widening, other parameter types, reductions and scans remain work in
 progress and fail compilation. Unused stored columns may have other scalar
 types.</p>
 <p>On Linux x86-64 the stream follows System V: the descriptor is in <code>rdi</code>, the
@@ -262,6 +264,68 @@ descriptor in <code>x0</code>, count in <code>x1</code> and output in <code>x2</
     <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">result</span>                             <span class="tok-comment">/* rdx / x2 */</span>
 )<span class="tok-delimiter">;</span>
 </code></pre>
+<p>A scale or threshold can vary between calls without changing the kernel:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Values</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">scaled_values</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">bias</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">row</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">yield</span> <span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">scale</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">bias</span><span class="tok-operator">&gt;</span></span>
+</code></pre>
+<p>The C arguments retain source order, with the output last:</p>
+<pre class="code code-c"><code><span class="tok-type">void</span> <span class="tok-function">scaled_values</span>(<span class="tok-keyword">const</span> <span class="tok-keyword">struct</span> <span class="tok-type">rake_stack_Values_v1</span> <span class="tok-operator">*</span><span class="tok-variable">input</span>,
+    <span class="tok-type">int64_t</span> <span class="tok-variable">count</span>, <span class="tok-type">float</span> <span class="tok-variable">scale</span>, <span class="tok-type">float</span> <span class="tok-variable">bias</span>, <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">result</span>)<span class="tok-delimiter">;</span>
+</code></pre>
+<p>The floating-point arguments arrive in <code>xmm0</code> through <code>xmm7</code> on x86, or
+<code>s0</code> through <code>s7</code> on AArch64. Rake preserves them in caller-clobbered registers
+before loading the first rack, and the allocator keeps them live through
+every iteration. Register pressure still causes a compilation error. The
+stream never spills an argument to memory or accepts a ninth argument on
+the C stack.</p>
+<p>To update a column in place, make the input stack mutable and finish the
+traversal with a column assignment. This run has no stream result or separate
+output argument:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Values</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">shift_values</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-keyword">stack</span> <span class="tok-type">Values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">bias</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">row</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-variable">input</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">bias</span><span class="tok-operator">&gt;</span></span>
+</code></pre>
+<pre class="code code-c"><code><span class="tok-keyword">struct</span> <span class="tok-type">rake_mut_stack_Values_v1</span> { <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-property">value</span><span class="tok-delimiter">;</span> }<span class="tok-delimiter">;</span>
+<span class="tok-type">void</span> <span class="tok-function">shift_values</span>(<span class="tok-keyword">const</span> <span class="tok-keyword">struct</span> <span class="tok-type">rake_mut_stack_Values_v1</span> <span class="tok-operator">*</span><span class="tok-variable">input</span>,
+    <span class="tok-type">int64_t</span> <span class="tok-variable">count</span>, <span class="tok-type">float</span> <span class="tok-variable">bias</span>)<span class="tok-delimiter">;</span>
+</code></pre>
+<p>The descriptor stays unchanged. Rake loads the read columns before storing
+each chunk's result, and writes only the selected column's active elements.
+A column update may also write an input column that the expression never
+reads. A C caller may leave the stack's unused pointers null.</p>
+<p>A separate destination stack can have a different record layout. Its
+descriptor follows the count, before the floating-point uniforms:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Values</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+<span class="tok-keyword">pack</span> <span class="tok-type">Roots</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">tag</span><span class="tok-punctuation-delimiter">;</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">root</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">copy_shift</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">output</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-keyword">stack</span> <span class="tok-type">Roots</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">bias</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">row</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-variable">output</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">root</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">bias</span><span class="tok-operator">&gt;</span></span>
+</code></pre>
+<pre class="code code-c"><code><span class="tok-keyword">struct</span> <span class="tok-type">rake_stack_Values_v1</span> { <span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-property">value</span><span class="tok-delimiter">;</span> }<span class="tok-delimiter">;</span>
+<span class="tok-keyword">struct</span> <span class="tok-type">rake_mut_stack_Roots_v1</span> { <span class="tok-type">uint8_t</span> <span class="tok-operator">*</span><span class="tok-property">tag</span><span class="tok-delimiter">;</span> <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-property">root</span><span class="tok-delimiter">;</span> }<span class="tok-delimiter">;</span>
+<span class="tok-type">void</span> <span class="tok-function">copy_shift</span>(<span class="tok-keyword">const</span> <span class="tok-keyword">struct</span> <span class="tok-type">rake_stack_Values_v1</span> <span class="tok-operator">*</span><span class="tok-variable">input</span>, <span class="tok-type">int32_t</span> <span class="tok-variable">count</span>,
+    <span class="tok-keyword">const</span> <span class="tok-keyword">struct</span> <span class="tok-type">rake_mut_stack_Roots_v1</span> <span class="tok-operator">*</span><span class="tok-variable">output</span>, <span class="tok-type">float</span> <span class="tok-variable">bias</span>)<span class="tok-delimiter">;</span>
+</code></pre>
+<p>Both descriptors stay unchanged. The selected destination pointer is loaded
+using its own record layout. The C boundary passes this descriptor in <code>rdx</code>
+or <code>x2</code>, where a stream passes its output pointer. Rake callers check that
+both stacks' columns hold the count. Independent C callers supply valid
+storage for the read and written columns, and may leave unused pointers null.</p>
 <p>The compiler owns the loop and advances by four elements on SSE2 and NEON,
 eight on AVX2 or sixteen on AVX-512F. Full racks use unaligned vector loads
 and stores. AVX2 touches only active elements in the last rack through
@@ -277,7 +341,13 @@ through <code>ld1</code> lane transfers. It evaluates one masked rack and writes
 active results through <code>st1</code> lane transfers. Both keep the arithmetic
 vectorised. Inactive operands are made benign before exception-capable
 arithmetic on all four profiles.</p>
-<p>Counts of zero or less touch no pointer, so null pointers are allowed then.
+<p>The count uses <code>int32_t</code> or <code>int64_t</code> in C, matching its Rake type. An <code>i32</code>
+count is sign-extended at entry before the loop or any pointer access, so
+unspecified upper register bits cannot change its value. The
+<a href="https://gitlab.com/x86-psABIs/x86-64-ABI/-/blob/master/x86-64-ABI/low-level-sys-info.tex">System V AMD64 ABI</a>
+and <a href="https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst#parameter-passing">AAPCS64</a>
+define those unused argument bits as unspecified. Counts of zero or less
+touch no pointer, so null pointers are allowed then.
 For a positive count, each read column and the output must hold that many
 floats. The same overlap rules as the wasm32 boundary apply.</p>
 <p>The final-object verifier compares the complete traversal function with the
@@ -285,8 +355,16 @@ separately assembled selection, including branch offsets, memory operands
 and embedded literals. Any difference or unresolved relocation is rejected.
 <code>test/native_stream_test.sh</code> checks independent C results, exact in-place
 output and guarded tails of every remainder for one to four columns. It also
-checks a million-element safe-root pass plus a three-element tail on each
-profile. AVX-512 runs on capable hardware or through Intel SDE, and NEON
+checks C and Rake callers with scale, bias and threshold arguments, including
+a quiet-NaN threshold, and eight uniform arguments preserved across racks.
+Mutable-descriptor checks cover the first and fourth columns, an unread
+destination column, unchanged independent columns and null unused pointers.
+Separate-destination checks use a different record layout through C and Rake
+callers. C checks guard every tail and cover exact aliasing with a read column.
+The C count oracle also supplies arbitrary upper bits in an <code>i32</code> argument,
+including zero and negative counts, while Rake callers exercise both widths.
+Each profile checks a million-element safe-root pass plus a three-element tail.
+AVX-512 runs on capable hardware or through Intel SDE, and NEON
 through AArch64 QEMU. The AVX2 demonstration in <code>demo/safe-root/run.sh</code>
 times both optimised and explicitly scalar C builds.</p>
 
