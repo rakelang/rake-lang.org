@@ -202,7 +202,8 @@ on SSE2 and NEON, eight on AVX2, or sixteen on AVX-512F.</p>
 <tr><td>static one- and two-rack <code>shuffle</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>bitcast</code> between <code>i32s</code> and <code>u32s</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>to_f32</code> (<code>i32s</code> or <code>u32s</code> to <code>f32s</code>)</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
-<tr><td>runtime shift counts, extraction and insertion</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
+<tr><td>literal-index <code>extract</code> and <code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td>runtime shift counts</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
 </tbody></table>
 </div>
 <p>These operations stay in full vector registers. Integer masks can select
@@ -420,25 +421,30 @@ and are unavailable.</p>
 Lane indices start at zero and must be integer literals within the selected
 profile's width: 0–3 on SSE2 and NEON, 0–7 on AVX2, and 0–15 on AVX-512.
 <code>wasm-simd128</code> supports extraction from its float and integer rack types.
-The physical profiles currently support <code>f32s</code> only.</p>
+The physical profiles support <code>f32s</code>, <code>i32s</code> and <code>u32s</code>.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">fourth</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">extract</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-bracket">)</span>
 
 <span class="tok-keyword">scratch</span> <span class="tok-function">add_fourth</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">let</span> <span class="tok-operator">&lt;</span><span class="tok-variable">picked</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span> <span class="tok-operator">=</span> <span class="tok-function">extract</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-variable">values</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">picked</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">fourth_unsigned</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">extract</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>The first scratch returns one scalar. The second broadcasts that scalar back
 across the rack before adding it to the original values. Native extraction
 uses full-width vector lane transfers, then returns the selected low lane
-through the scalar C ABI. It preserves the selected bits, including a
-signalling NaN, without floating-point arithmetic or exceptions.
+through the scalar C ABI. Integer results use the platform's integer return
+register, and their signedness follows the input rack. The transfers preserve
+every bit, including a signalling NaN in a float rack, without floating-point
+arithmetic or exceptions.
 Native stream traversal still rejects extraction until its partial-rack
 participation contract is implemented.</p>
 <h2 id="lane-insertion">Lane insertion</h2>
 <p><code>insert(values, 3, &lt;replacement&gt;)</code> produces a rack with lane 3 replaced by
-the uniform <code>f32</code>. Every other lane keeps its original bits. The index is
-a literal with the same profile bounds as extraction, and <code>values</code> remains
+the uniform of the same element type. Every other lane keeps its original
+bits. The index is a literal with the same profile bounds as extraction, and <code>values</code> remains
 available after the operation.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">replace_fourth</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">replacement</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">insert</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">replacement</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
@@ -446,13 +452,16 @@ available after the operation.</p>
 <span class="tok-keyword">scratch</span> <span class="tok-function">copy_first_to_fourth</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">let</span> <span class="tok-operator">&lt;</span><span class="tok-variable">picked</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span> <span class="tok-operator">=</span> <span class="tok-function">extract</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-function">insert</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">picked</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">replace_fourth_unsigned</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">replacement</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">insert</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">replacement</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>The first scratch replaces one lane with an argument. The second copies
 the first lane into the fourth, leaving the other lanes unchanged. These
 transfers preserve signed zeros and NaN payloads without floating-point
-arithmetic or exceptions. The physical profiles support <code>f32s</code>, while
-WebAssembly also supports its integer racks. Native stream insertion remains
-WIP* until its partial-rack participation contract is implemented.</p>
+arithmetic or exceptions. The physical profiles support <code>f32s</code>, <code>i32s</code> and
+<code>u32s</code>, while WebAssembly also supports its other integer racks. Native stream
+insertion remains WIP* until its partial-rack participation contract is implemented.</p>
 <h2 id="shuffles">Shuffles</h2>
 <p><code>shuffle(a, [i0, i1, ...])</code> builds a rack from lanes of <code>a</code> chosen by static
 indices, one for each lane. <code>shuffle(a, b, [i0, i1, ...])</code> chooses from both,

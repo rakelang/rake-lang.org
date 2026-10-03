@@ -158,21 +158,28 @@ They broadcast each next lane with <code>dup</code> and perform three packed ste
 Scans insert the new prefix with <code>ins</code>, and extrema explicitly select the
 language's canonical NaN. The <a href="/docs/reductions-and-scans/">reduction contract</a>
 specifies their order and the permitted lane transfers.</p>
-<p>Float extraction consumes its literal index during instruction selection.
+<p>Extraction from a 32-bit float or integer rack consumes its literal index
+during instruction selection.
 SSE2 uses a full-width <code>shufps</code>. AVX2 selects the containing 128-bit group
 with <code>vperm2f128</code>, then uses <code>vpermilps</code> within that group. AVX-512F uses
 <code>vshuff32x4</code> and <code>vpermilps</code>, and NEON uses <code>dup</code>. The selected bits occupy
-the whole destination register, with its low <code>f32</code> returned through the
-scalar ABI. No scalar arithmetic or memory temporary is introduced. Bounds
+the whole destination register. A float returns its low lane through the
+scalar floating-point ABI. Signed and unsigned integers transfer those low
+bits into <code>eax</code> on x86-64 or <code>w0</code> on AArch64 at the return boundary. No scalar
+arithmetic or memory temporary is introduced. Bounds
 follow the selected profile, and the allocator preserves a still-live source.</p>
-<p>Float insertion replaces one literal-index lane with a uniform's bits.
+<p>Insertion into a 32-bit float or integer rack replaces one literal-index lane
+with a uniform of the same element type.
 SSE2 broadcasts the scalar and merges it through a literal one-lane mask.
 AVX2 uses <code>vbroadcastss</code> and immediate <code>vblendps</code>. AVX-512F uses
 <code>vbroadcastss</code> and a one-bit <code>k1</code> mask with <code>vmovaps</code>, without requiring
 AVX-512DQ, BW or VL. The x86 allocator counts the broadcast temporary and
 reuses only a dying input rack for the destination. NEON uses <code>ins</code> from
 the scalar argument's low lane, copying the input rack when it remains live.
-The insertion sequence is shared with scan accumulation on each architecture.</p>
+The insertion sequence is shared with scan accumulation on each architecture.
+Integer uniforms enter through the platform's integer argument registers and
+move into allocated vector registers. The same bit-preserving lane sequence
+then handles their insertion, including unsigned values above bit 31.</p>
 <p>Static 32-bit shuffles select a complete output rack from one or two input
 racks of the same type: <code>f32s</code>, <code>i32s</code> or <code>u32s</code>. SSE2 uses immediate
 <code>shufps</code>: two inputs need two permutations and a
