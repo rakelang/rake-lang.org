@@ -4043,7 +4043,7 @@ async function start2(root2) {
     next.disabled = lessonIndex === lessons.length - 1;
     const wholeProgram = /(^|\n)(slow|run|record|state|embed|extern|const)\s/m.test(starter);
     if (wholeProgram) target.value = "wasm-simd128";
-    required(root2, "[data-target-note]").textContent = wholeProgram ? "WebAssembly covers general memory runs. SSE2, AVX2, AVX-512 and NEON also support f32 streams and single-column stack updates. Native slow code can call kernels with f32, i32, u32 or bool uniforms. Results come from Rake's interpreter." : "Inspect vector code for SSE2, AVX2, AVX-512, NEON or WebAssembly. Results come from Rake's interpreter.";
+    required(root2, "[data-target-note]").textContent = wholeProgram ? "WebAssembly covers general memory runs. SSE2, AVX2, AVX-512 and NEON support f32 streams and single-column stack updates with f32, i32, u32 or bool uniforms. Streams over integer columns remain work in progress. Native slow code can call these streams and register kernels. Results come from Rake's interpreter." : "Inspect vector code for SSE2, AVX2, AVX-512, NEON or WebAssembly. Results come from Rake's interpreter.";
     history.replaceState(null, "", `#lesson-${lessonIndex + 1}`);
     highlight();
     if (ready) void compile();
@@ -4227,8 +4227,8 @@ function highlighted(parser, query, source, errorAt) {
   const error = errorAt ? errorRange(source, errorAt.line, errorAt.column) : null;
   const boundaries = /* @__PURE__ */ new Set([0, source.length]);
   for (const range of ranges) {
-    boundaries.add(byteToUtf16(source, range.node.startIndex));
-    boundaries.add(byteToUtf16(source, range.node.endIndex));
+    boundaries.add(range.start);
+    boundaries.add(range.end);
   }
   if (error) {
     boundaries.add(error.start);
@@ -4236,16 +4236,16 @@ function highlighted(parser, query, source, errorAt) {
   }
   const points = [...boundaries].sort((a, b) => a - b);
   let html = "";
+  let rangeIndex = 0;
   for (let i2 = 0; i2 + 1 < points.length; i2 += 1) {
     const start3 = points[i2];
     const end = points[i2 + 1];
-    const capture = ranges.find((item) => {
-      const from = byteToUtf16(source, item.node.startIndex);
-      const to = byteToUtf16(source, item.node.endIndex);
-      return start3 >= from && end <= to;
-    });
+    while (rangeIndex < ranges.length && ranges[rangeIndex].end <= start3) rangeIndex += 1;
+    const range = ranges[rangeIndex];
     const classes = [];
-    if (capture) classes.push(`tok-${capture.name.replaceAll(".", "-")}`);
+    if (range && start3 >= range.start && end <= range.end) {
+      classes.push(`tok-${range.name.replaceAll(".", "-")}`);
+    }
     if (error && start3 < error.end && end > error.start) classes.push("editor-error-token");
     const text = escapeHtml(source.slice(start3, end));
     html += classes.length ? `<span class="${classes.join(" ")}">${text}</span>` : text;
@@ -4254,28 +4254,17 @@ function highlighted(parser, query, source, errorAt) {
   return html;
 }
 function nonOverlapping(captures) {
-  const chosen = [];
+  const ordered = captures.map((capture) => ({
+    start: capture.node.startIndex,
+    end: capture.node.endIndex,
+    name: capture.name
+  })).sort((a, b) => a.start - b.start || a.end - b.end);
   let end = 0;
-  for (const capture of [...captures].sort(
-    (a, b) => a.node.startIndex - b.node.startIndex || a.node.endIndex - b.node.endIndex
-  )) {
-    if (capture.node.startIndex >= end) {
-      chosen.push(capture);
-      end = capture.node.endIndex;
-    }
-  }
-  return chosen;
-}
-function byteToUtf16(source, byte) {
-  if (/^[\x00-\x7f]*$/.test(source)) return byte;
-  let bytes = 0;
-  let units = 0;
-  for (const character of source) {
-    if (bytes >= byte) break;
-    bytes += new TextEncoder().encode(character).length;
-    units += character.length;
-  }
-  return units;
+  return ordered.filter((range) => {
+    if (range.start < end) return false;
+    end = range.end;
+    return true;
+  });
 }
 function errorRange(source, line, column) {
   const lines = source.split("\n");

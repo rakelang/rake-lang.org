@@ -491,7 +491,9 @@ integer streams remain WIP*.</p>
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
 include the SSE2, AVX2, AVX-512 and NEON <code>f32</code> traversal subset: stream output
-or one column update in a mutable input or destination stack.
+or one column update in a mutable input or destination stack. These runs
+accept <code>f32</code>, <code>i32</code>, <code>u32</code> and <code>bool</code> uniforms within the profile's register
+limits.
 General native runs remain WIP*. <a href="/docs/backend/#whole-programs">The backend</a> explains
 which parts Rake emits and which parts use a platform C compiler.</p>
 <h2 id="gpu-execution-the-design">GPU execution: the design</h2>

@@ -547,7 +547,9 @@ The unreleased development compiler also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
 include the SSE2, AVX2, AVX-512 and NEON `f32` traversal subset: stream output
-or one column update in a mutable input or destination stack.
+or one column update in a mutable input or destination stack. These runs
+accept `f32`, `i32`, `u32` and `bool` uniforms within the profile's register
+limits.
 General native runs remain WIP*. [The backend](/docs/backend/#whole-programs) explains
 which parts Rake emits and which parts use a platform C compiler.
 
