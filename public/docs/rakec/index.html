@@ -108,8 +108,8 @@ output is a platform C object with verified kernels. <code>--verify-native</code
 those kernels too. Native slow-only units have no vector function to verify,
 so they use <code>--emit-obj</code>. SSE2, AVX2, AVX-512 and NEON additionally support the limited
 <a href="/docs/packs-and-runs/#native-cpu-streams">native stream traversal</a>. Other native runs remain work in progress. A
-native kernel called from slow code currently takes uniform <code>f32</code> parameters
-and returns <code>f32</code>.</p>
+native kernel called from slow code supports uniform <code>f32</code>, <code>i32</code> and <code>u32</code>
+parameters and returns <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code>.</p>
 <h2 id="options">Options</h2>
 <div class="table-scroll"><table><thead><tr><th>Option</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>--target p</code></td><td>the profile: <code>native</code> (the default), <code>x86-sse2</code>, <code>x86-avx2</code>, <code>x86-avx512</code>, <code>aarch64-neon</code>, <code>wasm-simd128</code>, <code>wasm-simd128-relaxed</code>, or the WIP scalar fallback</td></tr>

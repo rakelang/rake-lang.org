@@ -185,20 +185,37 @@ on SSE2 and NEON, eight on AVX2, or sixteen on AVX-512F.</p>
 <tr><td>wrapping <code>+</code>, <code>-</code> and <code>*</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>signed negation</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
 <tr><td>signed <code>abs</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
-<tr><td>signed <code>min</code> and <code>max</code></td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
+<tr><td><code>min</code> and <code>max</code> (signed or unsigned)</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>bit_and</code>, <code>bit_or</code>, <code>bit_xor</code>, <code>bit_andnot</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>bit shifts with literal counts from 0 to 31</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>six lane comparisons (signed or unsigned)</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>select an integer rack with a lane mask</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>all</code>, <code>any</code>, <code>bitmask</code> of a comparison</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>integer literal broadcast</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td>marked <code>i32</code> or <code>u32</code> uniform arguments and broadcasts</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>static one- and two-rack <code>shuffle</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
-<tr><td>integer uniform arguments, runtime shift counts, conversions, extraction and insertion</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
+<tr><td>runtime shift counts, conversions, extraction and insertion</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
 </tbody></table>
 </div>
 <p>These operations stay in full vector registers. Integer masks can select
 float racks, and float masks can select integer racks. Native streams still
 accept float columns only.</p>
+<p>An integer literal passed to a typed scratch or rake parameter takes that
+parameter's element type. A <code>u32</code> parameter can therefore receive
+<code>&lt;4294967295&gt;</code>, while an untyped literal retains the signed <code>i32</code> range.
+The compiler checks the literal against that type's range. An explicitly
+typed rack binding, such as <code>let values: u32s = &lt;value&gt;</code>, broadcasts the
+uniform across every lane.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">unsigned_identity</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">value</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">unsigned_limit</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">unsigned_identity</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">4294967295</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">repeated_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span> <span class="tok-operator">=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">value</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-variable">values</span>
+</code></pre>
 <p>Signed negation wraps too: negating −2³¹ gives −2³¹ because +2³¹ doesn't fit
 in a signed 32-bit lane. Unary minus takes signed integer racks only.</p>
 <p><code>abs</code> also wraps at that boundary: <code>abs(−2³¹)</code> retains the same lane bits
@@ -213,8 +230,13 @@ would require spills. None of these profiles uses a scalar loop for <code>*</cod
 <p>Signed <code>min</code> and <code>max</code> choose the smaller or larger lane value, including
 −2³¹ and 2³¹−1. AVX2, AVX-512F and NEON each use a full-width packed
 instruction. SSE2 compares the lanes with <code>pcmpgtd</code> and selects their bits
-using vector logical operations, with one allocated mask register.
-Unsigned extrema remain work in progress.</p>
+using vector logical operations, with one allocated mask register.</p>
+<p>Unsigned <code>min</code> and <code>max</code> order lane values from 0 to 2³²−1, so values with
+bit 31 set remain larger than those without it. AVX2 and AVX-512F use
+<code>vpminud</code> and <code>vpmaxud</code>, and NEON uses <code>umin .4s</code> and <code>umax .4s</code>.
+SSE2 flips bit 31 in two temporary copies before comparing them, then uses
+the comparison mask to select the original lane bits. Those two copies and
+the mask require three allocated temporary registers.</p>
 <p>Both <code>i32s</code> and <code>u32s</code> support all six lane comparisons. An unsigned lane
 orders 2³¹ above 2³¹−1 and 2³²−1 above both. SSE2 and AVX2 flip bit 31 in
 two allocated temporary racks, then compare the transformed lanes as signed
@@ -235,6 +257,9 @@ unsigned ordering. Equality compares the original lane bits.</p>
 <span class="tok-keyword">scratch</span> <span class="tok-function">clamp_signed</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">min</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">max</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-operator">-</span><span class="tok-number">17</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">29</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
 
+<span class="tok-keyword">scratch</span> <span class="tok-function">clamp_unsigned</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">min</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">max</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2147483648</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">4294967294</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+
 <span class="tok-keyword">scratch</span> <span class="tok-function">greater</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">a</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">b</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">if</span> <span class="tok-variable">a</span> <span class="tok-operator">&gt;</span> <span class="tok-variable">b</span> <span class="tok-keyword">then</span> <span class="tok-variable">a</span> <span class="tok-keyword">else</span> <span class="tok-variable">b</span>
 
@@ -252,7 +277,7 @@ On its 128-bit register a <code>u8s</code> rack has 16 lanes, <code>i16s</code> 
 <tr><td><code>*</code></td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>negation</td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
 <tr><td><code>abs</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
-<tr><td><code>min</code> <code>max</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
+<tr><td><code>min</code> <code>max</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
 <tr><td>comparisons, and so <code>select</code> and <code>bitmask</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td></tr>
 <tr><td>bitwise operations and bit shifts</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>shuffle</code> <code>extract</code> <code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
@@ -290,7 +315,11 @@ to even and saturating to the 32-bit range. NaN becomes zero.</li>
 <h2 id="bitwise-operations-and-bit-shifts">Bitwise operations and bit shifts</h2>
 <p><code>bit_and(a, b)</code>, <code>bit_or(a, b)</code> and <code>bit_xor(a, b)</code> combine two integer racks
 of one type bit by bit, and <code>bit_andnot(a, b)</code> keeps the bits of <code>a</code> that <code>b</code>
-doesn't set. <code>shift_bits_left(x, n)</code> moves each lane's bits towards its high
+doesn't set. A marked uniform of the same integer type can occupy either
+operand. It broadcasts across the rack before the operation, as it does in
+<code>min</code> and <code>max</code>. These built-ins produce a rack even when both operands are
+uniforms.</p>
+<p><code>shift_bits_left(x, n)</code> moves each lane's bits towards its high
 end, filling with zeros. <code>shift_bits_right(x, n)</code> moves them towards the low
 end, filling with zeros, and <code>shift_bits_right_signed(x, n)</code> fills with the
 sign bit. The count is an integer literal below the lane's width in bits, or
@@ -300,8 +329,8 @@ with a full-width packed instruction. SSE2 uses <code>andnps</code>, AVX2 uses
 <code>vandnps</code>, AVX-512F uses <code>vpandnd</code>, and NEON uses <code>bic .16b</code>.
 The x86 instructions complement their first source, so Rake reverses the
 instruction operands to preserve <code>a &amp; ~b</code>.</p>
-<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">clear_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">removed</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-function">bit_andnot</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">removed</span><span class="tok-punctuation-bracket">)</span>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">clear_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">removed</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">bit_andnot</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">removed</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>The physical profiles support all three bit shifts on <code>i32s</code> and <code>u32s</code>
 with literal counts from 0 to 31. Zero leaves the rack unchanged.
@@ -476,14 +505,21 @@ with <code>target("relaxed-simd")</code>.</p>
 registers and its result returns in one. No profile passes an argument on
 the stack, so a function that would need to is rejected.</p>
 <p>On x86, the function is a hidden global symbol following the System V
-convention. Parameters take the eight SSE-class argument registers in source
-order. A uniform <code>f32</code> occupies the low lane of an XMM register. A rack or
+convention. Rack, mask and <code>f32</code> parameters take the eight SSE-class argument
+registers in their order of appearance. A uniform <code>f32</code> occupies the low lane of an XMM register. A rack or
 mask uses XMM on SSE2, YMM on AVX2, or ZMM on AVX-512. Native <code>i32s</code> and
 <code>u32s</code> use the same register class as <code>f32s</code>, with a 32-bit integer in each
 lane. The result uses register
 zero of the same class, or <code>xmm0</code> for a scalar <code>f32</code>.
 <code>all</code> and <code>any</code> return C <code>bool</code> in <code>al</code>, with the full <code>eax</code> set to zero or
 one. <code>bitmask</code> returns <code>uint32_t</code> in <code>eax</code>.</p>
+<p>The development compiler also takes <code>i32</code> and <code>u32</code> uniforms through the
+six C integer argument registers: <code>edi</code>, <code>esi</code>, <code>edx</code>, <code>ecx</code>, <code>r8d</code> and <code>r9d</code>.
+This counter advances independently of the SIMD counter. At entry, Rake
+imports each integer's 32 bits into an allocated vector register. <code>&lt;value&gt;</code>
+then broadcasts those bits across the rack. The object verifier checks each
+declared import at entry and refuses further integer-register transfers in
+the body. An <code>i32</code> or <code>u32</code> result returns its low 32 bits in <code>eax</code>.</p>
 <div class="table-scroll"><table><thead><tr><th>Profile</th><th>Rack arguments</th><th>Rack result</th><th>C caller flags</th></tr></thead><tbody>
 <tr><td><code>x86-sse2</code></td><td><code>xmm0</code>–<code>xmm7</code></td><td><code>xmm0</code></td><td><code>-msse2</code></td></tr>
 <tr><td><code>x86-avx2</code></td><td><code>ymm0</code>–<code>ymm7</code></td><td><code>ymm0</code></td><td><code>-mavx2 -mfma</code></td></tr>
@@ -499,17 +535,26 @@ mask. Constant pools are aligned to the profile's 16-, 32- or 64-byte rack.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">scaled_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">a</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">b</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">a</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">scale</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-variable">b</span>
 </code></pre>
-<p>On <code>aarch64-neon</code>, parameters take <code>v0</code> to <code>v7</code> in source order, a uniform
+<p>In this AVX2 scratch, <code>low</code> arrives in <code>edi</code>, <code>values</code> in <code>ymm0</code>, and <code>high</code>
+in <code>esi</code>. Both uniforms participate in unsigned lane arithmetic:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">bounded_values</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">low</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">high</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">min</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">max</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">low</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">high</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<p>On <code>aarch64-neon</code>, SIMD parameters take <code>v0</code> to <code>v7</code> in their order of appearance, a uniform
 <code>f32</code> in the low lane of its register, and rack and <code>f32</code> results return in
 <code>v0</code>. The integer results of <code>all</code>, <code>any</code> and <code>bitmask</code> return in <code>w0</code>, following
-the C <code>bool</code> or <code>uint32_t</code> ABI. The register allocator uses <code>v0</code> to <code>v7</code> and
+the C <code>bool</code> or <code>uint32_t</code> ABI. Integer uniforms take <code>w0</code> to <code>w7</code> with a
+separate counter, then move into allocated vector registers at entry.
+Signed and unsigned 32-bit results also return in <code>w0</code>.
+The register allocator uses <code>v0</code> to <code>v7</code> and
 <code>v16</code> to <code>v31</code>, because AAPCS64
 makes the low halves of <code>v8</code> to <code>v15</code> callee-saved, and saving them would need
 the stack.</p>
 <p>On <code>wasm-simd128</code>, the function is C, <code>static inline</code> unless
 <code>RAKE_WASM_LINKAGE</code> is defined. A rack or mask is a <code>v128_t</code>, a uniform <code>f32</code>
 a <code>float</code>, a 64-bit uniform a <code>uint64_t</code>, and any other uniform, <code>bool</code> or
-<code>bitmask</code> result a <code>uint32_t</code>.</p>
+<code>bitmask</code> result a <code>uint32_t</code>. A slow caller's boundary wrapper uses
+<code>int32_t</code> for signed <code>i32</code> values, preserving the same bits.</p>
 <p>Each uniform keeps its brackets at its declaration, <code>&lt;scale: f32&gt;</code>, and at its
 use, <code>&lt;scale&gt;</code>. The use is where the broadcast happens: <code>vbroadcastss</code> on
 AVX2 and AVX-512, <code>shufps</code> on SSE2, <code>dup</code> on NEON and a splat on wasm.</p>
@@ -517,8 +562,9 @@ AVX2 and AVX-512, <code>shufps</code> on SSE2, <code>dup</code> on NEON and a sp
 and a whole program's in <a href="/docs/slow-tier/">the slow tier</a>. The x86 and AArch64
 backends in the 0.6.0-beta tag compile neither runs nor slow code. The
 unreleased development compiler adds native C programs with slow orchestration
-and Rake-selected register kernels. Slow callers can pass uniform <code>f32</code>
-arguments and receive <code>f32</code>, <code>bool</code> or <code>u32</code> results. SSE2, AVX2, AVX-512 and NEON also support the
+and Rake-selected register kernels. Slow callers can pass uniform <code>f32</code>,
+<code>i32</code> or <code>u32</code> arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results.
+SSE2, AVX2, AVX-512 and NEON also support the
 <a href="/docs/packs-and-runs/#native-cpu-streams">native stream subset</a>.
 General native runs and other scalar kernel boundaries remain work in progress.</p>
 <h2 id="verification">Verification</h2>
@@ -539,7 +585,7 @@ multiply-adds.</li>
 <li><code>wasm-simd128</code>: a scratch or rake contains only locals, constants, and SIMD
 and scalar register instructions, with no calls, memory or branches.</li>
 </ul>
-<p>A native <code>bool</code> or <code>u32</code> result has one additional permitted instruction:
+<p>A native <code>bool</code>, <code>i32</code> or <code>u32</code> result has one additional permitted instruction:
 the transfer from the low lane of vector register zero into the platform's
 integer return register, immediately before <code>ret</code>. This exception permits
 neither scalar arithmetic nor an intermediate scalar lane transfer.</p>

@@ -94,7 +94,8 @@ register kernels on x86-64 and AArch64. SSE2, AVX2, AVX-512 and NEON additionall
 runs remain work in progress.</p>
 <h3 id="native-kernel-calls">Native kernel calls</h3>
 <p>On the development compiler, a native register kernel called from slow code
-takes uniform <code>f32</code> parameters and returns <code>f32</code>, <code>bool</code> or <code>u32</code>. Rake selects and allocates
+takes uniform <code>f32</code>, <code>i32</code> or <code>u32</code> parameters and returns <code>f32</code>, <code>bool</code>, <code>i32</code>
+or <code>u32</code>. Rake selects and allocates
 the kernel's instructions. The generated C contains its opaque assembly,
 and the final object is checked against the selected profile. The platform C
 compiler lowers the slow caller and supplies the scalar calling convention.

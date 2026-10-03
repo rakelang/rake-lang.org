@@ -232,8 +232,15 @@ or <code>smin .4s</code> and <code>smax .4s</code> on NEON. SSE2 uses <code>pcmp
 mask register, followed by vector logical selection. Both input racks remain
 available until the selection finishes, including when the destination
 reuses a dying input. The verifier checks full-width extrema operands and
-rejects the SSE4.1 <code>pminsd</code> and <code>pmaxsd</code> instructions in the SSE2 profile.
-Literal bit shifts use packed <code>pslld</code>, <code>psrld</code> or <code>psrad</code> on SSE2 and their
+rejects the SSE4.1 <code>pminsd</code> and <code>pmaxsd</code> instructions in the SSE2 profile.</p>
+<p>Unsigned 32-bit extrema select <code>vpminud</code> or <code>vpmaxud</code> on AVX2 and AVX-512F,
+or <code>umin .4s</code> and <code>umax .4s</code> on NEON. SSE2 XORs bit 31 into two allocated
+copies, compares those copies with <code>pcmpgtd</code> in a third temporary register,
+then selects the original lane bits. All three temporaries participate in
+the no-spill allocation check. WebAssembly selects <code>i32x4.min_u</code> and
+<code>i32x4.max_u</code>. The interpreter retains unsigned values through extrema and
+literal broadcasts, including the full 0 to 2³²−1 range.</p>
+<p>Literal bit shifts use packed <code>pslld</code>, <code>psrld</code> or <code>psrad</code> on SSE2 and their
 full-width VEX/EVEX forms on AVX2 and AVX-512F. NEON uses <code>shl</code>, <code>ushr</code> or
 <code>sshr</code> with <code>.4s</code> operands. Instruction selection consumes a literal count
 from 0 to 31. A zero count needs only a register copy, elided when the
@@ -256,8 +263,7 @@ Equality and inequality compare the unmodified bits. WebAssembly selects
 comparisons and broadcasts. The interpreter stores unsigned lane values in
 the range 0 to 2³²−1, so its ordering stays independent of signed predicates.
 Integer masks and float masks share the same lane representation, so either
-can select float or integer racks. Native integer streams and uniform integer
-arguments remain work in progress.</p>
+can select float or integer racks. Native integer streams remain work in progress.</p>
 <h2 id="whole-programs">Whole programs</h2>
 <pre class="code code-text"><code>source
   -&gt; parser and type checker
@@ -293,7 +299,8 @@ explicit slow code -&gt; scalar C and C ABI declarations ───────�
 </code></pre>
 <p>This development path supports the limited SSE2, AVX2, AVX-512 and NEON stream traversal.
 General native runs remain work in progress. Slow callers can pass
-uniform <code>f32</code> arguments and receive <code>f32</code>, <code>bool</code> or <code>u32</code> results from register kernels.
+uniform <code>f32</code>, <code>i32</code> and <code>u32</code> arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or
+<code>u32</code> results from register kernels.
 The platform compiler lowers explicit slow code and supplies the System V
 AMD64 or AAPCS64 C ABI. It cannot rewrite the opaque kernel assembly, which
 the final-object verifier checks using Rake's selected instruction contract.
@@ -316,12 +323,22 @@ SSE2 reserves <code>xmm15</code> for instruction-local temporaries. AVX-512 uses
 while materialising or selecting a vector mask, and needs no AVX-512DQ,
 BW or VL instructions.</p>
 <p>On <code>x86-avx2</code>, an <code>f32s</code> rack is one YMM register and a mask is a YMM value.
-Arguments follow the System V convention in eight SSE-class registers, and a
+Rack, mask and <code>f32</code> arguments follow the System V convention in eight SSE-class registers, and a
 uniform <code>f32</code> arrives in an XMM register, whose YMM identifier denotes the same physical
 register, so the allocator tracks the pair as one. A uniform's use is a
 <code>vbroadcastss</code>. The profile needs AVX2 and FMA3.</p>
+<p>Integer <code>i32</code> and <code>u32</code> uniforms follow the independent C integer argument
+counter. x86 takes up to six and AArch64 takes up to eight. Rake transfers
+their low 32 bits to allocated vector registers at entry with <code>movd</code> or
+<code>vmovd</code> on x86, or <code>fmov sN, wM</code> on AArch64. The ordinary vector broadcast
+then replicates those bits for rack arithmetic. This entry transfer is the
+only new scalar instruction permission. Verification compares the entry
+prefix with the declared register mapping and rejects missing, reordered,
+repeated or body-local imports. Register pressure still includes every live
+uniform, with no stack-argument or spill fallback.</p>
 <p>On <code>aarch64-neon</code>, an <code>f32s</code> rack is one 128-bit vector register. Arguments
-take <code>v0</code> to <code>v7</code> and rack and <code>f32</code> results return in <code>v0</code>. Mask reductions
+use separate SIMD and integer counters, with SIMD values in <code>v0</code> to <code>v7</code>.
+Rack and <code>f32</code> results return in <code>v0</code>. Mask reductions
 return their completed Boolean or bitset in <code>w0</code>. The allocator uses the 24
 registers that a call may clobber, <code>v0</code> to <code>v7</code> and <code>v16</code> to <code>v31</code>. GNU
 cross-binutils assemble and disassemble the object, and

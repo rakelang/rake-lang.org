@@ -171,9 +171,9 @@ not a particular elapsed time or the fastest possible algorithm.</p>
 tier</a> describes. The unreleased development compiler
 also compiles slow orchestration with register kernels into native objects.
 Their C unit embeds Rake-selected assembly, which remains opaque to the
-platform C compiler. Slow callers currently take uniform <code>f32</code> arguments and
-receive <code>f32</code> results. Native runs beyond the stream subset and other scalar
-kernel boundaries remain work in progress.</p>
+platform C compiler. Slow callers can pass uniform <code>f32</code>, <code>i32</code> and <code>u32</code>
+arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results. Native runs beyond
+the stream subset and other scalar kernel boundaries remain work in progress.</p>
 <h2 id="compilation-is-predictable">Compilation is predictable</h2>
 <p>On physical CPU profiles the compiler owns rack instruction selection,
 register allocation, instruction sequencing and assembly. The assembler only
