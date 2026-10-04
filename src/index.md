@@ -538,14 +538,14 @@ readers who come from C or Python.
 [Primitives, operations, and targets](/docs/primitives-operations-and-targets/) lists what each profile
 compiles, and [the roadmap](/docs/roadmap/) what comes next.
 
-The development compiler's native integer subset supports wrapping add/subtract
+Rake 0.7.0's native integer subset supports wrapping add/subtract
 and bitwise AND/OR/XOR on `i32s` and `u32s`. Signed and unsigned comparisons
 produce masks for selection and mask reductions. Literal and runtime-uniform
 bit shifts work on every physical profile. A runtime `u32` count uses its low
 five bits, so a count of 32 leaves each lane unchanged. The operation reference
 lists the other implemented integer operations and the remaining WIP* coverage.
 
-The unreleased development compiler also combines native slow orchestration
+Rake 0.7.0 also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
 include the SSE2, AVX2, AVX-512 and NEON `f32`, `i32` and `u32` traversal subset: stream output
@@ -661,7 +661,7 @@ nix develop --command dune exec rakec -- --interpret program.rk
 ```
 
 [The rakec command](/docs/rakec/) lists its modes and options. Rake is
-released under the MIT licence. This is a beta: the language and its binary
+released under the MIT licence. Rake is pre-1.0: the language and its binary
 boundaries may still change between versions.
 
 ### Syntax highlighting
