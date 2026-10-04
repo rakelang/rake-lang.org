@@ -164,10 +164,16 @@ every production profile:</p>
   <span class="tok-variable">power</span>
 </code></pre>
 <p>In a run, <code>repeat</code> unrolls while its trips times its body's statements stay
-within 4096, and otherwise it stays a loop with the same meaning. Either way
-each rack location stays one <code>v128</code> value in a WebAssembly local. In
+within 4096, and otherwise it stays a loop with the same meaning. On
+WebAssembly each rack location stays one <code>v128</code> value in a local. In
 <code>test/program/vector_tier.rk</code>, a <code>repeat</code> of 5000 trips compiles to a loop of
 one <code>f32x4.mul</code>, one <code>f32x4.add</code> and the counter.</p>
+<p>The native stream subset accepts these unrolled repeats too, including
+nested copies and updates to local rack locations or arrays of racks.
+Assignments preserve earlier immutable snapshots, and each traversal chunk
+starts with fresh locations. Repeats beyond the unrolling budget still fail
+native compilation. <a href="/docs/packs-and-runs/#repeated-rack-updates">Repeated rack updates</a>
+shows a stream example.</p>
 <h2 id="loops-and-branches-in-runs">Loops and branches in runs</h2>
 <p>A run's counted loop, <code>for &lt;i: i32&gt; from &lt;a&gt; up to &lt;b&gt; by &lt;s&gt;:</code>, has a uniform
 index, bounds and step. The step is 1 unless given. A step of zero or less

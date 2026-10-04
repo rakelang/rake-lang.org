@@ -82,6 +82,13 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Native stream bodies support local rack assignments, arrays of rack
+locations and unrolled fixed-count <code>repeat</code>, including nested repeats.
+Ordered SSA bindings preserve earlier snapshots without duplicating their
+expressions. Each traversal chunk starts with fresh locations, and each
+unrolled copy has its own locals. Runtime-counted inner loops remain WIP.</p>
+</li>
+<li>
 <p><code>--emit-c</code> produces a C translation unit for WebAssembly, native whole
 programs or native register kernels. <code>--emit-asm</code> produces physical-target
 register-kernel assembly and directs whole-program and WebAssembly users to

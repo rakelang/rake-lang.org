@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
   <link rel="stylesheet" href="/styles/components.css?v=615e6951">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Playground and tutorial | Rake","name":"Playground and tutorial | Rake","description":"An interactive Rake tutorial in twelve lessons, with each concept demonstrated in the result, lane trace, compiler output or diagnostic message.","url":"https://rake-lang.org/docs/playground/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
-<script type="module" src="/scripts/playground.js?v=e920954d"></script>
+<script type="module" src="/scripts/playground.js?v=f61c48fb"></script>
 </head>
 <body class="layout-playground">
   <header class="site-header">
@@ -52,7 +52,7 @@
 <span id="lesson-12" hidden></span>
 <section class="playground-app" data-rake-playground
   data-worker="/scripts/playground-worker.js?v=185e0038"
-  data-compiler="/scripts/rake-compiler.js?v=6b54a103"
+  data-compiler="/scripts/rake-compiler.js?v=476b5fd0"
   data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
   data-rake-language="/scripts/tree-sitter-rake.wasm?v=ab9d92ea"
   data-rake-highlights="/scripts/rake-highlights.scm?v=e7f8b2a0">
@@ -151,6 +151,10 @@ also compile <code>f32</code>, <code>i32</code> and <code>u32</code> stream trav
 Stored byte and 16-bit columns can be explicitly widened into signed or
 unsigned 32-bit racks. <code>to_f32</code> converts signed or unsigned integer racks to
 floats, and <code>to_i32</code> converts floats to signed integers, including in streams.
+Native stream bodies now support local rack assignments and fixed-count
+<code>repeat</code>. Each chunk starts with fresh locations, and earlier <code>let</code> bindings
+keep their original values after an assignment. Runtime inner loops and
+state carried between chunks remain work in progress on physical targets.
 General native memory runs
 give the compiler's work-in-progress diagnostic. Updates
 can use a separate destination stack with a different record layout. Every result and

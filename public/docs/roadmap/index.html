@@ -96,6 +96,11 @@ final-byte verification and independent C/guard-page checks. Traversals also tak
 within the platform's C register limits. General native runs and
 the remaining scalar kernel boundaries are still
 work in progress.</p>
+<p>Native stream bodies now accept local rack assignments and fixed-count
+<code>repeat</code> within the checker's unrolling budget. Each copy retains its local
+scope and earlier immutable snapshots, with rack values held in allocated
+vector registers. Runtime-counted inner loops and state carried between
+traversal chunks remain work in progress.</p>
 <p><code>--emit-c</code> now explicitly produces the C translation unit. <code>--emit-asm</code>
 produces physical-target register-kernel assembly. C output and C ABI
 interoperation are separate: the former selects an artifact format, while the
@@ -123,6 +128,13 @@ selects vector instructions, but leaves physical register allocation to the
 WebAssembly runtime. Rack work outside a <code>slow</code> block uses vector
 instructions or compilation fails. A run's explicit traversal also needs
 uniform address, bounds and loop work.</p>
+<p>We will extend WebAssembly's source-derived substitution proofs across
+immutable bindings. Current Clang rewrites include a composed unsigned shift
+pair becoming a mask and AND, and repeated integer additions becoming a
+multiplication. The composed examples execute correctly, but those objects
+remain rejected by the run verifier. Support will require operand-identity
+and wrapping-arithmetic proofs, without widening its instruction allow-list
+for unrelated expressions.</p>
 <h3 id="add-and-validate-target-profiles">Add and validate target profiles</h3>
 <p>SSE2 and AVX-512F now compile <code>f32s</code> scratches and rakes, alongside AVX2 and
 NEON. We will add the explicit scalar fallback and complete CPU operation and

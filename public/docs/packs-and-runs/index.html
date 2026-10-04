@@ -258,16 +258,41 @@ mutable stacks and rack parameters, in both addressing modes.</p>
 uniform <code>f32</code>, <code>i32</code>, <code>u32</code> or <code>bool</code> arguments within the C register limits.
 One traversal using <code>f32s</code>, <code>i32s</code> or <code>u32s</code> yields a stream of the matching
 scalar type from a read-only stack, or updates one <code>f32</code>, <code>i32</code> or <code>u32</code>
-column in its mutable input or destination. Its body loads one to four
+column in its mutable input or destination. Its body loads one to four distinct
 columns of these types, or compact columns explicitly widened to 32 bits,
-and combines immutable lane expressions, including
+and combines lane expressions, including
 calls to rakes and scratches. A float mask can select integer values, and an
 integer mask can select floats: each column keeps its own element type while
-sharing the traversal's lane count. General loops, multiple column stores,
+sharing the traversal's lane count. Local rack locations and arrays of them
+can be assigned with <code>&lt;-</code>, and fixed-count <code>repeat</code> bodies compile when the
+checker unrolls them within its 4096-statement budget. General loops, multiple column stores,
 other scalar parameter types, reductions,
 scans, extraction, insertion and shuffles
 remain work in progress and fail compilation. Unused stored columns may have
 other scalar types.</p>
+<h3 id="repeated-rack-updates">Repeated rack updates</h3>
+<p>Each traversal chunk creates its own rack locations. An assignment changes
+the value for subsequent expressions, while an earlier <code>let</code> keeps its
+original value. A fixed-count <code>repeat</code> copies the rack operations into the
+kernel, so the following run cubes each input value without a runtime inner
+loop:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">cubes</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">row</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">let</span> <span class="tok-variable">value</span> <span class="tok-operator">=</span> <span class="tok-variable">row</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span>
+    <span class="tok-variable">power</span> <span class="tok-operator">:=</span> <span class="tok-variable">value</span>
+    <span class="tok-keyword">repeat</span> <span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-keyword">from</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+      <span class="tok-variable">power</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">power</span> <span class="tok-operator">*</span> <span class="tok-variable">value</span>
+    <span class="tok-keyword">yield</span> <span class="tok-variable">power</span>
+</code></pre>
+<p>Nested repeats use the same rule. Each copy has its own local bindings, and
+updates to an enclosing rack location survive the copy. These locations
+stay in allocated vector registers. Excess register pressure fails
+compilation. Runtime-counted loops and locations carried from one traversal
+chunk to the next remain WIP on physical targets.</p>
 <h3 id="compact-columns">Compact columns</h3>
 <p>A stack can keep a small field in byte or 16-bit storage while its run
 computes with 32-bit lanes. <code>widen(row.field)</code> sign-extends <code>i8</code> or <code>i16</code>

@@ -443,6 +443,11 @@ establish bounds, and immutable aliases, safe bitcasts and selections can
 retain them. Unproved arithmetic discards them. A narrower comparison or
 extending multiply without the required bounds is rejected. These
 alternatives grant no scalar lane instruction permission.</p>
+<p>Some other packed substitutions remain WIP in the run verifier. Clang can
+fold <code>(x &lt;&lt; n) &gt;&gt; n</code> into a mask and AND, or repeated integer additions into
+a multiplication. Their results pass the independent execution checks, but
+the verifier does not yet prove these rewrites across separate bindings.
+It rejects those objects rather than grant broader instruction permissions.</p>
 <p>The promise is the same as on a physical target: outside a <code>slow</code> block, rack
 work uses vector instructions wherever the selected profile implements the
 operation. A run may also contain the uniform address, loop and bounds work
@@ -450,7 +455,11 @@ written in its source. It never replaces rack work with scalar lane loops.</p>
 <h2 id="native-traversal-selection">Native traversal selection</h2>
 <p>Rake selects a native stream's loop, addresses, full-rack transfers and tail.
 Its lane expression goes through the same SSA selector
-and no-spill allocator as a register kernel. The tail is lowered under its
+and no-spill allocator as a register kernel. Ordered bindings retain each
+computed value in SSA. Local rack assignments rebind subsequent uses, leaving
+earlier snapshots intact. Unrolled <code>repeat</code> copies keep their local scope and
+retain updates to enclosing locations. Repeated access to the same column
+shares its loaded rack before the final output store. The tail is lowered under its
 participation mask, so inactive operands cannot raise arithmetic exceptions.
 The complete stream is opaque assembly inside the native C unit. C supplies
 only slow orchestration and its ABI. SSE2 and NEON use count-guarded lane
