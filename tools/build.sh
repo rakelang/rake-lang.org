@@ -21,7 +21,7 @@ mode="${1:-build}"
 rm -rf "${PLAYGROUND_ASSETS}"
 mkdir -p "${PLAYGROUND_ASSETS}/scripts"
 
-(cd "${RAKE_DIR}" && nix develop --command dune build --profile release src/browser/playground.bc.js)
+(cd "${RAKE_DIR}" && nix develop --command dune build -j "${RAKE_BUILD_JOBS:-1}" --profile release src/browser/playground.bc.js)
 cp "${RAKE_DIR}/_build/default/src/browser/playground.bc.js" \
   "${PLAYGROUND_ASSETS}/scripts/rake-compiler.js"
 
