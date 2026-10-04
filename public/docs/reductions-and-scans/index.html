@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reductions and scans | Rake</title>
-  <meta name="description" content="Rake's reductions and inclusive scans: their strict lane order, binary32 rounding, strict minimum and maximum, and the profiles that compile them.">
+  <meta name="description" content="Rake's float and integer reductions and inclusive scans: lane order, wrapping arithmetic, strict minimum and maximum, and supported SIMD profiles.">
   <link rel="canonical" href="https://rake-lang.org/docs/reductions-and-scans/">
   <meta property="og:title" content="Reductions and scans | Rake">
-  <meta property="og:description" content="Rake's reductions and inclusive scans: their strict lane order, binary32 rounding, strict minimum and maximum, and the profiles that compile them.">
+  <meta property="og:description" content="Rake's float and integer reductions and inclusive scans: lane order, wrapping arithmetic, strict minimum and maximum, and supported SIMD profiles.">
   <meta property="og:url" content="https://rake-lang.org/docs/reductions-and-scans/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
   <link rel="stylesheet" href="/styles/components.css?v=615e6951">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Reductions and scans | Rake","name":"Reductions and scans | Rake","description":"Rake's reductions and inclusive scans: their strict lane order, binary32 rounding, strict minimum and maximum, and the profiles that compile them.","url":"https://rake-lang.org/docs/reductions-and-scans/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Reductions and scans | Rake","name":"Reductions and scans | Rake","description":"Rake's float and integer reductions and inclusive scans: lane order, wrapping arithmetic, strict minimum and maximum, and supported SIMD profiles.","url":"https://rake-lang.org/docs/reductions-and-scans/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
 <body class="layout-docs">
@@ -83,6 +83,9 @@ rather than operators, so they are easy to find in code and to read aloud.</p>
 <tr><td><code>product(x)</code></td><td><code>f32s</code></td><td><code>f32</code></td><td>binary32 multiplication</td></tr>
 <tr><td><code>minimum(x)</code></td><td><code>f32s</code></td><td><code>f32</code></td><td>strict minimum</td></tr>
 <tr><td><code>maximum(x)</code></td><td><code>f32s</code></td><td><code>f32</code></td><td>strict maximum</td></tr>
+<tr><td><code>sum(x)</code></td><td><code>i32s</code> / <code>u32s</code></td><td>matching <code>i32</code> / <code>u32</code></td><td>wrapping 32-bit addition</td></tr>
+<tr><td><code>product(x)</code></td><td><code>i32s</code> / <code>u32s</code></td><td>matching <code>i32</code> / <code>u32</code></td><td>wrapping 32-bit multiplication</td></tr>
+<tr><td><code>minimum(x)</code> / <code>maximum(x)</code></td><td><code>i32s</code> / <code>u32s</code></td><td>matching <code>i32</code> / <code>u32</code></td><td>signed / unsigned extrema</td></tr>
 <tr><td><code>all(m)</code></td><td>mask</td><td><code>bool</code></td><td>and</td></tr>
 <tr><td><code>any(m)</code></td><td>mask</td><td><code>bool</code></td><td>or</td></tr>
 <tr><td><code>bitmask(m)</code></td><td>mask</td><td><code>u32</code></td><td>one bit per lane</td></tr>
@@ -92,8 +95,9 @@ rather than operators, so they are easy to find in code and to read aloud.</p>
 <tr><td><code>scan_maximum(x)</code></td><td><code>f32s</code></td><td><code>f32s</code></td><td>strict maximum</td></tr>
 </tbody></table>
 </div>
-<p>Nothing converts an operand to fit: the arithmetic forms reject masks and
-integer racks, and <code>all</code> and <code>any</code> reject racks. <code>extract(x, lane)</code> and
+<p>Nothing converts an operand to fit. Arithmetic reductions accept float or
+32-bit integer racks. Scans currently accept floats only, and <code>all</code> and <code>any</code>
+require masks. <code>extract(x, lane)</code> and
 <code>bitmask(m)</code>, defined in <a href="/docs/primitives-operations-and-targets/">primitives, operations, and targets</a>,
 also turn a rack into a scalar.</p>
 <p>A scratch can return a reduction's scalar. In a run, <code>let &lt;x: T&gt; = ...</code> binds
@@ -117,7 +121,7 @@ one as a uniform, and arithmetic on reductions there is scalar work:</p>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">10.0</span> <span class="tok-operator">+</span> <span class="tok-variable">width</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <h2 id="lane-order">Lane order</h2>
-<p>For an arithmetic rack <code>x</code> of <code>N</code> lanes:</p>
+<p>For a float rack <code>x</code> of <code>N</code> lanes:</p>
 <pre class="code code-text"><code>p[0] = x[0]
 p[i] = step(p[i - 1], x[i])    for i from 1 to N - 1
 </code></pre>
@@ -129,8 +133,20 @@ A rack always has lanes, so there is no empty case and no identity value.</p>
 <p>Mask reductions use associative bitwise operations, so their implementation
 may combine lane groups in a tree. <code>all</code> and <code>any</code> give the same truth value
 in any order. <code>bitmask</code> preserves each lane's bit position.</p>
-<h2 id="strict-minimum-and-maximum">Strict minimum and maximum</h2>
-<p>Each step of <code>minimum</code>, <code>maximum</code>, <code>scan_minimum</code> and <code>scan_maximum</code>:</p>
+<p>Integer reductions return the same element type as their input. Addition and
+multiplication wrap modulo 2³², including on signed inputs. Extrema retain
+the input's signed or unsigned ordering. These operations are associative,
+so their implementation can combine lane groups in a tree without changing
+the result. A reduction includes every lane, including values across the
+subdivisions of an AVX register.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">total_counts</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">counts</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">counts</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">lowest_score</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">scores</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">minimum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">scores</span><span class="tok-punctuation-bracket">)</span>
+</code></pre>
+<h2 id="floating-point-minimum-and-maximum">Floating-point minimum and maximum</h2>
+<p>For floats, each step of <code>minimum</code>, <code>maximum</code>, <code>scan_minimum</code> and <code>scan_maximum</code>:</p>
 <ol>
 <li>returns the quiet NaN <code>0x7fc00000</code> when either operand is NaN,</li>
 <li>for two zeros, returns −0 from <code>minimum</code> when either is −0, and from
@@ -157,10 +173,14 @@ reduction leaves the rack, and a scan orders its lanes.</p>
 <p>NEON reductions and scans are available in the development compiler after
 0.6.0-beta. Native mask reductions are also development features after that
 tag. The tagged compiler still rejects them.</p>
+<p>The development compiler also supports all four reductions on <code>i32s</code> and
+<code>u32s</code> across these profiles. The tagged compiler still accepts only float
+arithmetic reductions. Integer scans and reductions at other integer widths
+remain WIP* (<em>work in progress</em>).</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">running_total</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">scan_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>On SSE2, AVX2 and AVX-512, a fold takes three, seven or fifteen ordered
+<p>On SSE2, AVX2 and AVX-512, a float fold takes three, seven or fifteen ordered
 steps respectively. The steps use shuffles,
 permutations, blends and packed arithmetic, and a reduction's scalar returns
 in <code>xmm0</code>.</p>
@@ -180,7 +200,12 @@ the weights with OR. One temporary vector register is included in the
 no-spill allocation check. Only the completed result crosses into the C
 integer return register. Independent C checks every possible lane mask at
 each physical width, including complement and composed masks.</p>
-<p>On <code>wasm-simd128</code>, each of a reduction's three steps moves lane <code>i</code>
+<p>Integer reductions use the existing full-width shuffles and packed arithmetic
+or extrema. Each stage combines disjoint lane groups, and the completed value
+crosses the integer C return boundary through a lane extraction. No scalar
+lane arithmetic is introduced. An independent sequential C fold checks
+wrapping bits and signedness, including a reduction whose input is used again.</p>
+<p>On <code>wasm-simd128</code>, each of a float reduction's three steps moves lane <code>i</code>
 to lane 0 with one <code>i8x16.shuffle</code> and combines it with the running value. A
 scan keeps the running prefix in a rack and, for lanes 1 to 3, combines the
 previous prefix with lane <code>i</code> and shuffles the result into lane <code>i</code>. A
@@ -198,7 +223,7 @@ left-fold rounding, zero signs, canonical extrema and NaNs at every position.
 <p class="page-contents-title">On this page</p>
 <ul>
 <li><a href="#lane-order">Lane order</a></li>
-<li><a href="#strict-minimum-and-maximum">Strict minimum and maximum</a></li>
+<li><a href="#floating-point-minimum-and-maximum">Floating-point minimum and maximum</a></li>
 <li><a href="#restrictions-and-profiles">Restrictions and profiles</a></li>
 </ul>
 </nav>

@@ -173,6 +173,12 @@ subnormals and nonfinite values, and guarded stream checks cover masked tails.</
 <p>Float reductions and scans now compile on NEON too. All four physical profiles
 preserve the specified left-to-right fold, including each binary32 rounding.
 The shared scalar oracle checks NaNs at every position and signed-zero extrema.</p>
+<p>The four arithmetic reductions now also accept signed and unsigned 32-bit
+racks on every CPU profile. Tree-shaped packed operations retain wrapping
+addition and multiplication and signed or unsigned extrema, with the result
+returned through the scalar C ABI. A sequential C fold checks overflow bits
+and retained input racks. Integer scans and reductions at other lane widths
+remain work in progress.</p>
 <p>Literal-index extraction and insertion now compile on all four physical
 profiles for floats and signed or unsigned 32-bit integers.
 Their lane bounds follow each profile's rack width. Independent C checks every
@@ -311,7 +317,8 @@ and its object verifier proves the selected vector sequence.</p>
 <h3 id="complete-cross-profile-operation-coverage">Complete cross-profile operation coverage</h3>
 <p>We will fill the gaps shared by every profile. These include lane movement,
 transcendental functions, float remainder, <code>f64s</code>, the remaining integer and
-boolean rack types, unsigned comparisons and extrema at other widths, integer reductions,
+boolean rack types, unsigned comparisons and extrema at other widths,
+integer scans and reductions at other widths,
 widening conversions, scalar arithmetic over rack results, scatter,
 compression and expansion.</p>
 <p>An operation may lower to several vector instructions when a profile publishes

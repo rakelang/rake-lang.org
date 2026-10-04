@@ -82,6 +82,13 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p><code>sum</code>, <code>product</code>, <code>minimum</code> and <code>maximum</code> accept <code>i32s</code> and <code>u32s</code> on every
+CPU profile. Packed shuffle-and-combine trees preserve wrapping arithmetic
+and signedness, with one completed result crossing the scalar C ABI.
+Independent C checks overflow boundaries and reuse of the input rack.
+Integer scans and reductions at other widths remain WIP.</p>
+</li>
+<li>
 <p>Native stream bodies support local rack assignments, arrays of rack
 locations and unrolled fixed-count <code>repeat</code>, including nested repeats.
 Ordered SSA bindings preserve earlier snapshots without duplicating their
