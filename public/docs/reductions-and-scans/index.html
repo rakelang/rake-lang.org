@@ -104,7 +104,8 @@ require masks. <code>extract(x, lane)</code> and
 <code>bitmask(m)</code>, defined in <a href="/docs/primitives-operations-and-targets/">primitives, operations, and targets</a>,
 also turn a rack into a scalar.</p>
 <p>A scratch can return a reduction's scalar. In a run, <code>let &lt;x: T&gt; = ...</code> binds
-one as a uniform, and arithmetic on reductions there is scalar work:</p>
+one as a uniform. The following WebAssembly run computes the spread once,
+then broadcasts it into the output rack:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">top</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">maximum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 
@@ -123,6 +124,23 @@ one as a uniform, and arithmetic on reductions there is scalar work:</p>
   <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">width</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">10.0</span> <span class="tok-operator">+</span> <span class="tok-variable">width</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
+<p>The development compiler also accepts arithmetic on uniform results inside
+register kernels. For example, subtracting a rack's minimum from its maximum
+produces one <code>f32</code> value:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function">maximum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-</span> <span class="tok-function">minimum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">adjusted_counts</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">counts</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">let</span> <span class="tok-operator">&lt;</span><span class="tok-variable">offset</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32</span><span class="tok-operator">&gt;</span> <span class="tok-operator">=</span> <span class="tok-function">extract</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">counts</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">4294967295</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-number">1</span>
+  <span class="tok-variable">counts</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">offset</span><span class="tok-operator">&gt;</span></span>
+</code></pre>
+<p>Physical profiles broadcast the scalar operands into full racks, use packed
+arithmetic and keep the completed result as a uniform. <code>f32</code> supports
+addition, subtraction, multiplication and division with a binary32 rounding
+at each step. <code>i32</code> and <code>u32</code> support wrapping addition, subtraction and
+multiplication. Use a marked uniform when the scalar meets a rack, as
+<code>&lt;offset&gt;</code> does above. Arithmetic under a partial lane mask remains WIP*,
+including inside a masked traversal. This support is after 0.6.0-beta.</p>
 <h2 id="lane-order">Lane order</h2>
 <p>For a float rack <code>x</code> of <code>N</code> lanes:</p>
 <pre class="code code-text"><code>p[0] = x[0]

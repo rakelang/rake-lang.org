@@ -137,6 +137,7 @@ features after that tag.</p>
 <tr><td><code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>shuffle</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>all</code> <code>any</code> <code>bitmask</code> on float comparison masks</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td>arithmetic on <code>f32</code>, <code>i32</code> and <code>u32</code> uniform results in register kernels</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 </tbody></table>
 </div>
 <p><em>WIP: work in progress. Compilation fails for these cells.</em> †SSE2 and strict
@@ -533,8 +534,12 @@ operations. The compiler checks one temporary vector register in addition to
 the result. At the function boundary, the low 32 bits pass to <code>eax</code> on x86
 or <code>w0</code> on AArch64. Boolean results are exactly zero or one. The object verifier
 permits that transfer only immediately before the return of a source-declared
-integer result. General scalar arithmetic on these results inside a native
-scratch remains WIP*. Cross-lane reductions are forbidden in a <code>through</code>
+integer result. The development compiler supports wrapping addition,
+subtraction and multiplication on a <code>bitmask</code> result inside a register kernel.
+Numeric uniform arithmetic uses full-width packed instructions on physical
+profiles, retaining the completed result as a scalar. Boolean results still
+use Boolean operations. Further scalar operations remain WIP*.
+Cross-lane reductions are forbidden in a <code>through</code>
 block. Native stream mask reductions remain WIP* until their partial-rack
 participation contract is implemented.</p>
 <p>The native profiles also reduce <code>i32s</code> and <code>u32s</code> comparison masks. Masks from other

@@ -200,7 +200,13 @@ produce a Boolean, and <code>bitmask</code> a bitset with one bit per float lane
 Packed bitwise reductions retain their temporary values in vector registers,
 then cross the scalar C ABI through a checked terminal transfer. Independent
 C checks every lane-mask pattern and ordered comparisons containing quiet
-NaNs. Native scalar arithmetic over those results remains work in progress.</p>
+NaNs. Register kernels now also compute on numeric uniform results, including
+<code>bitmask</code>, reductions and extraction. Physical profiles broadcast the
+operands into full racks and use packed arithmetic before retaining the
+completed scalar value. <code>f32</code> arithmetic rounds at each binary32 step, and
+32-bit integer arithmetic wraps. Independent C checks rounding, overflow,
+retained racks and mixed-program calls. Arithmetic under a partial lane mask
+and further scalar operations remain work in progress.</p>
 <p>Direct uniform <code>f32</code> comparisons now choose a whole rack on all four physical
 profiles. The comparison uses broadcasts and vector masks, with protected
 operands in untaken branches. Independent C checks all six ordered predicates,
@@ -322,7 +328,7 @@ and its object verifier proves the selected vector sequence.</p>
 transcendental functions, float remainder, <code>f64s</code>, the remaining integer and
 boolean rack types, unsigned comparisons and extrema at other widths,
 integer scans and reductions at other widths,
-widening conversions, scalar arithmetic over rack results, scatter,
+widening conversions, further scalar operations over rack results, scatter,
 compression and expansion.</p>
 <p>An operation may lower to several vector instructions when a profile publishes
 that sequence. It may not lower to scalar lanes, helper calls, split racks or

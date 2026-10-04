@@ -82,6 +82,14 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Register kernels accept arithmetic on <code>f32</code>, <code>i32</code> and <code>u32</code> uniforms,
+including results of reductions, extraction and <code>bitmask</code>. Physical
+profiles broadcast those values and use packed instructions, then retain
+the completed scalar result. Float arithmetic rounds to binary32 at each
+step, and integer addition, subtraction and multiplication wrap to 32 bits.
+Arithmetic under a partial lane mask remains WIP.</p>
+</li>
+<li>
 <p><code>scan_sum</code>, <code>scan_product</code>, <code>scan_minimum</code> and <code>scan_maximum</code> accept
 <code>i32s</code> and <code>u32s</code> on every CPU profile. Packed stages combine inclusive
 prefixes across the full rack, preserving wrapping arithmetic and signed
