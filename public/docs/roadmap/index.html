@@ -204,8 +204,10 @@ NaNs. Register kernels now also compute on numeric uniform results, including
 <code>bitmask</code>, reductions and extraction. Physical profiles broadcast the
 operands into full racks and use packed arithmetic before retaining the
 completed scalar value. <code>f32</code> arithmetic rounds at each binary32 step, and
-32-bit integer arithmetic wraps. Independent C checks rounding, overflow,
-retained racks and mixed-program calls. Arithmetic under a partial lane mask
+32-bit integer arithmetic wraps. Unary minus also accepts float and signed
+32-bit uniforms, including reduced or extracted results. Float negation
+flips the sign bit, while signed negation wraps. Independent C checks rounding,
+overflow, retained racks and mixed-program calls. Arithmetic under a partial lane mask
 and further scalar operations remain work in progress.</p>
 <p>Direct uniform <code>f32</code> comparisons now choose a whole rack on all four physical
 profiles. The comparison uses broadcasts and vector masks, with protected

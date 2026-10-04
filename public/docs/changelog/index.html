@@ -82,6 +82,12 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Register kernels accept unary minus on <code>f32</code> and <code>i32</code> uniforms,
+including reduced and extracted values. Packed negation preserves float
+zero signs and NaN payloads, and signed results wrap to 32 bits.
+Negation under a partial lane mask remains WIP.</p>
+</li>
+<li>
 <p>Register kernels accept arithmetic on <code>f32</code>, <code>i32</code> and <code>u32</code> uniforms,
 including results of reductions, extraction and <code>bitmask</code>. Physical
 profiles broadcast those values and use packed instructions, then retain
