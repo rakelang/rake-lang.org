@@ -76,11 +76,18 @@
     <main class="content">
 <h1 id="changelog">Changelog</h1>
 <p>A Rake version identifies one compiler, Tree-sitter grammar, documentation set and
-website. Beta releases may still change the source language and the binary
+website. Releases before 1.0 may still change the source language and the binary
 boundaries between versions. A design in the documentation gets a version
 only when the compiler implements it and the tests cover it.</p>
-<h2 id="unreleased">Unreleased</h2>
+<h2 id="070">0.7.0</h2>
 <ul>
+<li>
+<p>Package tests run without target assemblers or disassemblers. Separate
+native and WebAssembly object suites retain mandatory verification checks,
+and the release gate runs both. Native GNU ELF tools accept explicit
+executable overrides and common distribution cross-toolchain prefixes.
+Package CI checks Linux, macOS and Windows separately from object checks.</p>
+</li>
 <li>
 <p>Native register kernels bitcast between <code>f32s</code>, <code>i32s</code> and <code>u32s</code> without
 changing lane bits. Reinterpreting an input uses its register or a vector
@@ -742,7 +749,7 @@ and displays generated C or assembly beside source diagnostics.</li>
 <nav class="page-contents" aria-label="On this page">
 <p class="page-contents-title">On this page</p>
 <ul>
-<li><a href="#unreleased">Unreleased</a></li>
+<li><a href="#070">0.7.0</a></li>
 <li><a href="#060-beta">0.6.0-beta</a></li>
 <li><a href="#050-beta">0.5.0-beta</a></li>
 <li><a href="#040-beta">0.4.0-beta</a></li>
@@ -750,7 +757,7 @@ and displays generated C or assembly beside source diagnostics.</li>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

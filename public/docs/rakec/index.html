@@ -103,8 +103,8 @@
 filename with <code>.c</code>, <code>.s</code> or <code>.o</code> unless <code>-o path</code> gives another. <code>-o</code> isn't allowed
 with the check, token and syntax-tree modes. A whole program, one with slow
 code, runs, records, state, embedded files, constants or externs, compiles for
-the wasm profiles in 0.6.0-beta. The unreleased development compiler also
-supports native slow orchestration with register kernels. Their <code>--emit-c</code>
+the wasm profiles. Rake 0.7.0 also supports native slow orchestration with
+register kernels. Their <code>--emit-c</code>
 output embeds Rake-selected assembly, and their <code>--emit-obj</code>
 output is a platform C object with verified kernels. <code>--verify-native</code> checks
 those kernels too. Native slow-only units have no vector function to verify,
@@ -138,7 +138,7 @@ profile, as <a href="/docs/backend/">the backend</a> explains.</p>
 <tr><td><code>-- args...</code></td><td>process arguments for <code>--interpret</code>, including strings that begin with <code>-</code></td></tr>
 </tbody></table>
 </div>
-<p>The unreleased development compiler supports <a href="/docs/slow-tier/#process-arguments">process arguments</a>
+<p>Rake 0.7.0 supports <a href="/docs/slow-tier/#process-arguments">process arguments</a>
 through <code>slow main(argc: i32, argv: ptr ptr u8) -&gt; i32</code>. The input path is
 <code>argv[0]</code> in the interpreter. Native and WASI executables receive their
 runtime's program string instead. Without parameters, <code>main</code> ignores the
@@ -151,9 +151,33 @@ it does not execute the generated machine code.</p>
 <code>native</code> chooses a profile and what <code>--width</code> checks, and <a href="/docs/packs-and-runs/#addressing">packs and
 runs</a> explains the addressing modes.</p>
 <h2 id="tools-and-environment">Tools and environment</h2>
-<p>On every x86 profile the assembler is <code>as --64</code>, and on <code>aarch64-neon</code> it is
-<code>aarch64-unknown-linux-gnu-as</code>. Verification disassembles with the matching
-<code>objdump</code>. The wasm profiles use these variables:</p>
+<p>The front end, interpreter and textual output need only the OCaml package
+dependencies. Object emission additionally needs the selected target's
+toolchain. Native profiles use GNU ELF assemblers and disassemblers, even
+when the compiler itself runs on another operating system. A host's Mach-O
+or PE assembler is not a substitute for the selected ELF toolchain.</p>
+<p>For x86, Rake searches <code>x86_64-linux-gnu-</code>, <code>x86_64-unknown-linux-gnu-</code> and
+<code>x86_64-elf-</code> tools before unprefixed <code>as</code> and <code>objdump</code>. For AArch64 it
+searches <code>aarch64-linux-gnu-</code>, <code>aarch64-unknown-linux-gnu-</code>,
+<code>aarch64-none-linux-gnu-</code> and <code>aarch64-elf-</code> tools. On an AArch64 Linux host
+with unprefixed tools, set the overrides to <code>as</code> and <code>objdump</code>. An explicit
+override is one executable path, with no flags or shell expansion. A failed
+tool or verification step remains an error.</p>
+<div class="table-scroll"><table><thead><tr><th>Variable</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>RAKE_X86_AS</code></td><td>GNU ELF x86-64 assembler, invoked with <code>--64</code></td></tr>
+<tr><td><code>RAKE_X86_OBJDUMP</code></td><td>GNU x86-64 object disassembler</td></tr>
+<tr><td><code>RAKE_AARCH64_AS</code></td><td>GNU ELF AArch64 assembler</td></tr>
+<tr><td><code>RAKE_AARCH64_OBJDUMP</code></td><td>GNU AArch64 object disassembler</td></tr>
+<tr><td><code>RAKE_AARCH64_CC</code></td><td>GCC-compatible AArch64 compiler for native whole programs</td></tr>
+<tr><td><code>RAKE_NATIVE_CC</code></td><td>native whole-program compiler override, taking precedence for every profile</td></tr>
+</tbody></table>
+</div>
+<p>On Debian or Ubuntu, install <code>binutils</code> for x86 objects and
+<code>binutils-aarch64-linux-gnu</code> for AArch64 objects. The native
+whole-program path also needs <code>gcc</code> or <code>gcc-aarch64-linux-gnu</code> respectively.
+The Nix development shell supplies these toolchains. Other hosts can use a
+GNU ELF cross-toolchain with the same executable overrides.</p>
+<p>The wasm profiles use these variables:</p>
 <div class="table-scroll"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>RAKE_WASM_CC</code></td><td><code>clang</code></td><td>the C compiler for wasm32 objects</td></tr>
 <tr><td><code>RAKE_WASM_OBJDUMP</code></td><td><code>llvm-objdump</code></td><td>the disassembler for verification</td></tr>
@@ -165,8 +189,9 @@ compilation. The development shell supplies their include path through
 <code>RAKE_WASM_CFLAGS</code>. Outside it, set that variable to your WASI include or
 sysroot flags and link the emitted object with WASI libc and its command
 startup object.</p>
-<p>The development compiler's native C path uses <code>gcc</code> on x86 and
-<code>aarch64-unknown-linux-gnu-gcc</code> on AArch64. <code>RAKE_NATIVE_CC</code> can select a
+<p>The native C path uses <code>gcc</code> on x86 and searches
+<code>aarch64-linux-gnu-gcc</code>, <code>aarch64-unknown-linux-gnu-gcc</code> and
+<code>aarch64-none-linux-gnu-gcc</code> on AArch64. <code>RAKE_NATIVE_CC</code> can select a
 different executable with the same GCC-compatible command-line interface.
 The compiler writes GNU C11, disables floating-point contraction and fast
 math, and compiles with warnings treated as errors. Its source directory is
@@ -202,7 +227,7 @@ failed. A trap from <code>--interpret</code> gives the location and the reason, 
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

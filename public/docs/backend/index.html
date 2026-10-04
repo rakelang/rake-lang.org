@@ -76,7 +76,7 @@
     <main class="content">
 <h1 id="the-backend">The backend</h1>
 <p>This page describes how <code>rakec</code> turns source into machine code, and which
-stage checks each promise from <a href="/docs/goals/">the goals</a>.</p>
+stage checks each requirement from <a href="/docs/goals/">the goals</a>.</p>
 <h2 id="scratches-and-rakes">Scratches and rakes</h2>
 <pre class="code code-text"><code>source
   -&gt; layout check, lexer and layout tokens, parser       the AST
@@ -130,7 +130,7 @@ register-kernel assembly. <code>--emit-c</code> prints the WebAssembly intrinsic
 native C unit embedding the selected assembly. The assembler encodes physical
 kernel instructions, while clang compiles WebAssembly intrinsics to virtual
 instructions. Explicit slow code uses the platform C compiler.</p>
-<p>In the development compiler, <code>abs</code> on <code>f32s</code> clears each lane's sign bit. SSE2 and AVX2
+<p>In Rake 0.7.0, <code>abs</code> on <code>f32s</code> clears each lane's sign bit. SSE2 and AVX2
 use <code>andps</code> and <code>vandps</code> with a literal magnitude mask. AVX-512F uses <code>vpandd</code>,
 and NEON uses a literal rack and <code>and</code>. These are full-width bitwise operations,
 so they introduce no floating-point exception, even for a signalling NaN.</p>
@@ -354,7 +354,7 @@ expressions, which native lowering and wasm selection compile as they compile
 a scratch. <code>rakec --interpret</code> runs <code>main</code> in Rake's executable semantics,
 evaluating rack expressions in the same reference semantics as scratches, and
 <code>test/program_test.sh</code> compares it with the compiled program.</p>
-<p>The unreleased development compiler adds a native mixed destination for the
+<p>Rake 0.7.0 supports a native mixed destination for the
 same tier IR:</p>
 <pre class="code code-text"><code>register kernels -&gt; Rake selection and allocation -&gt; opaque GNU assembly ─┐
 explicit slow code -&gt; scalar C and C ABI declarations ────────────────────┤
@@ -367,7 +367,7 @@ explicit slow code -&gt; scalar C and C ABI declarations ───────�
                                                                         |
                                                               register-kernel verifier
 </code></pre>
-<p>This development path supports the limited SSE2, AVX2, AVX-512 and NEON stream traversal.
+<p>This native path supports the limited SSE2, AVX2, AVX-512 and NEON stream traversal.
 General native runs remain work in progress. Slow callers can pass
 uniform <code>f32</code>, <code>i32</code>, <code>u32</code> and <code>bool</code> arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or
 <code>u32</code> results from register kernels.
@@ -448,8 +448,7 @@ fold <code>(x &lt;&lt; n) &gt;&gt; n</code> into a mask and AND, or repeated int
 a multiplication. Their results pass the independent execution checks, but
 the verifier does not yet prove these rewrites across separate bindings.
 It rejects those objects rather than grant broader instruction permissions.</p>
-<p>The promise is the same as on a physical target: outside a <code>slow</code> block, rack
-work uses vector instructions wherever the selected profile implements the
+<p>Outside a <code>slow</code> block, rack work uses vector instructions wherever the selected profile implements the
 operation. A run may also contain the uniform address, loop and bounds work
 written in its source. It never replaces rack work with scalar lane loops.</p>
 <h2 id="native-traversal-selection">Native traversal selection</h2>
@@ -465,8 +464,8 @@ The complete stream is opaque assembly inside the native C unit. C supplies
 only slow orchestration and its ABI. SSE2 and NEON use count-guarded lane
 transfers for the tail, then evaluate its arithmetic as one masked rack.
 AVX2 and AVX-512 use fault-suppressing masked vector transfers.</p>
-<p>The final traversal function's complete bytes must match a separately
-assembled selection. This includes its branches, address operands and
+<p>The verifier compares the final traversal function's complete bytes with a
+separately assembled selection. This includes its branches, address operands and
 embedded literals. Unresolved relocations fail verification, preventing
 unverified helpers or external constants from changing that graph. Guard
 pages and an independent C oracle check the memory and numerical semantics.
@@ -523,8 +522,8 @@ It owns register allocation and assembly on x86 and AArch64. For WebAssembly,
 clang encodes the selected virtual instructions and the runtime assigns
 physical registers. The system toolchain also owns object formats,
 relocations, linking and start-up. Debug information and exception unwinding
-aren't produced. The x86 and AArch64 backends in 0.6.0-beta compile scratches
-and rakes only. The development compiler adds native mixed programs through
+aren't produced. Rake 0.7.0's x86 and AArch64 backends compile scratches,
+rakes and native mixed programs through
 the limited scalar C boundary above. General runs compile on WebAssembly;
 SSE2, AVX2, AVX-512 and NEON implement the stream subset.</p>
 <h2 id="planned-gpu-pipeline">Planned GPU pipeline</h2>
@@ -541,7 +540,7 @@ Vulkan (later): Rake subgroup mapping -&gt; SPIR-V -&gt; driver -&gt; device ver
 NVIDIA will own final allocation and instruction scheduling. Rake will check
 the final cubin's instructions, control/data flow and resources against its
 contract, rejecting unknown or insufficient evidence. A certificate applies
-to that artifact, not every translation of its PTX.</p>
+to that artifact's exact bytes.</p>
 <p>The runtime will load only the verified cubin, with an explicit parameter ABI,
 context and CUDA stream. It will refuse an unverified PTX JIT fallback.
 Hardware scheduling, input-dependent lane activity and achieved occupancy
@@ -563,7 +562,7 @@ proof obligations from measurements and defines the acceptance gates.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

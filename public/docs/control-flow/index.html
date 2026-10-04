@@ -95,7 +95,7 @@ every production profile:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">distance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">v</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">w</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">if</span> <span class="tok-variable">v</span> <span class="tok-operator">&gt;</span> <span class="tok-variable">w</span> <span class="tok-keyword">then</span> <span class="tok-variable">v</span> <span class="tok-operator">-</span> <span class="tok-variable">w</span> <span class="tok-keyword">else</span> <span class="tok-variable">w</span> <span class="tok-operator">-</span> <span class="tok-variable">v</span>
 </code></pre>
-<p>A uniform condition chooses one whole rack. The development compiler accepts
+<p>A uniform condition chooses one whole rack. Rake 0.7.0 accepts
 a direct comparison of uniform <code>f32</code>, <code>i32</code> or <code>u32</code> values on every
 production profile. A comparison can also use a literal of the same type
 or an extracted <code>f32</code> bound as a uniform.
@@ -110,7 +110,7 @@ also limits participation.</p>
 <p>Float comparisons with a NaN are false, including <code>!=</code>, so an unordered
 condition chooses the <code>else</code> arm. Integer comparisons retain their declared
 signed or unsigned order, including values across bit 31. These native
-conditionals are development additions after the 0.6.0-beta tag.</p>
+conditionals are included in Rake 0.7.0.</p>
 <p>WebAssembly retains one scalar condition and a whole-rack selection. It
 computes both pure branches before selecting, and has no floating-point
 exception flags. This signed integer condition works on every production
@@ -137,8 +137,8 @@ below makes every lane choose <code>near</code> when at least one lane is positi
 <span class="tok-keyword">scratch</span> <span class="tok-function">pick_first</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">near</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">far</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">pick_enabled</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">near</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">far</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-boolean">true</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>These native Boolean conditions and C <code>bool</code> parameters are development
-additions after the 0.6.0-beta tag. The native <code>f32</code>, <code>i32</code> and <code>u32</code> stream subset also takes
+<p>These native Boolean conditions and C <code>bool</code> parameters are included in
+Rake 0.7.0. The native <code>f32</code>, <code>i32</code> and <code>u32</code> stream subset also takes
 <code>i32</code>, <code>u32</code> and <code>bool</code> uniforms within its
 <a href="/docs/packs-and-runs/#native-cpu-streams">C register boundary</a>.</p>
 <p>In slow code, only the chosen branch is evaluated.</p>
@@ -228,7 +228,7 @@ slow loop does whole-rack work once each iteration.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

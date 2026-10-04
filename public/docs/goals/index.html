@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Language goals | Rake</title>
-  <meta name="description" content="The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.">
+  <meta name="description" content="Rake's language goals and compiler checks for vector racks, marked scalars, lane masks, pure fused regions, explicit layouts and GPU execution.">
   <link rel="canonical" href="https://rake-lang.org/docs/goals/">
   <meta property="og:title" content="Language goals | Rake">
-  <meta property="og:description" content="The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.">
+  <meta property="og:description" content="Rake's language goals and compiler checks for vector racks, marked scalars, lane masks, pure fused regions, explicit layouts and GPU execution.">
   <meta property="og:url" content="https://rake-lang.org/docs/goals/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://rake-lang.org/images/social-card.png">
@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
   <link rel="stylesheet" href="/styles/components.css?v=615e6951">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Language goals | Rake","name":"Language goals | Rake","description":"The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.","url":"https://rake-lang.org/docs/goals/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Language goals | Rake","name":"Language goals | Rake","description":"Rake's language goals and compiler checks for vector racks, marked scalars, lane masks, pure fused regions, explicit layouts and GPU execution.","url":"https://rake-lang.org/docs/goals/","isPartOf":{"@type":"WebSite","name":"Rake","url":"https://rake-lang.org/"},"publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
 <body class="layout-docs">
@@ -77,8 +77,8 @@
 <h1 id="goals">Goals</h1>
 <p>Rake is a language for SIMD programs. It lets a programmer state the vector
 structure of an algorithm, its registers, masks and data layout, without
-writing intrinsics or assembly. This page sets out the promises the language
-makes. A compiler may reject a program or a profile it can't compile under
+writing intrinsics or assembly. This page defines the language's compilation
+rules. The compiler rejects a program or profile it can't compile under
 them, and it never keeps a program by weakening a rack, a fused region or a
 rake into scalar code. Each section ends with what the compiler does today.</p>
 <h2 id="racks-are-vector-values">Racks are vector values</h2>
@@ -110,8 +110,8 @@ reserved and unavailable.</p>
 <p>Tines describe lane masks, either locally or as reusable typed global
 predicates. A through block computes under one. Without <code>else</code>, its result
 is defined only there, and the checker refuses reads outside that mask.
-A sweep picks each lane's result in priority order. Its arms must provably
-cover every lane, using <code>gaps</code> or a final <code>_</code> where needed. A vector backend
+A sweep picks each lane's result in priority order. The checker proves that
+its arms cover every lane, using <code>gaps</code> or a final <code>_</code> where needed. A vector backend
 keeps these choices as vector predication,
 with masked instructions or benign operands, and never turns them into
 branches for each lane. An inactive lane raises no floating-point exception,
@@ -170,9 +170,8 @@ their boundaries and checked tails.</p>
 <p>A program's scalar work, its records, state, control flow and calls to C, is
 slow code, marked <code>slow</code>. A run enters it explicitly with <code>slow { ... }</code> and
 resumes vector mode at <code>}</code>. Slow code can't hold a rack, and reaches vector
-work only through calls whose uniform arguments are marked, so the promises
-above hold unchanged around it. The compiler guarantees vector lowering,
-not a particular elapsed time or the fastest possible algorithm.</p>
+work only through calls whose uniform arguments are marked. The vector
+lowering rules above apply unchanged around those calls.</p>
 <p>Today: whole programs compile on <code>wasm-simd128</code>, as <a href="/docs/slow-tier/">the slow
 tier</a> describes. The unreleased development compiler
 also compiles slow orchestration with register kernels into native objects.
@@ -187,7 +186,7 @@ encodes what it is given. Explicit slow code uses the platform C compiler.
 On WebAssembly, Rake owns selection of the virtual machine instructions and the
 shape of its <code>v128</code> values. The WebAssembly runtime owns their eventual
 physical registers. Every compiler stage can be inspected, and the compiler
-proves the properties it claims for an accepted program. When it can't prove
+proves the profile's properties for an accepted program. When it can't prove
 one, it fails with the source construct, profile and obligation that failed.
 A benchmark result is reported with its source, profile, compiler version,
 command, input size and baseline.</p>
@@ -206,19 +205,19 @@ lane masks, collective participation, memory address patterns and
 synchronisation scopes will be explicit parts of the profile.</p>
 <p>The hardware schedules warps. Rake will preserve and verify the declared lane
 mapping and permitted control flow, including programmer-selected partial
-masks. It cannot promise that arbitrary inputs keep all lanes active. In
-regions with a strict resource contract, forbidden spills, reloads and helper
+masks. Lane activity depends on the inputs. In regions with a strict
+resource contract, forbidden spills, reloads and helper
 paths cause rejection.</p>
 <p>The initial NVIDIA PTX route delegates final physical allocation and
 instruction scheduling to NVIDIA, then verifies the exact cubin. Portable
 SPIR-V could preserve the same source-level contract, with device-specific
-evidence for final-code claims. A later direct physical backend is a stronger
-ownership option, rather than a prerequisite for useful GPU guarantees.</p>
+evidence for its final-code properties. A later direct physical backend
+would give Rake ownership of physical allocation and instruction scheduling.</p>
 <p>Register count, memory address structure and absence of forbidden lowering
 can be checked. Achieved occupancy, cache behaviour and elapsed time require
-measurement. No-spill does not mean fastest: retaining more registers may
-reduce resident warps. Another resource policy must be an explicit profile,
-never a silent fallback.</p>
+measurement. Retaining more registers may reduce resident warps. Each
+resource policy has an explicit profile, and the compiler refuses a program
+that would require a different policy.</p>
 <p>Today: GPU support is a design. <a href="/docs/gpu/">GPU profiles</a> defines the first
 proposed NVIDIA profile, its artifact verifier and runtime boundary.</p>
 
@@ -239,7 +238,7 @@ proposed NVIDIA profile, its artifact verifier and runtime boundary.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

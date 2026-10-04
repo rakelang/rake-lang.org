@@ -82,7 +82,7 @@ remain work in progress. This roadmap states what we intend to build next.
 <a href="/docs/goals/">the goals</a> define the requirements for every change.</p>
 <h2 id="capabilities-and-coverage">Capabilities and coverage</h2>
 <h3 id="compile-runs-stacks-and-whole-programs-for-physical-targets">Compile runs, stacks and whole programs for physical targets</h3>
-<p>The development compiler after 0.6.0-beta compiles slow orchestration and
+<p>Rake 0.7.0 compiles slow orchestration and
 register kernels into one native object. Its C unit embeds Rake-selected
 assembly, and the final object's kernels pass the existing instruction
 verifier. Slow callers can use uniform <code>f32</code>, <code>i32</code>, <code>u32</code> or <code>bool</code> parameters and
@@ -110,7 +110,7 @@ SSE2, AVX2, AVX-512 and NEON. That work includes native traversal, full-rack
 loads and stores, masked tails with benign operands, stable C boundaries and
 runtime tests over empty, short, exact and tail counts. The object verifier
 will confirm vector memory operations and reject scalar cleanup loops.</p>
-<p>The development compiler also accepts typed <code>argc</code>/<code>argv</code> entry, adapting the
+<p>Rake 0.7.0 also accepts typed <code>argc</code>/<code>argv</code> entry, adapting the
 runtime's C pointer array without incompatible pointer aliasing. The C interface
 supports typed function pointers, noncapturing callbacks and header-backed C
 unions. Rake-owned union layouts and interpreted union storage remain work in
@@ -138,8 +138,8 @@ for unrelated expressions.</p>
 <h3 id="add-and-validate-target-profiles">Add and validate target profiles</h3>
 <p>SSE2 and AVX-512F now compile <code>f32s</code> scratches and rakes, alongside AVX2 and
 NEON. We will add the explicit scalar fallback and complete CPU operation and
-program coverage before beginning GPU targets. Each physical profile must
-have instruction selection, register allocation, a calling convention,
+program coverage before beginning GPU targets. Each physical profile needs
+instruction selection, register allocation, a calling convention,
 object verification and differential runtime checks.</p>
 <p>We will validate relaxed WebAssembly SIMD on the competition runtime before
 considering it a default. Until then it remains explicitly opt-in.</p>
@@ -155,11 +155,11 @@ scheduling to NVIDIA. The useful guarantee is preserved parallel structure
 and checked costs. Partial masks remain legitimate program choices, and
 occupancy, workload balance and elapsed time still need measurement.</p>
 <p>We will later consider portable SPIR-V/Vulkan subgroup profiles, with
-device-specific evidence for physical resource claims, and a direct physical
+device-specific evidence for physical resource use, and a direct physical
 profile for a sufficiently documented ISA. All are designs today.
 <a href="/docs/gpu/">GPU profiles</a> owns the detailed contract and acceptance checks.</p>
 <h3 id="complete-physical-cpu-operation-coverage">Complete physical CPU operation coverage</h3>
-<p>The development compiler now lowers <code>f32s</code> absolute values to vector bitwise
+<p>Rake 0.7.0 lowers <code>f32s</code> absolute values to vector bitwise
 operations on SSE2, AVX2, AVX-512F and NEON. Independent bit-pattern checks
 cover signed zeros, subnormals, infinities and NaNs, including masked use.
 Lane-wise <code>min</code> and <code>max</code> also compile on all four physical profiles,
@@ -228,7 +228,7 @@ Independent C checks lane choices and signalling-NaN exception flags,
 including outer masks and guarded tails. Other scalar expressions in native
 runs remain work in progress.</p>
 <p>We will bring the physical profiles up to the language's published operation
-set. The development compiler now supports 32-bit integer wrapping add/subtract/multiply
+set. Rake 0.7.0 supports 32-bit integer wrapping add/subtract/multiply
 and bitwise AND/OR/XOR/AND-NOT on all four physical profiles, along with signed
 negation and absolute value. Lane-wise <code>min</code> and <code>max</code> support both signed
 and unsigned 32-bit racks. Both <code>i32s</code> and <code>u32s</code> comparisons produce
@@ -365,10 +365,9 @@ or remove it. Parser and capability reports will then describe only constructs
 that the language can accept or deliberately rejects as planned work.</p>
 <h3 id="design-modules-and-separate-compilation">Design modules and separate compilation</h3>
 <p>We will design one coherent system for modules, imports, namespaces, packages
-and separate compilation. The design must preserve Rake's explicit target
+and separate compilation. The design will preserve Rake's explicit target
 contract and produce stable boundaries that native and WebAssembly callers can
-inspect. We will not add isolated import syntax before that system is defined
-end to end.</p>
+inspect. Import syntax will be part of that complete design.</p>
 <h3 id="teach-the-vector-notation-at-the-point-of-use">Teach the vector notation at the point of use</h3>
 <p>We will keep the tutorial, diagnostics and reference examples aligned so that
 <code>&lt;uniform&gt;</code>, <code>#tine</code>, fused <code>| name &lt;| value</code> bindings, <code>through</code> and <code>sweep</code>
@@ -454,7 +453,7 @@ input size, machine and baseline.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

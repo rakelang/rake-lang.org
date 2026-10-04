@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <link rel="stylesheet" href="/styles/tokens.css?v=25f0bee1">
   <link rel="stylesheet" href="/styles/components.css?v=615e6951">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a language for SIMD kernels. Each rack is one vector value, and profiles require vector instructions or reject unsupported operations.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","version":"0.6.0-beta","license":"https://opensource.org/licenses/MIT","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Rake","url":"https://rake-lang.org/","description":"Rake is a language for SIMD kernels. Each rack is one vector value, and profiles require vector instructions or reject unsupported operations.","codeRepository":"https://github.com/rakelang/rake","programmingLanguage":"Rake","version":"0.7.0","license":"https://opensource.org/licenses/MIT","publisher":{"@type":"Organization","name":"over|yonder","url":"https://over-yonder.tech/"}}</script>
 
 </head>
 <body class="layout-home">
@@ -42,7 +42,7 @@
 <div>
 <h1>Rake</h1>
 <p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
-<p>Rust's type system and borrow checker enforce memory safety in safe code. An <code>unsafe</code> block marks operations whose safety the programmer must establish. Rake's compiler checks that vector calculations become vector instructions. You get that guarantee without needing to manually review the assembly that the compiler generated, because it does that for you. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
+<p>Rust's type system and borrow checker enforce memory safety in safe code. Inside an <code>unsafe</code> block, the programmer is responsible for memory safety. Rake's compiler checks that vector calculations become vector instructions. It reviews the generated assembly for you. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
 <p>Rake is a SIMD, or vector, programming language. It's built for calculations that apply the same operation to many numbers at once. Its current profiles target CPUs and WebAssembly. The planned GPU profiles will preserve parallel work across warp lanes and check execution costs against an explicit contract.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
@@ -51,10 +51,9 @@
 </ul>
 </div>
 </div>
-<h2 id="a-first-look">A first look</h2>
-<p>This demonstration processes a million floats in eight-lane racks, with
-vector lowering checked by the compiler. The comparison starts with an
-ordinary C loop:</p>
+<h2 id="why-rake">Why Rake</h2>
+<p>Suppose we want the square roots of a column of numbers, with zero for
+negative inputs. An ordinary C loop is easy to read:</p>
 <pre class="code code-c"><code><span class="tok-keyword">#include</span> <span class="tok-string">&lt;math.h&gt;</span>
 <span class="tok-keyword">#include</span> <span class="tok-string">&lt;stddef.h&gt;</span>
 
@@ -68,8 +67,103 @@ ordinary C loop:</p>
     }
 }
 </code></pre>
-<p>The equivalent operation on a Rake rack is:</p>
-<pre class="code code-rake"><code><span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+<p>With GCC 14.3 and our AVX2 build flags, this becomes a vector loop. Now
+consider a similar loop using a different maths function:</p>
+<pre class="code code-c"><code><span class="tok-type">void</span> <span class="tok-function">sin_array_scalar</span>(<span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">input</span>, <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">output</span>, <span class="tok-type">size_t</span> <span class="tok-variable">count</span>)
+{
+    <span class="tok-keyword">for</span> (<span class="tok-type">size_t</span> <span class="tok-variable">i</span> <span class="tok-operator">=</span> <span class="tok-number">0</span><span class="tok-delimiter">;</span> <span class="tok-variable">i</span> <span class="tok-operator">&lt;</span> <span class="tok-variable">count</span><span class="tok-delimiter">;</span> <span class="tok-operator">++</span><span class="tok-variable">i</span>)
+        <span class="tok-variable">output</span>[<span class="tok-variable">i</span>] <span class="tok-operator">=</span> <span class="tok-function">sinf</span>(<span class="tok-variable">input</span>[<span class="tok-variable">i</span>])<span class="tok-delimiter">;</span>
+}
+</code></pre>
+<p>C still compiles it. In this build, the loop calls the scalar <code>sinf</code> library
+function once per element. Successful compilation has allowed the work to
+become scalar. We can enable vectorisation diagnostics or inspect the assembly
+to discover that change.</p>
+<p>Rake makes the vector requirement part of compilation:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">reject_sin</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-operator-flow">|</span> <span class="tok-variable">result</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-function">sin</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-variable">result</span>
+</code></pre>
+<pre class="code code-text"><code>$ rakec --verify-native --target x86-avx2 demo/soa-proof/rake/reject_sin.rk
+native lowering: call to 'sin' is not supported by native scratch lowering
+</code></pre>
+<p>The profile has no vector lowering for this operation, so Rake stops at the
+line responsible. It can inline supported calculations and select vector
+instructions. If those transformations can't preserve the profile's vector
+rules, it reports an error. That feedback tells us where a calculation needs
+attention before it reaches the application.</p>
+<h3 id="explicit-simd">Explicit SIMD</h3>
+<p>The usual next step is to write the vector operations explicitly. For the
+square-root loop, C's AVX2 intrinsics expose the register width, lane mask,
+loads and stores. The final partial vector needs its own memory mask:</p>
+<pre class="code code-c"><code><span class="tok-keyword">#include</span> <span class="tok-string">&lt;immintrin.h&gt;</span>
+<span class="tok-keyword">#include</span> <span class="tok-string">&lt;stddef.h&gt;</span>
+
+<span class="tok-keyword">static</span> <span class="tok-type">__m256</span> <span class="tok-function">safe_root_rack</span>(<span class="tok-type">__m256</span> <span class="tok-variable">value</span>)
+{
+    <span class="tok-keyword">const</span> <span class="tok-type">__m256</span> <span class="tok-variable">zero</span> <span class="tok-operator">=</span> <span class="tok-function">_mm256_setzero_ps</span>()<span class="tok-delimiter">;</span>
+    <span class="tok-keyword">const</span> <span class="tok-type">__m256</span> <span class="tok-variable">valid</span> <span class="tok-operator">=</span> <span class="tok-function">_mm256_cmp_ps</span>(<span class="tok-variable">value</span>, <span class="tok-variable">zero</span>, <span class="tok-variable">_CMP_GE_OQ</span>)<span class="tok-delimiter">;</span>
+    <span class="tok-keyword">const</span> <span class="tok-type">__m256</span> <span class="tok-variable">input</span> <span class="tok-operator">=</span> <span class="tok-function">_mm256_and_ps</span>(<span class="tok-variable">valid</span>, <span class="tok-variable">value</span>)<span class="tok-delimiter">;</span>
+    <span class="tok-keyword">return</span> <span class="tok-function">_mm256_and_ps</span>(<span class="tok-variable">valid</span>, <span class="tok-function">_mm256_sqrt_ps</span>(<span class="tok-variable">input</span>))<span class="tok-delimiter">;</span>
+}
+
+<span class="tok-type">void</span> <span class="tok-function">safe_root_avx2</span>(<span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">values</span>, <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">roots</span>, <span class="tok-type">size_t</span> <span class="tok-variable">count</span>)
+{
+    <span class="tok-type">size_t</span> <span class="tok-variable">i</span> <span class="tok-operator">=</span> <span class="tok-number">0</span><span class="tok-delimiter">;</span>
+    <span class="tok-keyword">for</span> (<span class="tok-delimiter">;</span> <span class="tok-variable">count</span> <span class="tok-operator">-</span> <span class="tok-variable">i</span> &gt;= <span class="tok-number">8</span><span class="tok-delimiter">;</span> <span class="tok-variable">i</span> <span class="tok-operator">+=</span> <span class="tok-number">8</span>) {
+        <span class="tok-keyword">const</span> <span class="tok-type">__m256</span> <span class="tok-variable">value</span> <span class="tok-operator">=</span> <span class="tok-function">_mm256_loadu_ps</span>(<span class="tok-variable">values</span> <span class="tok-operator">+</span> <span class="tok-variable">i</span>)<span class="tok-delimiter">;</span>
+        <span class="tok-function">_mm256_storeu_ps</span>(<span class="tok-variable">roots</span> <span class="tok-operator">+</span> <span class="tok-variable">i</span>, <span class="tok-function">safe_root_rack</span>(<span class="tok-variable">value</span>))<span class="tok-delimiter">;</span>
+    }
+    <span class="tok-keyword">if</span> (<span class="tok-variable">i</span> <span class="tok-operator">&lt;</span> <span class="tok-variable">count</span>) {
+        <span class="tok-keyword">const</span> <span class="tok-type">__m256i</span> <span class="tok-variable">lanes</span> <span class="tok-operator">=</span> <span class="tok-function">_mm256_setr_epi32</span>(<span class="tok-number">0</span>, <span class="tok-number">1</span>, <span class="tok-number">2</span>, <span class="tok-number">3</span>, <span class="tok-number">4</span>, <span class="tok-number">5</span>, <span class="tok-number">6</span>, <span class="tok-number">7</span>)<span class="tok-delimiter">;</span>
+        <span class="tok-keyword">const</span> <span class="tok-type">__m256i</span> <span class="tok-variable">remaining</span> <span class="tok-operator">=</span> <span class="tok-function">_mm256_set1_epi32</span>((<span class="tok-type">int</span>)(<span class="tok-variable">count</span> <span class="tok-operator">-</span> <span class="tok-variable">i</span>))<span class="tok-delimiter">;</span>
+        <span class="tok-keyword">const</span> <span class="tok-type">__m256i</span> <span class="tok-variable">active</span> <span class="tok-operator">=</span> <span class="tok-function">_mm256_cmpgt_epi32</span>(<span class="tok-variable">remaining</span>, <span class="tok-variable">lanes</span>)<span class="tok-delimiter">;</span>
+        <span class="tok-keyword">const</span> <span class="tok-type">__m256</span> <span class="tok-variable">value</span> <span class="tok-operator">=</span> <span class="tok-function">_mm256_maskload_ps</span>(<span class="tok-variable">values</span> <span class="tok-operator">+</span> <span class="tok-variable">i</span>, <span class="tok-variable">active</span>)<span class="tok-delimiter">;</span>
+        <span class="tok-function">_mm256_maskstore_ps</span>(<span class="tok-variable">roots</span> <span class="tok-operator">+</span> <span class="tok-variable">i</span>, <span class="tok-variable">active</span>, <span class="tok-function">safe_root_rack</span>(<span class="tok-variable">value</span>))<span class="tok-delimiter">;</span>
+    }
+}
+</code></pre>
+<p>Rust's <a href="https://docs.rs/wide/1.5.0/wide/struct.f32x8.html"><code>wide</code> SIMD crate</a>
+gives these values methods. We still write the eight-element chunks,
+conversions and remainder loop:</p>
+<pre class="code code-text"><code>use wide::f32x8;
+
+fn safe_roots(values: &amp;[f32], roots: &amp;mut [f32]) {
+    assert_eq!(values.len(), roots.len());
+    let mut input = values.chunks_exact(8);
+    let mut output = roots.chunks_exact_mut(8);
+    for (chunk, result) in input.by_ref().zip(output.by_ref()) {
+        let value = f32x8::from(&lt;[f32; 8]&gt;::try_from(chunk).unwrap());
+        let zero = f32x8::splat(0.0);
+        let valid = value.simd_ge(zero);
+        let rooted = valid.blend(value, zero).sqrt();
+        let lanes: [f32; 8] = valid.blend(rooted, zero).into();
+        result.copy_from_slice(&amp;lanes);
+    }
+    for (&amp;value, result) in input.remainder().iter().zip(output.into_remainder()) {
+        *result = if value &gt;= 0.0 { value.sqrt() } else { 0.0 };
+    }
+}
+</code></pre>
+<p><a href="https://ispc.github.io/ispc.html">ISPC</a> supplies a parallel loop and manages
+its lanes. Its C-family syntax retains the array indices and statements:</p>
+<pre class="code code-c"><code><span class="tok-type">export</span> <span class="tok-variable">void</span> <span class="tok-function">safe_roots</span>(<span class="tok-type">uniform</span> <span class="tok-variable">float</span> <span class="tok-variable">values</span>[],
+                       <span class="tok-type">uniform</span> <span class="tok-variable">float</span> <span class="tok-variable">roots</span>[],
+                       <span class="tok-type">uniform</span> <span class="tok-variable">int</span> <span class="tok-variable">count</span>)
+{
+    <span class="tok-function">foreach</span> (<span class="tok-variable">i</span> <span class="tok-operator">=</span> <span class="tok-number">0</span> ... <span class="tok-variable">count</span>)<span class="tok-delimiter"></span> {
+        <span class="tok-type">float</span> <span class="tok-variable">value</span> <span class="tok-operator">=</span> <span class="tok-variable">values</span>[<span class="tok-variable">i</span>]<span class="tok-delimiter">;</span>
+        <span class="tok-variable">roots</span>[<span class="tok-variable">i</span>] <span class="tok-operator">=</span> <span class="tok-variable">value</span> &gt;= <span class="tok-number">0.0f</span> ? <span class="tok-function">sqrt</span>(<span class="tok-variable">value</span>) : <span class="tok-number">0.0f</span><span class="tok-delimiter">;</span>
+    }
+}
+</code></pre>
+<p>In Rake, we describe the eligible lanes and their calculation. The profile
+chooses the width, and the traversal handles the loads, stores and tail:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 
 <span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
@@ -77,14 +171,104 @@ ordinary C loop:</p>
   <span class="tok-keyword">sweep</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
     <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">gaps</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">for</span> <span class="tok-variable">chunk</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-keyword">yield</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>The native AVX2 demonstration puts this operation in a compiler-generated
-loop over a million entries. Both Rake and optimized C took about 0.14 ms on
-our Ryzen 7 5800X3D. C already vectorized the loop. Disabling C's vectorizer
-made its scalar loop about 26 times slower. Those are measured build/input
-comparisons, rather than a promise that Rake always beats C.
-<a href="https://github.com/rakelang/rake/tree/main/demo/safe-root">The benchmark source and commands</a>
-include the flags and correctness checks, and generate both disassemblies.</p>
+<p>The masks remain visible in the source, while the width-specific instructions
+and memory handling belong to the compiler.</p>
+<h3 id="a-vector-friendly-fix">A vector-friendly fix</h3>
+<p>For the rejected sine calculation, suppose our algorithm uses angles between
+−0.5 and 0.5 radians. We can replace the general library call with a
+ninth-degree polynomial over that interval. C can vectorise its arithmetic:</p>
+<pre class="code code-c"><code><span class="tok-keyword">static</span> <span class="tok-keyword">inline</span> <span class="tok-type">float</span> <span class="tok-function">bounded_sine_c</span>(<span class="tok-type">float</span> <span class="tok-variable">value</span>)
+{
+    <span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-variable">square</span> <span class="tok-operator">=</span> <span class="tok-variable">value</span> <span class="tok-operator">*</span> <span class="tok-variable">value</span><span class="tok-delimiter">;</span>
+    <span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-variable">fifth</span> <span class="tok-operator">=</span> <span class="tok-number">0.0000027557319223985893f</span> <span class="tok-operator">*</span> <span class="tok-variable">square</span> <span class="tok-operator">-</span> <span class="tok-number">0.0001984126984126984f</span><span class="tok-delimiter">;</span>
+    <span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-variable">fourth</span> <span class="tok-operator">=</span> <span class="tok-variable">fifth</span> <span class="tok-operator">*</span> <span class="tok-variable">square</span> <span class="tok-operator">+</span> <span class="tok-number">0.008333333333333333f</span><span class="tok-delimiter">;</span>
+    <span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-variable">third</span> <span class="tok-operator">=</span> <span class="tok-variable">fourth</span> <span class="tok-operator">*</span> <span class="tok-variable">square</span> <span class="tok-operator">-</span> <span class="tok-number">0.16666666666666666f</span><span class="tok-delimiter">;</span>
+    <span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-variable">second</span> <span class="tok-operator">=</span> <span class="tok-variable">third</span> <span class="tok-operator">*</span> <span class="tok-variable">square</span> <span class="tok-operator">+</span> <span class="tok-number">1.0f</span><span class="tok-delimiter">;</span>
+    <span class="tok-keyword">return</span> <span class="tok-variable">value</span> <span class="tok-operator">*</span> <span class="tok-variable">second</span><span class="tok-delimiter">;</span>
+}
+
+<span class="tok-type">void</span> <span class="tok-function">bounded_sine_column_c</span>(<span class="tok-keyword">const</span> <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">values</span>, <span class="tok-type">float</span> <span class="tok-operator">*</span><span class="tok-variable">output</span>, <span class="tok-type">size_t</span> <span class="tok-variable">count</span>)
+{
+    <span class="tok-keyword">for</span> (<span class="tok-type">size_t</span> <span class="tok-variable">i</span> <span class="tok-operator">=</span> <span class="tok-number">0</span><span class="tok-delimiter">;</span> <span class="tok-variable">i</span> <span class="tok-operator">&lt;</span> <span class="tok-variable">count</span><span class="tok-delimiter">;</span> <span class="tok-operator">++</span><span class="tok-variable">i</span>)
+        <span class="tok-variable">output</span>[<span class="tok-variable">i</span>] <span class="tok-operator">=</span> <span class="tok-function">bounded_sine_c</span>(<span class="tok-variable">values</span>[<span class="tok-variable">i</span>])<span class="tok-delimiter">;</span>
+}
+</code></pre>
+<p>The same calculation now passes Rake's vector checks:</p>
+<pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">bounded_sine</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">square</span> <span class="tok-operator">=</span> <span class="tok-variable">values</span> <span class="tok-operator">*</span> <span class="tok-variable">values</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">fifth</span> <span class="tok-operator">=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0000027557319223985893</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">*</span> <span class="tok-variable">square</span> <span class="tok-operator">-</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0001984126984126984</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">fourth</span> <span class="tok-operator">=</span> <span class="tok-variable">fifth</span> <span class="tok-operator">*</span> <span class="tok-variable">square</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.008333333333333333</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">third</span> <span class="tok-operator">=</span> <span class="tok-variable">fourth</span> <span class="tok-operator">*</span> <span class="tok-variable">square</span> <span class="tok-operator">-</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.16666666666666666</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">second</span> <span class="tok-operator">=</span> <span class="tok-variable">third</span> <span class="tok-operator">*</span> <span class="tok-variable">square</span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span>
+  <span class="tok-variable">values</span> <span class="tok-operator">*</span> <span class="tok-variable">second</span>
+</code></pre>
+<p>Both compiled versions agreed with <code>sinf</code> to a maximum observed absolute
+error of 2.98 × 10⁻⁸ across 8,000 evenly spaced inputs in that interval.
+The C vector loop uses packed multiplies and adds. Rake selects and verifies
+the corresponding vector kernel. Restricting the input domain gives us a
+small calculation we can implement with the available vector operations.</p>
+<h3 id="measured-execution">Measured execution</h3>
+<p>These bars return to the square-root example. All four versions process
+the same million-element input. C's automatic vectoriser already handles
+this loop, and its two vector versions and Rake finish at similar times.</p>
+<figure class="diagram diagram-benchmark">
+<div class="diagram-panels">
+<div class="diagram-panel">
+<h4>All four versions</h4>
+<svg viewBox="0 0 320 260" role="img" aria-labelledby="benchmark-all-title benchmark-all-desc">
+<title id="benchmark-all-title">Square roots over a million floats</title>
+<desc id="benchmark-all-desc">Median time in milliseconds: scalar C 3.873, autovectorized C 0.143, C intrinsics 0.143 and Rake 0.144. All bars start at zero on the same scale.</desc>
+<text class="diagram-label" x="112" y="22">Time (ms), smaller is faster</text>
+<text class="diagram-label" x="8" y="65">Scalar C</text>
+<rect class="diagram-operation" x="112" y="42" width="174.28" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="85">3.873 ms</text>
+<text class="diagram-label" x="8" y="115">C auto</text>
+<rect class="diagram-operation" x="112" y="92" width="6.42" height="24" rx="3"/>
+<text class="diagram-label" x="128" y="111">0.143 ms</text>
+<text class="diagram-label" x="8" y="165">C intrinsics</text>
+<rect class="diagram-operation" x="112" y="142" width="6.45" height="24" rx="3"/>
+<text class="diagram-label" x="128" y="161">0.143 ms</text>
+<text class="diagram-label" x="8" y="215">Rake</text>
+<rect class="diagram-operation" x="112" y="192" width="6.49" height="24" rx="3"/>
+<text class="diagram-label" x="128" y="211">0.144 ms</text>
+<path class="diagram-flow" d="M112 226 H292"/>
+<text class="diagram-label" x="112" y="248">0</text>
+<text class="diagram-label" x="270" y="248">4 ms</text>
+</svg>
+</div>
+<div class="diagram-panel">
+<h4>Vector versions, enlarged</h4>
+<svg viewBox="0 0 320 260" role="img" aria-labelledby="benchmark-vector-title benchmark-vector-desc">
+<title id="benchmark-vector-title">Enlarged view of the three vector timings</title>
+<desc id="benchmark-vector-desc">On a separate zero-to-0.16 millisecond scale, autovectorized C takes 0.143 milliseconds, C intrinsics 0.143 and Rake 0.144.</desc>
+<text class="diagram-label" x="112" y="22">Time (ms), smaller is faster</text>
+<text class="diagram-label" x="8" y="90">C auto</text>
+<rect class="diagram-operation" x="112" y="65" width="160.61" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="110">0.143 ms</text>
+<text class="diagram-label" x="8" y="145">C intrinsics</text>
+<rect class="diagram-operation" x="112" y="120" width="161.25" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="165">0.143 ms</text>
+<text class="diagram-label" x="8" y="200">Rake</text>
+<rect class="diagram-operation" x="112" y="175" width="162.34" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="220">0.144 ms</text>
+<path class="diagram-flow" d="M112 226 H292"/>
+<text class="diagram-label" x="112" y="248">0</text>
+<text class="diagram-label" x="248" y="248">0.16 ms</text>
+</svg>
+</div>
+</div>
+<figcaption>Ryzen 7 5800X3D, AVX2, GCC 14.3, 4 October 2026. Medians of 31 samples, each averaging four passes, with execution order rotated. The scalar row disables C's vectoriser. The right panel enlarges the three vector rows with its own labelled scale.</figcaption>
+</figure>
+<p><a href="https://github.com/rakelang/rake/tree/main/demo/safe-root">The benchmark source, flags and raw samples</a>
+include bitwise result comparisons, guard-page tail checks and disassemblies.
+Rake makes the vector lowering a checked requirement while keeping the
+source focused on the calculation.</p>
+<h2 id="a-first-look">A first look</h2>
 <p>Rake's execution model can be pictured in three steps: define the <code>tine</code>s,
 <code>rake</code> data <code>through</code> them, then <code>sweep</code> the results. We'll read the program
 in that order, starting with what vector processing means.</p>
@@ -95,7 +279,7 @@ in that order, starting with what vector processing means.</p>
 <h4>Scalar: one number at a time</h4>
 <svg viewBox="0 0 320 288" role="img" aria-labelledby="scalar-desk-title scalar-desk-description">
 <title id="scalar-desk-title">One scalar add at a narrow desk</title>
-<desc id="scalar-desk-description">The tape holds 4, 7, 2 and 9. Only 4 is on the narrow desk. One add instruction changes it to 5, leaving the other numbers unchanged. The tape must advance before the next number can be processed.</desc>
+<desc id="scalar-desk-description">The tape holds 4, 7, 2 and 9. Only 4 is on the narrow desk. One add instruction changes it to 5, leaving the other numbers unchanged. Advancing the tape brings the next number onto the desk.</desc>
 <text class="diagram-label" x="18" y="25">Narrow desk</text>
 <rect class="diagram-desk" x="18" y="40" width="66" height="208" rx="8"/>
 <rect class="diagram-cell diagram-cell-active" x="24" y="54" width="54" height="44" rx="4"/>
@@ -266,9 +450,9 @@ when the masks provably cover every lane, as these tines and their <code>gaps</c
 do. Separate numeric comparisons aren't assumed to cover all inputs:
 NaNs fail both comparisons in this example.</p>
 <p>Reading the definition in stages explains how the calculation depends on
-its inputs. It doesn't specify a delayed execution model: the sweep isn't
-a trigger for earlier work. The compiler can optimise these pure
-calculations together. Both square roots become vector instructions. On
+its inputs. The sweep selects values computed by the through blocks. The
+compiler can optimise these pure calculations together. Both square roots
+become vector instructions. On
 physical CPU profiles, the compiler supplies benign operands in their
 inactive lanes. WebAssembly SIMD has no floating-point exception flags.</p>
 <p><a href="/docs/playground/#lesson-8">Lesson 8</a> lets you try an undefined-lane read,
@@ -279,8 +463,8 @@ defines the scope and masking rules.</p>
 <p><code>f32s</code> is a rack of <code>f32</code> values. On AVX2 it is one physical register holding
 eight floats, and on NEON one holding four. On WebAssembly it is one <code>v128</code>
 value holding four. Rake adheres to the virtual machine's fiction and doesn't
-try to replace the runtime's physical register allocation. Its promise stays
-the same: outside a <code>slow</code> block, rack work uses vector instructions wherever
+try to replace the runtime's physical register allocation. Outside a <code>slow</code>
+block, rack work uses vector instructions wherever
 the selected profile supports the operation, or the compiler refuses it.</p>
 <h3 id="scalars-are-marked">Scalars are marked</h3>
 <p>A value shared by every lane is a uniform, and angle brackets mark it where
@@ -300,8 +484,8 @@ together. Compilers may fuse loops, for example, to do their work in one
 pass. Rake's fused bindings let it combine stages of a vector calculation.</p>
 <p>In <code>| name &lt;| expression</code>, the expression flows from right to left into its
 name. This is still a binding. The leading <code>|</code> marks it as part of a fused
-calculation, whose stages the compiler must keep together as a contiguous
-sequence of vector instructions. Here a <code>scratch</code>, a function of racks that
+calculation. The compiler keeps its stages together as a contiguous sequence
+of vector instructions. Here a <code>scratch</code>, a function of racks that
 doesn't need tines, calculates a new position in two stages:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">step</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">dt</span><span class="tok-operator">&gt;</span></span>
@@ -360,7 +544,7 @@ target's SIMD width. Remember the hierarchy as "define our pack, then rack
 <rect class="diagram-cell" x="135" y="218" width="521" height="27" rx="4"/>
 <text class="diagram-value" x="395" y="232">a₀ … a₅₉₉</text>
 </svg>
-<figcaption>The highlighted slice is one eight-lane AVX2 rack. The diagram shows the layout, not an automatic conversion from an array of records.</figcaption>
+<figcaption>The highlighted slice is one eight-lane AVX2 rack in a stack's column layout. The caller supplies a separate column for each field.</figcaption>
 </figure>
 <p>A <code>run</code> walks the stack and feeds each rack into a scratch or rake. That's its
 job beyond those two constructs: it handles the memory traversal, including
@@ -402,9 +586,8 @@ individual <code>f32</code> values, rather than a million-lane <code>f32s</code>
 <figcaption>The rack counts follow from register width. Native AVX-512 streams use the 512-bit row, AVX2 streams use the 256-bit row, and SSE2, NEON and WebAssembly use the 128-bit row.</figcaption>
 </figure>
 <p>512-bit SIMD handles twice as many <code>f32</code> lanes per instruction as AVX2, and
-four times as many as 128-bit SIMD. That describes the width of the work,
-not a guaranteed speedup: memory bandwidth, instruction costs and processor
-frequency also affect elapsed time. <em>WIP: work in progress.</em></p>
+four times as many as 128-bit SIMD. Elapsed time also depends on memory
+bandwidth, instruction costs and processor frequency. <em>WIP: work in progress.</em></p>
 <p>Our particle columns can use the same traversal. The age stays one byte per
 record in memory. <code>widen</code> brings the current rack's ages into 32-bit lanes
 before the calculation:</p>
@@ -437,7 +620,7 @@ scalar value, which becomes a rack only through an explicit broadcast:</p>
 </code></pre>
 <p>The loop computes a scalar offset. After <code>}</code>, one vector add applies it to
 every lane. <a href="/docs/slow-tier/#slow-blocks">The slow tier</a> defines the boundary.</p>
-<h3 id="every-claim-is-checked">Every claim is checked</h3>
+<h3 id="verified-output">Verified output</h3>
 <p><code>rakec --verify-native</code> disassembles what it built and checks it against the
 profile's rules: no hidden calls or stack work, one physical register per rack
 on physical targets, and only the permitted WebAssembly virtual instructions
@@ -483,13 +666,13 @@ readers who come from C or Python.</p>
 </div>
 <p><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a> lists what each profile
 compiles, and <a href="/docs/roadmap/">the roadmap</a> what comes next.</p>
-<p>The development compiler's native integer subset supports wrapping add/subtract
+<p>Rake 0.7.0's native integer subset supports wrapping add/subtract
 and bitwise AND/OR/XOR on <code>i32s</code> and <code>u32s</code>. Signed and unsigned comparisons
 produce masks for selection and mask reductions. Literal and runtime-uniform
 bit shifts work on every physical profile. A runtime <code>u32</code> count uses its low
 five bits, so a count of 32 leaves each lane unchanged. The operation reference
 lists the other implemented integer operations and the remaining WIP* coverage.</p>
-<p>The unreleased development compiler also combines native slow orchestration
+<p>Rake 0.7.0 also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
 Typed C callbacks and process arguments are implemented there. Native runs
 include the SSE2, AVX2, AVX-512 and NEON <code>f32</code>, <code>i32</code> and <code>u32</code> traversal subset: stream output
@@ -545,12 +728,11 @@ loop that processes the rack serially inside one thread.</p>
 <text class="diagram-label" x="18" y="213">Hardware schedules the warp.</text>
 </svg>
 </div>
-<figcaption>Proposed GPU execution. Per-thread arithmetic is the parallel lowering here, not a CPU scalar fallback. GPU support isn't implemented yet.</figcaption>
+<figcaption>GPU design: each thread performs one lane's arithmetic in parallel with the other threads of its warp.</figcaption>
 </figure>
 <p>Masks can leave some lanes inactive because the input takes different paths.
-The compiler can't promise that every lane always works, or choose the
-hardware's warp schedule. It can preserve the declared control flow and
-reject forbidden spills, reloads or helper calls in checked regions. Memory
+Hardware schedules the warps. The proposed compiler will preserve the declared
+control flow and reject forbidden spills, reloads or helper calls in checked regions. Memory
 address patterns and synchronisation scopes will remain explicit.</p>
 <p>The first proposed profile, <code>nvidia-ptx-sm120</code>, will emit inspectable PTX,
 then use a pinned NVIDIA toolchain to build a cubin ahead of time. NVIDIA
@@ -566,8 +748,8 @@ physical backend for a documented ISA.</p>
 </tbody></table>
 </div>
 <p>Keeping more values in registers can reduce the number of resident warps.
-No-spill therefore doesn't mean fastest. Enough independent work and balanced
-workloads still matter. <a href="/docs/gpu/">The GPU design</a> defines the proposed
+Enough independent work and balanced workloads also affect throughput.
+<a href="/docs/gpu/">The GPU design</a> defines the proposed
 contract, and <a href="/docs/comparisons/#gpu-execution-rake-ispc-and-bend">the comparison with ISPC and Bend 2</a>
 separates lane-parallel kernels from parallel fork–join tasks.</p>
 <h2 id="projects-using-rake">Projects using Rake</h2>
@@ -591,7 +773,7 @@ tool it uses:</p>
 <span class="tok-function">nix</span> develop <span class="tok-constant">--command</span> dune exec rakec <span class="tok-constant">--</span> <span class="tok-constant">--interpret</span> program.rk
 </code></pre>
 <p><a href="/docs/rakec/">The rakec command</a> lists its modes and options. Rake is
-released under the MIT licence. This is a beta: the language and its binary
+released under the MIT licence. Rake is pre-1.0: the language and its binary
 boundaries may still change between versions.</p>
 <h3 id="syntax-highlighting">Syntax highlighting</h3>
 <p>The Tree-sitter grammar is available through these package managers. These
@@ -607,7 +789,7 @@ than the Rake compiler:</p>
 
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

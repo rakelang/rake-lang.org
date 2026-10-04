@@ -84,13 +84,26 @@ each, with the category its directory implies:</p>
 <tr><td><code>program</code></td><td><code>test/program/</code></td><td><code>main</code> gives the same result in <code>rakec --interpret</code> and as WebAssembly built from the emitted C</td></tr>
 <tr><td><code>trap</code></td><td><code>test/program/trap/</code></td><td>traps in both</td></tr>
 <tr><td><code>abi</code></td><td><code>test/abi/</code></td><td>independently compiled C checks layouts and calls across the C boundary</td></tr>
-<tr><td><code>future</code></td><td><code>examples/future/</code></td><td>a design sketch, not compiled</td></tr>
+<tr><td><code>future</code></td><td><code>examples/future/</code></td><td>a design sketch outside compiler checks</td></tr>
 </tbody></table>
 </div>
 <p>To add a case, put one <code>.rk</code> file in its directory and one row in
 <code>manifest.tsv</code>. A rejection records a stable substring of the diagnostic,
 without its location.</p>
-<p>The suites run from the development shell. <code>test/run_tests.sh</code> checks the
+<p><code>dune runtest</code> runs the portable compiler tests. It needs only the OCaml
+dependencies declared in <code>rake.opam</code>, and runs during <code>opam install --with-test</code>. Parsing, lowering, executable semantics and assembly-text
+checks do not require an assembler, a disassembler or a target runtime.</p>
+<p>The object integration suites have explicit aliases:</p>
+<pre class="code code-sh"><code><span class="tok-function">dune</span> build @runtest-native   <span class="tok-comment"># GNU ELF binutils for x86-64 and AArch64</span>
+<span class="tok-function">dune</span> build @runtest-wasm     <span class="tok-comment"># Clang's wasm32 target and llvm-objdump</span>
+</code></pre>
+<p>Both suites fail when a required tool is missing. They never turn a missing
+dependency into a skipped or passing verification check. The package CI runs
+portable tests on Linux, macOS and Windows, and runs object integration in a
+Linux job with both target toolchains installed. The
+<a href="/docs/rakec/#tools-and-environment">compiler reference</a> lists executable
+overrides and installation commands.</p>
+<p>The remaining suites run from the development shell. <code>test/run_tests.sh</code> checks the
 release identity, the manifest's fixtures and the documentation's examples:</p>
 <pre class="code code-sh"><code><span class="tok-function">nix</span> develop <span class="tok-constant">--command</span> bash <span class="tok-constant">-c</span> <span class="tok-string">'dune build &amp;&amp; bash test/run_tests.sh'</span>
 </code></pre>
@@ -104,7 +117,7 @@ It checks every remainder and that each call leaves the output beyond its
 count unchanged. Final-object verification also checks that the choices stay
 on racks before partial stores.</p>
 <p><code>tools/release_gate.sh</code> runs every check, including the OCaml unit tests
-(<code>dune runtest</code>), the AArch64 differential under QEMU, the capability
+(<code>dune runtest</code> and both object integration aliases), the AArch64 differential under QEMU, the capability
 evidence in <code>capability_evidence.tsv</code>, the parser differential and the
 website.</p>
 <p><code>test/x86_profiles_test.sh</code> checks SSE2, AVX2 and AVX-512 against independent
@@ -313,7 +326,7 @@ page is updated. Its header lists the checks a page can ask for.</p>
 <p><code>test/parser_differential.sh</code> compares the compiler's parser with the
 Tree-sitter grammar in a sibling <code>tree-sitter-rake</code> checkout. It parses every
 manifest fixture and the malformed sources in <code>parser/manifest.tsv</code>, and the
-two parsers must accept and reject the same sources:</p>
+check requires identical accept and reject decisions from both parsers:</p>
 <pre class="code code-sh"><code><span class="tok-function">nix</span> shell nixpkgs#tree-sitter <span class="tok-constant">--command</span> bash test/parser_differential.sh
 </code></pre>
 
@@ -321,7 +334,7 @@ two parsers must accept and reject the same sources:</p>
 
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

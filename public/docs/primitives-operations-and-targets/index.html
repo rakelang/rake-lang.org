@@ -102,23 +102,21 @@ it by splitting or narrowing a rack.</p>
 <p>GPU targets are designs, outside the implemented table above:</p>
 <div class="table-scroll"><table><thead><tr><th>Proposed profile</th><th>Rack</th><th>Boundary and status</th></tr></thead><tbody>
 <tr><td><code>nvidia-ptx-sm120</code></td><td>32 thread lanes</td><td>PTX 8.7 to ahead-of-time cubin, with final artifact verification. WIP*</td></tr>
-<tr><td>Vulkan subgroup profiles</td><td>required 32- or 64-invocation subgroup</td><td>portable SPIR-V, with device verification for physical claims. Later design, WIP*</td></tr>
+<tr><td>Vulkan subgroup profiles</td><td>required 32- or 64-invocation subgroup</td><td>portable SPIR-V, with device verification of physical resource use. Later design, WIP*</td></tr>
 <tr><td>Direct physical GPU profile</td><td>specified wave/lane mapping</td><td>Rake-owned selection, allocation and sequencing for a documented ISA. Later design, WIP*</td></tr>
 </tbody></table>
 </div>
-<p>A GPU lane's scalar arithmetic is the SIMT mapping, not CPU scalar fallback.
+<p>A GPU invocation performs one lane's arithmetic as part of the SIMT mapping.
 The <a href="/docs/gpu/">GPU contract</a> defines the proposed operation set, masks,
-collectives, memory rules and verification boundary. These profiles are not
-accepted by the current compiler.</p>
+collectives, memory rules and verification boundary. The current compiler
+rejects these planned profiles.</p>
 <p><code>lanes</code>, the lane count, and <code>@</code>, the lane index, are reserved and
 unavailable on every profile.</p>
 <h2 id="float-racks">Float racks</h2>
-<p>The table shows operations on <code>f32s</code> racks in the development compiler.
-Physical profiles gained <code>abs</code>, <code>min</code>, <code>max</code> and integral rounding after the 0.6.0-beta tag,
-so the tagged compiler still rejects them on those profiles. Native float
-extraction, insertion, static shuffles, mask reductions, uniform
-conditionals and NEON folds are also development
-features after that tag.</p>
+<p>The table shows operations on <code>f32s</code> racks in Rake 0.7.0.
+Physical profiles support <code>abs</code>, <code>min</code>, <code>max</code> and integral rounding, along
+with float extraction, insertion, static shuffles, mask reductions,
+uniform conditionals and NEON folds.</p>
 <div class="table-scroll"><table><thead><tr><th>Operation</th><th class="align-center"><code>x86-sse2</code></th><th class="align-center"><code>x86-avx2</code></th><th class="align-center"><code>x86-avx512</code></th><th class="align-center"><code>aarch64-neon</code></th><th class="align-center"><code>wasm-simd128</code></th></tr></thead><tbody>
 <tr><td><code>+</code> <code>-</code> <code>*</code> <code>/</code>, negation, <code>sqrt</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>comparisons, <code>and</code> <code>or</code> <code>not</code> on masks, <code>select</code>, <code>if</code> on a mask</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
@@ -185,8 +183,8 @@ Infinities stay unchanged and NaNs become quiet NaNs.</p>
 rounding. It says the program depends on that rounding, which <code>wasm-simd128</code>
 can't provide, so it rejects <code>fma</code> rather than computing it with two.</p>
 <h2 id="integer-racks">Integer racks</h2>
-<p>Integer arithmetic on racks wraps. The development compiler adds a native
-<code>i32s</code> and <code>u32s</code> subset after the 0.6.0-beta tag. Both types have four lanes
+<p>Integer arithmetic on racks wraps. Rake 0.7.0 supports a native
+<code>i32s</code> and <code>u32s</code> subset. Both types have four lanes
 on SSE2 and NEON, eight on AVX2, or sixteen on AVX-512F.</p>
 <div class="table-scroll"><table><thead><tr><th>Native operation</th><th class="align-center"><code>i32s</code></th><th class="align-center"><code>u32s</code></th></tr></thead><tbody>
 <tr><td>wrapping <code>+</code>, <code>-</code> and <code>*</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
@@ -545,7 +543,7 @@ operations. The compiler checks one temporary vector register in addition to
 the result. At the function boundary, the low 32 bits pass to <code>eax</code> on x86
 or <code>w0</code> on AArch64. Boolean results are exactly zero or one. The object verifier
 permits that transfer only immediately before the return of a source-declared
-integer result. The development compiler supports wrapping addition,
+integer result. Rake 0.7.0 supports wrapping addition,
 subtraction and multiplication on a <code>bitmask</code> result inside a register kernel.
 Numeric uniform arithmetic uses full-width packed instructions on physical
 profiles, retaining the completed result as a scalar. Boolean results still
@@ -614,7 +612,7 @@ lane. The result uses register
 zero of the same class, or <code>xmm0</code> for a scalar <code>f32</code>.
 <code>all</code> and <code>any</code> return C <code>bool</code> in <code>al</code>, with the full <code>eax</code> set to zero or
 one. <code>bitmask</code> returns <code>uint32_t</code> in <code>eax</code>.</p>
-<p>The development compiler also takes <code>i32</code>, <code>u32</code> and <code>bool</code> uniforms through the
+<p>Rake 0.7.0 also takes <code>i32</code>, <code>u32</code> and <code>bool</code> uniforms through the
 six C integer argument registers: <code>edi</code>, <code>esi</code>, <code>edx</code>, <code>ecx</code>, <code>r8d</code> and <code>r9d</code>.
 This counter advances independently of the SIMD counter. At entry, Rake
 imports each integer's 32 bits into an allocated vector register. <code>&lt;value&gt;</code>
@@ -667,8 +665,7 @@ use, <code>&lt;scale&gt;</code>. For numeric uniforms, the use is where the broa
 splat on wasm.</p>
 <p>A run's boundary is in <a href="/docs/packs-and-runs/#wasm32-boundary">packs and runs</a>,
 and a whole program's in <a href="/docs/slow-tier/">the slow tier</a>. The x86 and AArch64
-backends in the 0.6.0-beta tag compile neither runs nor slow code. The
-unreleased development compiler adds native C programs with slow orchestration
+backends in Rake 0.7.0 compile native C programs with slow orchestration
 and Rake-selected register kernels. Slow callers can pass uniform <code>f32</code>,
 <code>i32</code>, <code>u32</code> or <code>bool</code> arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results.
 SSE2, AVX2, AVX-512 and NEON also support the
@@ -727,7 +724,7 @@ defines their supported transfers and caller obligations.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

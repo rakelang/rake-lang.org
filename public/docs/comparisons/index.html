@@ -174,8 +174,8 @@ explains that distinction.</p>
 mapping and check its permitted control flow, memory effects and register
 use. A partial mask remains a legitimate program choice. The compiler will
 reject a hidden loop that serially emulates the rack, or forbidden spills
-and helper paths in a strict region. It cannot ensure that every input keeps
-all lanes busy, or that a no-spill kernel is the fastest one.</p>
+and helper paths in a strict region. Inputs determine lane activity, and
+performance measurements establish the cost of each register policy.</p>
 <div class="table-scroll"><table><thead><tr><th>Question</th><th>Rake GPU design</th><th>ISPC</th><th>Bend 2</th></tr></thead><tbody>
 <tr><td>How is parallel work expressed?</td><td>rack lanes mapped onto a specified warp or subgroup</td><td>SPMD program instances in a gang, with uniform and varying values</td><td>independent parallel calls, arranged as binary fork–join tasks</td></tr>
 <tr><td>Who distributes or lowers the work?</td><td>Rake specifies and checks lane mapping; the proposed PTX route delegates final allocation and scheduling to NVIDIA</td><td>LLVM and the Intel GPU compiler lower gangs for Xe; the runtime launches the work</td><td>the runtime distributes fork–join tasks across CPU or GPU workers</td></tr>
@@ -184,8 +184,7 @@ all lanes busy, or that a no-spill kernel is the fastest one.</p>
 <tr><td>Availability</td><td>design only; no Rake GPU compiler, runtime or verifier yet</td><td>implemented CPU and Intel Xe GPU targets</td><td>implemented CPU and GPU parallel-call paths, as described in the pinned guide below</td></tr>
 </tbody></table>
 </div>
-<p>ISPC already exposes lane parallelism. Its distinction from Rake isn't that
-it depends on autovectorising an ordinary C loop. ISPC's
+<p>ISPC exposes lane parallelism directly. Its
 <a href="https://ispc.github.io/ispc_for_xe.html">Xe performance guide</a>
 explains how varying loops and register pressure can cause costly spills,
 and how uniform values and coherent branches affect execution. Rake's
@@ -202,12 +201,10 @@ The ISPC guides were checked at <a href="https://github.com/ispc/ispc.github.com
 c22f07f</a>.</p>
 <p>The original Bend/HVM2 lineage used interaction-net evaluation and runtime
 work sharing. Its <a href="https://github.com/HigherOrderCO/HVM2/blob/main/paper/HVM2.typst">HVM2 paper</a>
-is historical context, not a description of the current Bend 2 scheduler.</p>
+describes that earlier execution model.</p>
 <p>Rake, ISPC and Bend still need enough independent work and balanced workloads
 to use a device effectively. More registers per thread can reduce resident
-warps, so forbidding spills doesn't establish a speed ranking. The
-comparison above concerns execution models and checked properties, not a
-benchmark result between these projects.</p>
+warps. The tables above compare execution models and compiler checks.</p>
 <h2 id="other-languages-for-parallel-kernels">Other languages for parallel kernels</h2>
 <div class="table-scroll"><table><thead><tr><th>Language</th><th>What it provides</th><th>How it differs from Rake</th></tr></thead><tbody>
 <tr><td><a href="https://halide-lang.org/docs/">Halide</a></td><td>a functional language embedded in C++ for image and stencil pipelines, with the algorithm separate from its schedule across CPUs and GPUs</td><td>vector widths, tiling and placement come from a programmer or an autoscheduler, and aren't checked as register rules</td></tr>
@@ -231,7 +228,7 @@ benchmark result between these projects.</p>
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

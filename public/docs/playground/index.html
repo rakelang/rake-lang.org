@@ -54,7 +54,7 @@
   data-worker="/scripts/playground-worker.js?v=185e0038"
   data-compiler="/scripts/rake-compiler.js?v=de5c411d"
   data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
-  data-rake-language="/scripts/tree-sitter-rake.wasm?v=ab9d92ea"
+  data-rake-language="/scripts/tree-sitter-rake.wasm?v=41eb6e99"
   data-rake-highlights="/scripts/rake-highlights.scm?v=e7f8b2a0">
   <header class="playground-heading">
     <div>
@@ -113,8 +113,7 @@ tutorial introduces one idea at a time and makes each idea visible in the
 result, lane trace, generated code or compiler message. The reference after
 the editor explains each lesson and the syntax that may look strange to a
 programmer coming from C, Java, JavaScript or Python. Every program is
-also compiled by the documentation checker, and its result is the one the
-lesson promises.</p>
+also compiled by the documentation checker, which verifies its stated result.</p>
 <h2 id="the-screen">The screen</h2>
 <pre class="code code-text"><code>+------------------------------------------------------------------------+
 | Rake playground     Lesson 4 of 12: Marking uniforms     [Prev] [Next] |
@@ -228,7 +227,7 @@ the remainder.</p>
 <p>Result: <code>main returned 20</code>, the sum of 0, 2, 4, 6 and 8. Change
 <code>total := 0</code> to <code>let total = 0</code> and run. The
 Messages tab says <code>this location can't be assigned</code> at the <code>&lt;-</code>, which shows
-that the two kinds of name are different things, not two spellings.</p>
+that a mutable location and an immutable binding have different rules.</p>
 <h2 id="3-a-rack">3. A rack</h2>
 <p><code>f32s</code> is a rack: four <code>f32</code> values in one WebAssembly <code>v128</code>. A
 <code>run</code> is vector code that reads and writes memory. Its parameter <code>x: []f32</code>
@@ -396,8 +395,8 @@ negative lane, where no root was computed.</p>
 <p>To define that intermediate lane, add <code>else &lt;999.0&gt;</code> before <code>into rooted</code>
 in the through header. Run with <code>rooted</code> still in both sweep arms: the
 result is now 1007. Reset the lesson to restore its original behaviour.
-These computations are pure, but not lazy. A sweep selects values in place
-without triggering or rearranging earlier work. It is the rake's result
+The sweep selects values computed by the through blocks. The compiler can
+optimize these pure calculations together. A sweep is the rake's result
 form and needs no <code>return</code> keyword.</p>
 <h2 id="9-columns">9. Columns</h2>
 <p>Data for vector code is usually stored as columns, one array for each field.
@@ -629,7 +628,7 @@ draws them differently.</p>
 
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

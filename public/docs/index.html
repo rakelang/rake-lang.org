@@ -75,8 +75,7 @@
 </nav>
     <main class="content">
 <h1 id="documentation">Documentation</h1>
-<p>These pages describe the 0.6.0-beta release and explicitly marked additions
-in the development compiler. The language pages define each form, starting
+<p>These pages describe Rake 0.7.0. The language pages define each form, starting
 from <a href="/docs/syntax/">the syntax reference</a>. Every Rake program in them is
 compiled by the documentation checks, and most also run with their stated
 result. Proposed GPU profiles are designs, with no implementation yet.</p>
@@ -99,7 +98,7 @@ result. Proposed GPU profiles are designs, with no implementation yet.</p>
 <dt><a href="/docs/memory-operations/">Memory operations</a></dt>
 <dd>How Rake runs read and write memory: checked and unchecked accesses, masks, the WebAssembly gather, and designs for scatter, compression and expansion.</dd>
 <dt><a href="/docs/slow-tier/">The slow tier</a></dt>
-<dd>Rake's slow tier: the scalar code of a whole program, its records, state, embedded data and calls to C, and the rules that keep vector code's promises.</dd>
+<dd>Rake's slow tier: scalar programs, records, state, embedded data and calls to C, with explicit boundaries between scalar work and vector kernels.</dd>
 </dl>
 <h2 id="learning">Learning</h2>
 <dl class="docs-list">
@@ -122,7 +121,7 @@ result. Proposed GPU profiles are designs, with no implementation yet.</p>
 <h2 id="project">Project</h2>
 <dl class="docs-list">
 <dt><a href="/docs/goals/">Language goals</a></dt>
-<dd>The promises Rake makes: racks stay vector values, scalars are marked, lanes choose by masks, fused regions stay pure, and claims are checked.</dd>
+<dd>Rake's language goals and compiler checks for vector racks, marked scalars, lane masks, pure fused regions, explicit layouts and GPU execution.</dd>
 <dt><a href="/docs/roadmap/">Compiler roadmap</a></dt>
 <dd>Rake's roadmap for native and WebAssembly coverage, language syntax, editor tooling, package releases and the release checks for each feature.</dd>
 <dt><a href="/docs/changelog/">Changelog</a></dt>
@@ -137,7 +136,7 @@ result. Proposed GPU profiles are designs, with no implementation yet.</p>
 
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>

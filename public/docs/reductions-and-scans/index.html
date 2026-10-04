@@ -124,7 +124,7 @@ then broadcasts it into the output rack:</p>
   <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">width</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">10.0</span> <span class="tok-operator">+</span> <span class="tok-variable">width</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>The development compiler also accepts arithmetic on uniform results inside
+<p>Rake 0.7.0 also accepts arithmetic on uniform results inside
 register kernels. For example, subtracting a rack's minimum from its maximum
 produces one <code>f32</code> value:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
@@ -146,7 +146,7 @@ multiplication. Use a marked uniform when the scalar meets a rack, as
 including reduced or extracted values. Float negation flips the sign bit,
 preserving zero signs and NaN payloads. Signed negation wraps, so negating
 −2147483648 gives −2147483648. Arithmetic under a partial lane mask remains WIP*,
-including inside a masked traversal. This support is after 0.6.0-beta.</p>
+including inside a masked traversal. This support is included in Rake 0.7.0.</p>
 <h2 id="lane-order">Lane order</h2>
 <p>For a float rack <code>x</code> of <code>N</code> lanes:</p>
 <pre class="code code-text"><code>p[0] = x[0]
@@ -208,12 +208,10 @@ reduction leaves the rack, and a scan orders its lanes.</p>
 <tr><td><code>wasm-simd128</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 </tbody></table>
 </div>
-<p>NEON reductions and scans are available in the development compiler after
-0.6.0-beta. Native mask reductions are also development features after that
-tag. The tagged compiler still rejects them.</p>
-<p>The development compiler also supports all four reductions and inclusive
-scans on <code>i32s</code> and <code>u32s</code> across these profiles. The tagged compiler still
-accepts only float arithmetic folds. Scans and reductions at other integer
+<p>NEON reductions and scans, and native mask reductions, are included in
+Rake 0.7.0.</p>
+<p>Rake 0.7.0 also supports all four reductions and inclusive
+scans on <code>i32s</code> and <code>u32s</code> across these profiles. Scans and reductions at other integer
 widths remain WIP* (<em>work in progress</em>).</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">running_total</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">scan_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
@@ -272,7 +270,7 @@ left-fold rounding, zero signs, canonical extrema and NaNs at every position.
 </nav>
   </div>
   <footer class="site-footer">
-    <p>Rake 0.6.0-beta. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
+    <p>Rake 0.7.0. MIT licence. Source on <a href="https://github.com/rakelang/rake">GitHub</a>. A research project by <a href="https://over-yonder.tech/">over|yonder</a>.</p>
   </footer>
 </body>
 </html>
