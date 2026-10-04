@@ -204,9 +204,12 @@ on SSE2 and NEON, eight on AVX2, or sixteen on AVX-512F.</p>
 <tr><td><code>to_f32</code> (<code>i32s</code> or <code>u32s</code> to <code>f32s</code>)</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>literal-index <code>extract</code> and <code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>runtime uniform <code>u32</code> shift counts, modulo 32</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>sum</code>, <code>product</code>, <code>minimum</code>, <code>maximum</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>scan_sum</code>, <code>scan_product</code>, <code>scan_minimum</code>, <code>scan_maximum</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 </tbody></table>
 </div>
-<p>These operations stay in full vector registers. Integer masks can select
+<p>Rack work stays in full vector registers. A reduction transfers only its
+completed result to a scalar. Integer masks can select
 float racks, and float masks can select integer racks. The
 <a href="/docs/packs-and-runs/#native-cpu-streams">native stream subset</a> accepts <code>f32</code>,
 <code>i32</code> and <code>u32</code> columns while preserving each column's type.
@@ -304,15 +307,17 @@ On its 128-bit register a <code>u8s</code> rack has 16 lanes, <code>i16s</code> 
 <tr><td>bitwise operations and bit shifts</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>shuffle</code> <code>extract</code> <code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>sum</code> <code>product</code> <code>minimum</code> <code>maximum</code></td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
+<tr><td><code>scan_sum</code> <code>scan_product</code> <code>scan_minimum</code> <code>scan_maximum</code></td><td class="align-center">WIP*</td><td class="align-center">WIP*</td><td class="align-center">yes</td><td class="align-center">yes</td><td class="align-center">WIP*</td><td class="align-center">WIP*</td></tr>
 </tbody></table>
 </div>
 <p><code>u8s</code> and <code>u32s</code> lanes compare unsigned, and the other supported integer
 comparisons are signed.
 <code>abs</code> of a <code>u8s</code> rack treats its lanes as signed bytes. No integer rack
-divides. The four arithmetic reductions also accept <code>i32s</code> and <code>u32s</code>, with
+divides. The four arithmetic reductions and inclusive scans accept <code>i32s</code>
+and <code>u32s</code>, with
 wrapping addition and multiplication and the input's signedness for extrema.
-Integer scans remain WIP*. An integer
-literal beside an integer rack is broadcast in the rack's element type, as in
+An integer literal beside an integer rack is broadcast in the rack's element
+type, as in
 <code>a + 1</code> or <code>min(a, &lt;0&gt;)</code>.</p>
 <p>Conversions between integer and float racks:</p>
 <ul>

@@ -176,9 +176,12 @@ The shared scalar oracle checks NaNs at every position and signed-zero extrema.<
 <p>The four arithmetic reductions now also accept signed and unsigned 32-bit
 racks on every CPU profile. Tree-shaped packed operations retain wrapping
 addition and multiplication and signed or unsigned extrema, with the result
-returned through the scalar C ABI. A sequential C fold checks overflow bits
-and retained input racks. Integer scans and reductions at other lane widths
-remain work in progress.</p>
+returned through the scalar C ABI. Inclusive scans also compile for both
+types, combining prefixes across the full rack, including AVX register
+subdivisions. A sequential C fold checks overflow bits, every prefix and
+retained input racks. Scans and reductions at other integer widths remain
+work in progress. These are per-rack scans. State carried between native
+traversal chunks remains work in progress.</p>
 <p>Literal-index extraction and insertion now compile on all four physical
 profiles for floats and signed or unsigned 32-bit integers.
 Their lane bounds follow each profile's rack width. Independent C checks every
