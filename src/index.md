@@ -3,7 +3,7 @@
 <div>
 <h1>Rake</h1>
 <p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
-<p>Rust's type system and borrow checker enforce memory safety in safe code. An <code>unsafe</code> block marks operations whose safety the programmer must establish. Rake's compiler checks that vector calculations become vector instructions. You get that guarantee without needing to manually review the assembly that the compiler generated, because it does that for you. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
+<p>Rust's type system and borrow checker enforce memory safety in safe code. Inside an <code>unsafe</code> block, the programmer is responsible for memory safety. Rake's compiler checks that vector calculations become vector instructions. It reviews the generated assembly for you. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
 <p>Rake is a SIMD, or vector, programming language. It's built for calculations that apply the same operation to many numbers at once. Its current profiles target CPUs and WebAssembly. The planned GPU profiles will preserve parallel work across warp lanes and check execution costs against an explicit contract.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
@@ -13,11 +13,10 @@
 </div>
 </div>
 
-## A first look
+## Why Rake
 
-This demonstration processes a million floats in eight-lane racks, with
-vector lowering checked by the compiler. The comparison starts with an
-ordinary C loop:
+Suppose we want the square roots of a column of numbers, with zero for
+negative inputs. An ordinary C loop is easy to read:
 
 ```c
 #include <math.h>
@@ -34,10 +33,126 @@ void safe_root_c(const float *values, float *roots, size_t count)
 }
 ```
 
-The equivalent operation on a Rake rack is:
+With GCC 14.3 and our AVX2 build flags, this becomes a vector loop. Now
+consider a similar loop using a different maths function:
+
+```c
+void sin_array_scalar(const float *input, float *output, size_t count)
+{
+    for (size_t i = 0; i < count; ++i)
+        output[i] = sinf(input[i]);
+}
+```
+
+C still compiles it. In this build, the loop calls the scalar `sinf` library
+function once per element. Successful compilation has allowed the work to
+become scalar. We can enable vectorisation diagnostics or inspect the assembly
+to discover that change.
+
+Rake makes the vector requirement part of compilation:
+
+<!-- rake-check: reject "call to 'sin' is not supported by native scratch lowering" -->
+```rake
+scratch reject_sin(values: f32s) -> f32s:
+  | result <| sin(values)
+  result
+```
+
+```text
+$ rakec --verify-native --target x86-avx2 demo/soa-proof/rake/reject_sin.rk
+native lowering: call to 'sin' is not supported by native scratch lowering
+```
+
+The profile has no vector lowering for this operation, so Rake stops at the
+line responsible. It can inline supported calculations and select vector
+instructions. If those transformations can't preserve the profile's vector
+rules, it reports an error. That feedback tells us where a calculation needs
+attention before it reaches the application.
+
+### Explicit SIMD
+
+The usual next step is to write the vector operations explicitly. For the
+square-root loop, C's AVX2 intrinsics expose the register width, lane mask,
+loads and stores. The final partial vector needs its own memory mask:
+
+```c
+#include <immintrin.h>
+#include <stddef.h>
+
+static __m256 safe_root_rack(__m256 value)
+{
+    const __m256 zero = _mm256_setzero_ps();
+    const __m256 valid = _mm256_cmp_ps(value, zero, _CMP_GE_OQ);
+    const __m256 input = _mm256_and_ps(valid, value);
+    return _mm256_and_ps(valid, _mm256_sqrt_ps(input));
+}
+
+void safe_root_avx2(const float *values, float *roots, size_t count)
+{
+    size_t i = 0;
+    for (; count - i >= 8; i += 8) {
+        const __m256 value = _mm256_loadu_ps(values + i);
+        _mm256_storeu_ps(roots + i, safe_root_rack(value));
+    }
+    if (i < count) {
+        const __m256i lanes = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
+        const __m256i remaining = _mm256_set1_epi32((int)(count - i));
+        const __m256i active = _mm256_cmpgt_epi32(remaining, lanes);
+        const __m256 value = _mm256_maskload_ps(values + i, active);
+        _mm256_maskstore_ps(roots + i, active, safe_root_rack(value));
+    }
+}
+```
+
+Rust's [`wide` SIMD crate](https://docs.rs/wide/1.5.0/wide/struct.f32x8.html)
+gives these values methods. We still write the eight-element chunks,
+conversions and remainder loop:
+
+```rust
+use wide::f32x8;
+
+fn safe_roots(values: &[f32], roots: &mut [f32]) {
+    assert_eq!(values.len(), roots.len());
+    let mut input = values.chunks_exact(8);
+    let mut output = roots.chunks_exact_mut(8);
+    for (chunk, result) in input.by_ref().zip(output.by_ref()) {
+        let value = f32x8::from(<[f32; 8]>::try_from(chunk).unwrap());
+        let zero = f32x8::splat(0.0);
+        let valid = value.simd_ge(zero);
+        let rooted = valid.blend(value, zero).sqrt();
+        let lanes: [f32; 8] = valid.blend(rooted, zero).into();
+        result.copy_from_slice(&lanes);
+    }
+    for (&value, result) in input.remainder().iter().zip(output.into_remainder()) {
+        *result = if value >= 0.0 { value.sqrt() } else { 0.0 };
+    }
+}
+```
+
+[ISPC](https://ispc.github.io/ispc.html) supplies a parallel loop and manages
+its lanes. Its C-family syntax retains the array indices and statements:
+
+```c
+export void safe_roots(uniform float values[],
+                       uniform float roots[],
+                       uniform int count)
+{
+    foreach (i = 0 ... count) {
+        float value = values[i];
+        roots[i] = value >= 0.0f ? sqrt(value) : 0.0f;
+    }
+}
+```
+
+In Rake, we describe the eligible lanes and their calculation. The profile
+chooses the width, and the traversal handles the loads, stores and tail:
 
 <!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 -->
 ```rake
+pack Samples {
+  f32: value;
+}
+
 tine #valid(values: f32s) means values >= <0.0>
 
 rake safe_root(values: f32s) -> f32s:
@@ -46,15 +161,119 @@ rake safe_root(values: f32s) -> f32s:
   sweep:
     | #valid(values) => rooted
     | #valid(values) gaps => <0.0>
+
+run roots(input: stack Samples, <count: i64>) -> f32:
+  for chunk in input using f32s up to <count>:
+    yield safe_root(chunk.value)
 ```
 
-The native AVX2 demonstration puts this operation in a compiler-generated
-loop over a million entries. Both Rake and optimized C took about 0.14 ms on
-our Ryzen 7 5800X3D. C already vectorized the loop. Disabling C's vectorizer
-made its scalar loop about 26 times slower. Those are measured build/input
-comparisons, rather than a promise that Rake always beats C.
-[The benchmark source and commands](https://github.com/rakelang/rake/tree/main/demo/safe-root)
-include the flags and correctness checks, and generate both disassemblies.
+The masks remain visible in the source, while the width-specific instructions
+and memory handling belong to the compiler.
+
+### A vector-friendly fix
+
+For the rejected sine calculation, suppose our algorithm uses angles between
+−0.5 and 0.5 radians. We can replace the general library call with a
+ninth-degree polynomial over that interval. C can vectorise its arithmetic:
+
+```c
+static inline float bounded_sine_c(float value)
+{
+    const float square = value * value;
+    const float fifth = 0.0000027557319223985893f * square - 0.0001984126984126984f;
+    const float fourth = fifth * square + 0.008333333333333333f;
+    const float third = fourth * square - 0.16666666666666666f;
+    const float second = third * square + 1.0f;
+    return value * second;
+}
+
+void bounded_sine_column_c(const float *values, float *output, size_t count)
+{
+    for (size_t i = 0; i < count; ++i)
+        output[i] = bounded_sine_c(values[i]);
+}
+```
+
+The same calculation now passes Rake's vector checks:
+
+<!-- rake-check: verify x86-avx2 -->
+```rake
+scratch bounded_sine(values: f32s) -> f32s:
+  let square = values * values
+  let fifth = <0.0000027557319223985893> * square - <0.0001984126984126984>
+  let fourth = fifth * square + <0.008333333333333333>
+  let third = fourth * square - <0.16666666666666666>
+  let second = third * square + <1.0>
+  values * second
+```
+
+Both compiled versions agreed with `sinf` to a maximum observed absolute
+error of 2.98 × 10⁻⁸ across 8,000 evenly spaced inputs in that interval.
+The C vector loop uses packed multiplies and adds. Rake selects and verifies
+the corresponding vector kernel. Restricting the input domain gives us a
+small calculation we can implement with the available vector operations.
+
+### Measured execution
+
+These bars return to the square-root example. All four versions process
+the same million-element input. C's automatic vectoriser already handles
+this loop, and its two vector versions and Rake finish at similar times.
+
+<figure class="diagram diagram-benchmark">
+<div class="diagram-panels">
+<div class="diagram-panel">
+<h4>All four versions</h4>
+<svg viewBox="0 0 320 260" role="img" aria-labelledby="benchmark-all-title benchmark-all-desc">
+<title id="benchmark-all-title">Square roots over a million floats</title>
+<desc id="benchmark-all-desc">Median time in milliseconds: scalar C 3.873, autovectorized C 0.143, C intrinsics 0.143 and Rake 0.144. All bars start at zero on the same scale.</desc>
+<text class="diagram-label" x="112" y="22">Time (ms), smaller is faster</text>
+<text class="diagram-label" x="8" y="65">Scalar C</text>
+<rect class="diagram-operation" x="112" y="42" width="174.28" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="85">3.873 ms</text>
+<text class="diagram-label" x="8" y="115">C auto</text>
+<rect class="diagram-operation" x="112" y="92" width="6.42" height="24" rx="3"/>
+<text class="diagram-label" x="128" y="111">0.143 ms</text>
+<text class="diagram-label" x="8" y="165">C intrinsics</text>
+<rect class="diagram-operation" x="112" y="142" width="6.45" height="24" rx="3"/>
+<text class="diagram-label" x="128" y="161">0.143 ms</text>
+<text class="diagram-label" x="8" y="215">Rake</text>
+<rect class="diagram-operation" x="112" y="192" width="6.49" height="24" rx="3"/>
+<text class="diagram-label" x="128" y="211">0.144 ms</text>
+<path class="diagram-flow" d="M112 226 H292"/>
+<text class="diagram-label" x="112" y="248">0</text>
+<text class="diagram-label" x="270" y="248">4 ms</text>
+</svg>
+</div>
+<div class="diagram-panel">
+<h4>Vector versions, enlarged</h4>
+<svg viewBox="0 0 320 260" role="img" aria-labelledby="benchmark-vector-title benchmark-vector-desc">
+<title id="benchmark-vector-title">Enlarged view of the three vector timings</title>
+<desc id="benchmark-vector-desc">On a separate zero-to-0.16 millisecond scale, autovectorized C takes 0.143 milliseconds, C intrinsics 0.143 and Rake 0.144.</desc>
+<text class="diagram-label" x="112" y="22">Time (ms), smaller is faster</text>
+<text class="diagram-label" x="8" y="90">C auto</text>
+<rect class="diagram-operation" x="112" y="65" width="160.61" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="110">0.143 ms</text>
+<text class="diagram-label" x="8" y="145">C intrinsics</text>
+<rect class="diagram-operation" x="112" y="120" width="161.25" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="165">0.143 ms</text>
+<text class="diagram-label" x="8" y="200">Rake</text>
+<rect class="diagram-operation" x="112" y="175" width="162.34" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="220">0.144 ms</text>
+<path class="diagram-flow" d="M112 226 H292"/>
+<text class="diagram-label" x="112" y="248">0</text>
+<text class="diagram-label" x="248" y="248">0.16 ms</text>
+</svg>
+</div>
+</div>
+<figcaption>Ryzen 7 5800X3D, AVX2, GCC 14.3, 4 October 2026. Medians of 31 samples, each averaging four passes, with execution order rotated. The scalar row disables C's vectoriser. The right panel enlarges the three vector rows with its own labelled scale.</figcaption>
+</figure>
+
+[The benchmark source, flags and raw samples](https://github.com/rakelang/rake/tree/main/demo/safe-root)
+include bitwise result comparisons, guard-page tail checks and disassemblies.
+Rake makes the vector lowering a checked requirement while keeping the
+source focused on the calculation.
+
+## A first look
 
 Rake's execution model can be pictured in three steps: define the `tine`s,
 `rake` data `through` them, then `sweep` the results. We'll read the program
@@ -68,7 +287,7 @@ in that order, starting with what vector processing means.
 <h4>Scalar: one number at a time</h4>
 <svg viewBox="0 0 320 288" role="img" aria-labelledby="scalar-desk-title scalar-desk-description">
 <title id="scalar-desk-title">One scalar add at a narrow desk</title>
-<desc id="scalar-desk-description">The tape holds 4, 7, 2 and 9. Only 4 is on the narrow desk. One add instruction changes it to 5, leaving the other numbers unchanged. The tape must advance before the next number can be processed.</desc>
+<desc id="scalar-desk-description">The tape holds 4, 7, 2 and 9. Only 4 is on the narrow desk. One add instruction changes it to 5, leaving the other numbers unchanged. Advancing the tape brings the next number onto the desk.</desc>
 <text class="diagram-label" x="18" y="25">Narrow desk</text>
 <rect class="diagram-desk" x="18" y="40" width="66" height="208" rx="8"/>
 <rect class="diagram-cell diagram-cell-active" x="24" y="54" width="54" height="44" rx="4"/>
@@ -271,9 +490,9 @@ do. Separate numeric comparisons aren't assumed to cover all inputs:
 NaNs fail both comparisons in this example.
 
 Reading the definition in stages explains how the calculation depends on
-its inputs. It doesn't specify a delayed execution model: the sweep isn't
-a trigger for earlier work. The compiler can optimise these pure
-calculations together. Both square roots become vector instructions. On
+its inputs. The sweep selects values computed by the through blocks. The
+compiler can optimise these pure calculations together. Both square roots
+become vector instructions. On
 physical CPU profiles, the compiler supplies benign operands in their
 inactive lanes. WebAssembly SIMD has no floating-point exception flags.
 
@@ -288,8 +507,8 @@ defines the scope and masking rules.
 `f32s` is a rack of `f32` values. On AVX2 it is one physical register holding
 eight floats, and on NEON one holding four. On WebAssembly it is one `v128`
 value holding four. Rake adheres to the virtual machine's fiction and doesn't
-try to replace the runtime's physical register allocation. Its promise stays
-the same: outside a `slow` block, rack work uses vector instructions wherever
+try to replace the runtime's physical register allocation. Outside a `slow`
+block, rack work uses vector instructions wherever
 the selected profile supports the operation, or the compiler refuses it.
 
 ### Scalars are marked
@@ -316,8 +535,8 @@ pass. Rake's fused bindings let it combine stages of a vector calculation.
 
 In `| name <| expression`, the expression flows from right to left into its
 name. This is still a binding. The leading `|` marks it as part of a fused
-calculation, whose stages the compiler must keep together as a contiguous
-sequence of vector instructions. Here a `scratch`, a function of racks that
+calculation. The compiler keeps its stages together as a contiguous sequence
+of vector instructions. Here a `scratch`, a function of racks that
 doesn't need tines, calculates a new position in two stages:
 
 ```rake
@@ -387,14 +606,14 @@ target's SIMD width. Remember the hierarchy as "define our pack, then rack
 <rect class="diagram-cell" x="135" y="218" width="521" height="27" rx="4"/>
 <text class="diagram-value" x="395" y="232">a₀ … a₅₉₉</text>
 </svg>
-<figcaption>The highlighted slice is one eight-lane AVX2 rack. The diagram shows the layout, not an automatic conversion from an array of records.</figcaption>
+<figcaption>The highlighted slice is one eight-lane AVX2 rack in a stack's column layout. The caller supplies a separate column for each field.</figcaption>
 </figure>
 
 A `run` walks the stack and feeds each rack into a scratch or rake. That's its
 job beyond those two constructs: it handles the memory traversal, including
 the final partial rack. This run feeds our 600 positions into `signed_root`:
 
-<!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 with 2 -->
+<!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 with 4 -->
 ```rake
 pack Positions {
   f32: value;
@@ -437,9 +656,8 @@ individual `f32` values, rather than a million-lane `f32s` value.
 </figure>
 
 512-bit SIMD handles twice as many `f32` lanes per instruction as AVX2, and
-four times as many as 128-bit SIMD. That describes the width of the work,
-not a guaranteed speedup: memory bandwidth, instruction costs and processor
-frequency also affect elapsed time. *WIP: work in progress.*
+four times as many as 128-bit SIMD. Elapsed time also depends on memory
+bandwidth, instruction costs and processor frequency. *WIP: work in progress.*
 
 Our particle columns can use the same traversal. The age stays one byte per
 record in memory. `widen` brings the current rack's ages into 32-bit lanes
@@ -482,7 +700,7 @@ run shift(values: []i32, out: mut []i32, <steps: i32>):
 The loop computes a scalar offset. After `}`, one vector add applies it to
 every lane. [The slow tier](/docs/slow-tier/#slow-blocks) defines the boundary.
 
-### Every claim is checked
+### Verified output
 
 `rakec --verify-native` disassembles what it built and checks it against the
 profile's rules: no hidden calls or stack work, one physical register per rack
@@ -605,13 +823,12 @@ loop that processes the rack serially inside one thread.
 <text class="diagram-label" x="18" y="213">Hardware schedules the warp.</text>
 </svg>
 </div>
-<figcaption>Proposed GPU execution. Per-thread arithmetic is the parallel lowering here, not a CPU scalar fallback. GPU support isn't implemented yet.</figcaption>
+<figcaption>GPU design: each thread performs one lane's arithmetic in parallel with the other threads of its warp.</figcaption>
 </figure>
 
 Masks can leave some lanes inactive because the input takes different paths.
-The compiler can't promise that every lane always works, or choose the
-hardware's warp schedule. It can preserve the declared control flow and
-reject forbidden spills, reloads or helper calls in checked regions. Memory
+Hardware schedules the warps. The proposed compiler will preserve the declared
+control flow and reject forbidden spills, reloads or helper calls in checked regions. Memory
 address patterns and synchronisation scopes will remain explicit.
 
 The first proposed profile, `nvidia-ptx-sm120`, will emit inspectable PTX,
@@ -629,8 +846,8 @@ physical backend for a documented ISA.
 | declared numerical and synchronisation rules | elapsed time and application throughput |
 
 Keeping more values in registers can reduce the number of resident warps.
-No-spill therefore doesn't mean fastest. Enough independent work and balanced
-workloads still matter. [The GPU design](/docs/gpu/) defines the proposed
+Enough independent work and balanced workloads also affect throughput.
+[The GPU design](/docs/gpu/) defines the proposed
 contract, and [the comparison with ISPC and Bend 2](/docs/comparisons/#gpu-execution-rake-ispc-and-bend)
 separates lane-parallel kernels from parallel fork–join tasks.
 
