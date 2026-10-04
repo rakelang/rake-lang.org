@@ -203,6 +203,7 @@ on SSE2 and NEON, eight on AVX2, or sixteen on AVX-512F.</p>
 <tr><td><code>if</code> on a direct comparison of marked uniforms</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>static one- and two-rack <code>shuffle</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>bitcast</code> between <code>i32s</code> and <code>u32s</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
+<tr><td><code>bitcast</code> to and from <code>f32s</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td><code>to_f32</code> (<code>i32s</code> or <code>u32s</code> to <code>f32s</code>)</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>literal-index <code>extract</code> and <code>insert</code></td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
 <tr><td>runtime uniform <code>u32</code> shift counts, modulo 32</td><td class="align-center">yes</td><td class="align-center">yes</td></tr>
@@ -219,13 +220,22 @@ Explicit <code>widen</code> also loads signed byte and 16-bit columns into <code
 unsigned ones into <code>u32s</code>. The stored type determines sign or zero extension.
 The <a href="/docs/packs-and-runs/#native-cpu-streams">traversal contract</a> covers its
 compact memory transfers and partial racks.</p>
-<p><code>bitcast(u32s, values)</code> reinterprets an <code>i32s</code> rack's bits as unsigned words,
-and <code>bitcast(i32s, values)</code> does the reverse. A lane containing −1 becomes
-4294967295 without changing a bit. The native allocator needs no instruction
+<p><code>bitcast</code> keeps every bit while changing the rack's element type. It works
+between <code>f32s</code>, <code>i32s</code> and <code>u32s</code> on every CPU profile.
+A signed lane containing −1 becomes 4294967295 when cast to <code>u32s</code>.
+Casting the bits of the float 1.0 to <code>u32s</code> gives 1065353216. Float zero signs
+and NaN payloads survive a round trip without raising a floating-point exception.
+The native allocator needs no instruction
 when it can reuse the input register, or a vector register copy when the
 input remains live. Numerical conversion uses <code>to_f32</code>, <code>to_i32</code> or <code>to_u32</code> instead.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">unsigned_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">float_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">u32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
+
+<span class="tok-keyword">scratch</span> <span class="tok-function">floats_from_bits</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>An integer literal passed to a typed scratch or rake parameter takes that
 parameter's element type. A <code>u32</code> parameter can therefore receive

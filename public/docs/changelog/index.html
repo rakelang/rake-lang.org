@@ -82,6 +82,12 @@ only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
 <li>
+<p>Native register kernels bitcast between <code>f32s</code>, <code>i32s</code> and <code>u32s</code> without
+changing lane bits. Reinterpreting an input uses its register or a vector
+register copy, preserving zero signs and NaN payloads without floating-point
+exceptions.</p>
+</li>
+<li>
 <p>Register kernels accept unary minus on <code>f32</code> and <code>i32</code> uniforms,
 including reduced and extracted values. Packed negation preserves float
 zero signs and NaN payloads, and signed results wrap to 32 bits.

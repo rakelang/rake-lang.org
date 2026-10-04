@@ -302,6 +302,11 @@ bitcasts keep the rack's bits and selected profile width. Independent C
 checks all four compact types, updates and destinations against guarded
 arrays. WebAssembly verifies its packed widening in both addressing modes,
 with source bounds required for narrower comparisons or extending multiplies.
+Register kernels now also bitcast between <code>f32s</code>, <code>i32s</code> and <code>u32s</code>.
+The same vector register can hold either interpretation, with a register copy
+when the original remains live. Independent C byte comparisons check all
+four physical profiles, including signalling NaNs, zero signs and random
+bit patterns, without floating-point exceptions.
 Signed <code>i32s</code>/<code>f32s</code> and unsigned <code>u32s</code>/<code>f32s</code> numerical conversions
 now compile on every physical profile, in register kernels and streams.
 An independent integer-bit oracle
