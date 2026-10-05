@@ -145,7 +145,7 @@ export void safe_roots(uniform float values[],
 ```
 
 In Rake, we describe the eligible lanes and their calculation. The profile
-chooses the width, and the traversal handles the loads, stores and tail:
+chooses the width, and the compiler handles the loads, stores and tail:
 
 <!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 -->
 ```rake
@@ -162,9 +162,8 @@ rake safe_root(values: f32s) -> f32s:
     | #valid(values) => rooted
     | #valid(values) gaps => <0.0>
 
-run roots(input: stack Samples, <count: i64>) -> f32:
-  for chunk in input using f32s up to <count>:
-    yield safe_root(chunk.value)
+run roots(input: stack Samples, output: stack Samples) -> stack Samples:
+  output with { value: safe_root(input.value) }
 ```
 
 The masks remain visible in the source, while the width-specific instructions
@@ -225,20 +224,20 @@ this loop, and its two vector versions and Rake finish at similar times.
 <h4>All four versions</h4>
 <svg viewBox="0 0 320 260" role="img" aria-labelledby="benchmark-all-title benchmark-all-desc">
 <title id="benchmark-all-title">Square roots over a million floats</title>
-<desc id="benchmark-all-desc">Median time in milliseconds: scalar C 3.873, autovectorized C 0.143, C intrinsics 0.143 and Rake 0.144. All bars start at zero on the same scale.</desc>
+<desc id="benchmark-all-desc">Median time in milliseconds: scalar C 4.003, autovectorized C 0.147, C intrinsics 0.146 and Rake 0.147. All bars start at zero on the same scale.</desc>
 <text class="diagram-label" x="112" y="22">Time (ms), smaller is faster</text>
 <text class="diagram-label" x="8" y="65">Scalar C</text>
-<rect class="diagram-operation" x="112" y="42" width="174.28" height="24" rx="3"/>
-<text class="diagram-label" x="112" y="85">3.873 ms</text>
+<rect class="diagram-operation" x="112" y="42" width="180.12" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="85">4.003 ms</text>
 <text class="diagram-label" x="8" y="115">C auto</text>
-<rect class="diagram-operation" x="112" y="92" width="6.42" height="24" rx="3"/>
-<text class="diagram-label" x="128" y="111">0.143 ms</text>
+<rect class="diagram-operation" x="112" y="92" width="6.60" height="24" rx="3"/>
+<text class="diagram-label" x="128" y="111">0.147 ms</text>
 <text class="diagram-label" x="8" y="165">C intrinsics</text>
-<rect class="diagram-operation" x="112" y="142" width="6.45" height="24" rx="3"/>
-<text class="diagram-label" x="128" y="161">0.143 ms</text>
+<rect class="diagram-operation" x="112" y="142" width="6.59" height="24" rx="3"/>
+<text class="diagram-label" x="128" y="161">0.146 ms</text>
 <text class="diagram-label" x="8" y="215">Rake</text>
-<rect class="diagram-operation" x="112" y="192" width="6.49" height="24" rx="3"/>
-<text class="diagram-label" x="128" y="211">0.144 ms</text>
+<rect class="diagram-operation" x="112" y="192" width="6.61" height="24" rx="3"/>
+<text class="diagram-label" x="128" y="211">0.147 ms</text>
 <path class="diagram-flow" d="M112 226 H292"/>
 <text class="diagram-label" x="112" y="248">0</text>
 <text class="diagram-label" x="270" y="248">4 ms</text>
@@ -248,24 +247,24 @@ this loop, and its two vector versions and Rake finish at similar times.
 <h4>Vector versions, enlarged</h4>
 <svg viewBox="0 0 320 260" role="img" aria-labelledby="benchmark-vector-title benchmark-vector-desc">
 <title id="benchmark-vector-title">Enlarged view of the three vector timings</title>
-<desc id="benchmark-vector-desc">On a separate zero-to-0.16 millisecond scale, autovectorized C takes 0.143 milliseconds, C intrinsics 0.143 and Rake 0.144.</desc>
+<desc id="benchmark-vector-desc">On a separate zero-to-0.16 millisecond scale, autovectorized C takes 0.147 milliseconds, C intrinsics 0.146 and Rake 0.147.</desc>
 <text class="diagram-label" x="112" y="22">Time (ms), smaller is faster</text>
 <text class="diagram-label" x="8" y="90">C auto</text>
-<rect class="diagram-operation" x="112" y="65" width="160.61" height="24" rx="3"/>
-<text class="diagram-label" x="112" y="110">0.143 ms</text>
+<rect class="diagram-operation" x="112" y="65" width="164.95" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="110">0.147 ms</text>
 <text class="diagram-label" x="8" y="145">C intrinsics</text>
-<rect class="diagram-operation" x="112" y="120" width="161.25" height="24" rx="3"/>
-<text class="diagram-label" x="112" y="165">0.143 ms</text>
+<rect class="diagram-operation" x="112" y="120" width="164.76" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="165">0.146 ms</text>
 <text class="diagram-label" x="8" y="200">Rake</text>
-<rect class="diagram-operation" x="112" y="175" width="162.34" height="24" rx="3"/>
-<text class="diagram-label" x="112" y="220">0.144 ms</text>
+<rect class="diagram-operation" x="112" y="175" width="165.30" height="24" rx="3"/>
+<text class="diagram-label" x="112" y="220">0.147 ms</text>
 <path class="diagram-flow" d="M112 226 H292"/>
 <text class="diagram-label" x="112" y="248">0</text>
 <text class="diagram-label" x="248" y="248">0.16 ms</text>
 </svg>
 </div>
 </div>
-<figcaption>Ryzen 7 5800X3D, AVX2, GCC 14.3, 4 October 2026. Medians of 31 samples, each averaging four passes, with execution order rotated. The scalar row disables C's vectoriser. The right panel enlarges the three vector rows with its own labelled scale.</figcaption>
+<figcaption>Ryzen 7 5800X3D, AVX2, GCC 14.3, 5 October 2026, while other work kept its 16 threads busy. Medians of 31 samples, each averaging four passes, with execution order rotated. The scalar row disables C's vectoriser. The right panel enlarges the three vector rows with its own labelled scale.</figcaption>
 </figure>
 
 [The benchmark source, flags and raw samples](https://github.com/rakelang/rake/tree/main/demo/safe-root)
@@ -609,9 +608,10 @@ target's SIMD width. Remember the hierarchy as "define our pack, then rack
 <figcaption>The highlighted slice is one eight-lane AVX2 rack in a stack's column layout. The caller supplies a separate column for each field.</figcaption>
 </figure>
 
-A `run` walks the stack and feeds each rack into a scratch or rake. That's its
-job beyond those two constructs: it handles the memory traversal, including
-the final partial rack. This run feeds our 600 positions into `signed_root`:
+A `run` applies scratches and rakes to whole stacks. `positions.value` is the
+whole column of 600 values, and the compiler splits it into racks, including
+the final partial rack. This run feeds our 600 positions into `signed_root`
+and returns the stack with the results:
 
 <!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 with 4 -->
 ```rake
@@ -619,17 +619,17 @@ pack Positions {
   f32: value;
 }
 
-run roots(positions: stack Positions, <count: i64>) -> f32:
-  for row in positions using f32s up to <count>:
-    yield signed_root(row.value)
+run roots(positions: stack Positions) -> stack Positions:
+  positions with { value: signed_root(positions.value) }
 ```
 
-`using f32s` selects the rack's element type. `<count>` is 600 for this stack.
-It needn't be a power of two or a multiple of the rack width. The traversal
-loads and stores only existing records in its final rack.
+The stack carries its count, 600 here. It needn't be a power of two or a
+multiple of the rack width, and the final rack loads and stores only the
+records that exist. Calling the run moves the stack into it, so the run updates
+the column in place.
 
-For the comparison at the top, `safe_root` replaces `signed_root` in this
-same traversal, and the count is 1,000,000. AVX2 splits that column into
+For the comparison at the top, `safe_root` replaces `signed_root` in the same
+kind of run, and the count is 1,000,000. AVX2 splits that column into
 125,000 eight-lane racks. The benchmark also checks 1,000,003 entries, whose
 last rack has three active lanes. The stored column contains a million
 individual `f32` values, rather than a million-lane `f32s` value.
@@ -652,16 +652,15 @@ individual `f32` values, rather than a million-lane `f32s` value.
 <text class="diagram-value" x="396" y="203">150 full racks</text>
 <text class="diagram-label" x="18" y="247">Wider racks process more lanes per instruction.</text>
 </svg>
-<figcaption>The rack counts follow from register width. Native AVX-512 streams use the 512-bit row, AVX2 streams use the 256-bit row, and SSE2, NEON and WebAssembly use the 128-bit row.</figcaption>
+<figcaption>The rack counts follow from register width. Native AVX-512 runs use the 512-bit row, AVX2 runs use the 256-bit row, and SSE2, NEON and WebAssembly use the 128-bit row.</figcaption>
 </figure>
 
 512-bit SIMD handles twice as many `f32` lanes per instruction as AVX2, and
 four times as many as 128-bit SIMD. Elapsed time also depends on memory
 bandwidth, instruction costs and processor frequency. *WIP: work in progress.*
 
-Our particle columns can use the same traversal. The age stays one byte per
-record in memory. `widen` brings the current rack's ages into 32-bit lanes
-before the calculation:
+Our particles use the same kind of run. The age stays one byte per record in
+memory, and `widen` brings it into 32-bit lanes for the calculation:
 
 ```rake
 pack Particles {
@@ -669,14 +668,32 @@ pack Particles {
   u8: age;
 }
 
-run advance(particles: stack Particles, <count: i64>, <dt: f32>) -> f32:
-  for particle in particles using f32s up to <count>:
-    let age = to_f32(widen(particle.age))
-    yield particle.position + particle.velocity * <dt> / (age + <1.0>)
+run advance(particles: stack Particles, <dt: f32>) -> stack Particles:
+  let age = to_f32(widen(particles.age))
+  particles with { position: particles.position + particles.velocity * <dt> / (age + <1.0>) }
 ```
 
-The last partial rack of a traversal loads and stores only the records that
-exist.
+A run can also choose which particles to touch. `where #young` after its
+result updates only the young particles, and the others keep their values.
+`compact` keeps only the young particles instead, moved to the front of each
+column, and the stack's count shrinks to match:
+
+<!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 -->
+```rake
+pack Particles {
+  f32: position, velocity;
+  u8: age;
+}
+
+run young_only(particles: stack Particles) -> stack Particles:
+  let age = widen(particles.age)
+  tine #young means age < <2>
+  compact particles where #young
+```
+
+Which is faster depends on how many particles survive, so the source chooses.
+A successful build ends with a kernel report naming the method each target
+used, such as AVX-512's `vcompressps` or AVX2's permutation table.
 
 ### Scalar code stays scalar
 
@@ -765,10 +782,9 @@ lists the other implemented integer operations and the remaining WIP* coverage.
 
 Rake 0.7.0 also combines native slow orchestration
 with Rake-selected register kernels, through a limited scalar C boundary.
-Typed C callbacks and process arguments are implemented there. Native runs
-include the SSE2, AVX2, AVX-512 and NEON `f32`, `i32` and `u32` traversal subset: stream output
-or one column update in a mutable input or destination stack. These runs
-accept `f32`, `i32`, `u32` and `bool` uniforms within the profile's register
+Typed C callbacks and process arguments are implemented there. Stack runs
+compile on SSE2, AVX2, AVX-512 and NEON over `f32`, `i32` and `u32` columns,
+with masking, compaction and several replaced columns. These runs accept `f32`, `i32`, `u32` and `bool` uniforms within the profile's register
 limits.
 Uniform conditions can use `and`, `or` and `not`. A run can bind an
 intermediate Boolean and reuse it in later conditions.
@@ -776,7 +792,7 @@ Explicit `widen` also reads signed or unsigned byte and 16-bit columns into
 32-bit working racks, keeping their storage compact and their tails checked.
 Bitcasts between `i32s` and `u32s` preserve lane bits. `to_f32` converts
 signed or unsigned integer racks numerically, and `to_i32` or `to_u32`
-converts floats to the corresponding integer type, including in streams.
+converts floats to the corresponding integer type, including in stack runs.
 Float-to-integer conversion rounds to nearest with ties to even,
 saturates out-of-range values and converts NaNs to zero.
 General native runs remain WIP*. [The backend](/docs/backend/#whole-programs) explains

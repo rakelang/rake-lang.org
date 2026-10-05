@@ -81,6 +81,28 @@ boundaries between versions. A design in the documentation gets a version
 only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
+<li>Runs apply calculations to whole stacks. A stack holds its count and one
+column per field, and <code>run name(...) -&gt; stack P</code> ends with its result:
+<code>s with { field: e }</code>, masked by <code>where p</code>, or <code>compact s where p</code>. The
+<code>for chunk in s using D up to &lt;count&gt;</code> traversal, <code>yield</code>, <code>mut stack</code> and
+nested traversals are removed. General runs over views remain.</li>
+<li>Stacks move into the run that returns it, which updates their columns in
+place. Reading a moved stack is a compile error, and <code>copy(s)</code> makes an
+explicit copy from the frame arena. Slow code reads <code>count(s)</code> and <code>s.field</code>.
+A call traps when its stacks' counts differ, or when the result's columns
+overlap other memory except element for element.</li>
+<li>Compaction compiles on every target: <code>vcompressps</code> on AVX-512, <code>vpermps</code> by
+a permutation table on AVX2, a jump to fixed <code>pshufd</code> permutations on SSE2,
+<code>tbl</code> on NEON and <code>i8x16.swizzle</code> on WebAssembly, for 8-, 16- and 32-bit
+columns.</li>
+<li>One native kernel computes every output of a rack, so values the outputs
+share are computed once.</li>
+<li>A successful build of stack runs ends with a kernel report on standard
+error, naming each run's domain, columns, selection and its method, and
+tail transfers. <code>--no-report</code> omits it.</li>
+<li>Stack descriptors are <code>struct rake_stack_P_v2</code>, a leading <code>int64_t count</code>
+followed by the column pointers. The result's descriptor is passed
+writable, and a compaction writes its count.</li>
 <li>The development shell pins Intel SDE, so the full suite runs the AVX-512
 checks on hosts without AVX-512F. One test helper selects each profile's
 C compiler, flags and runner.</li>

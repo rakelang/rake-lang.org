@@ -88,9 +88,9 @@ definition is a whole program. On <code>wasm-simd128</code> it compiles to one C
 translation unit with a C entry point, which is what a C-only judge takes.
 Whole programs are implemented for <code>wasm-simd128</code> and
 <code>wasm-simd128-relaxed</code>. Rake 0.7.0 also emits native C and objects combining slow orchestration and
-register kernels on x86-64 and AArch64. SSE2, AVX2, AVX-512 and NEON additionally support the
-<a href="/docs/packs-and-runs/#native-cpu-streams">native stream subset</a>. General native
-runs remain work in progress.</p>
+register kernels on x86-64 and AArch64. SSE2, AVX2, AVX-512 and NEON also compile
+<a href="/docs/packs-and-runs/#stack-runs">stack runs</a>. General runs over views remain
+work in progress on those profiles.</p>
 <h3 id="native-kernel-calls">Native kernel calls</h3>
 <p>In Rake 0.7.0, a native register kernel called from slow code
 takes uniform <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> parameters and returns <code>f32</code>, <code>bool</code>, <code>i32</code>
@@ -147,10 +147,9 @@ interpreter supplies <code>program</code> at <code>argv[0]</code> and no additio
   <span class="tok-type-builtin">u8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">quality</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>
 
-<span class="tok-keyword">run</span> <span class="tok-function">weigh</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">count</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
-  <span class="tok-keyword">for</span> <span class="tok-variable">chunk</span> <span class="tok-keyword">in</span> <span class="tok-variable">input</span> <span class="tok-keyword">using</span> <span class="tok-type-builtin">f32s</span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">count</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
-    <span class="tok-keyword">let</span> <span class="tok-variable">quality</span> <span class="tok-operator">=</span> <span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">quality</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
-    <span class="tok-keyword">yield</span> <span class="tok-variable">chunk</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">scale</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-variable">quality</span>
+<span class="tok-keyword">run</span> <span class="tok-function">weigh</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">samples</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">scale</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-keyword">stack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">quality</span> <span class="tok-operator">=</span> <span class="tok-function">to_f32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">samples</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">quality</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-variable">samples</span> <span class="tok-keyword">with</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">samples</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">scale</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-variable">quality</span> <span class="tok-punctuation-bracket">}</span>
 
 <span class="tok-keyword">run</span> <span class="tok-function">running_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">n</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">total</span> <span class="tok-operator">:=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
@@ -163,10 +162,9 @@ interpreter supplies <code>program</code> at <code>argv[0]</code> and no additio
 <span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">1.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">2.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">3.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">4.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">5.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">6.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">7.0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">8.0</span><span class="tok-punctuation-bracket">]</span>
   <span class="tok-variable">qualities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">u8</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span>
-  <span class="tok-variable">weighed</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span>
-  <span class="tok-function">weigh</span><span class="tok-punctuation-bracket">(</span><span class="tok-keyword">stack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">quality</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">qualities</span> <span class="tok-punctuation-bracket">}</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.5</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">weighed</span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">weighed</span> <span class="tok-operator">=</span> <span class="tok-function">weigh</span><span class="tok-punctuation-bracket">(</span><span class="tok-keyword">stack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">quality</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">qualities</span> <span class="tok-punctuation-bracket">}</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.5</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span> <span class="tok-operator">:=</span> <span class="tok-punctuation-bracket">[</span><span class="tok-number">0.0</span><span class="tok-punctuation-delimiter">;</span> <span class="tok-number">8</span><span class="tok-punctuation-bracket">]</span>
-  <span class="tok-function">running_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">weighed</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
+  <span class="tok-function">running_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">weighed</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-variable">calls</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">calls</span> <span class="tok-operator">+</span> <span class="tok-number">1</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">7</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">4.0</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">+</span> <span class="tok-variable">calls</span>
 </code></pre>
@@ -201,7 +199,7 @@ scalar name. Outside it, <code>&lt;offset&gt;</code> explicitly broadcasts the r
 shadow an enclosing binding, though sibling blocks may reuse a name. A block
 inside a slow function shares that function's mutable locations. A block in a
 run can read its uniforms and scalar-element views, and write a mutable view.
-It can't name a rack, mask, rack array or traversal chunk. Reduce or extract a
+It can't name a rack, mask, rack array or stack column. Reduce or extract a
 rack to a uniform before entering the block. Block results are scalar or
 void, so a local array, record or borrowed view can't escape through the result.</p>
 <p>On one line, separate statements with semicolons: <code>slow { let x = 2; x + 1 }</code>
@@ -296,7 +294,8 @@ accepts typed function pointers.</p>
 <tr><td><code>ptr ()</code></td><td>an opaque C <code>void *</code></td></tr>
 <tr><td><code>slow(T, ...) -&gt; U</code></td><td>a typed C function pointer</td></tr>
 <tr><td><code>Name</code></td><td>a record</td></tr>
-<tr><td><code>mut T</code></td><td>in a parameter list: a view, stack, array or record the callee writes</td></tr>
+<tr><td><code>stack Name</code></td><td>a stack: its count and a view of each column</td></tr>
+<tr><td><code>mut T</code></td><td>in a parameter list: a view, array or record the callee writes</td></tr>
 </tbody></table>
 </div>
 <p>Arrays and records are values: binding or assigning one copies it. Views and
@@ -305,8 +304,13 @@ is passed by reference and is read-only. <code>mut</code> makes it writable, and
 argument must then be a location the caller may write. A view parameter is
 passed by value and is writable through when declared <code>mut []T</code>.</p>
 <p>Slow code holds individual packs as ordinary records. It has no rack or mask
-values. A stack is currently constructed at a run call by supplying views
-for the pack's fields: <code>stack Samples { value: values, quality: qualities }</code>.</p>
+values. A stack is built from writable views or arrays, one for each of the
+pack's fields: <code>stack Samples { value: values, quality: qualities }</code>. Its
+count is their length, and the literal traps if they differ. <code>s.field</code> is a
+column as a view of <code>count(s)</code> elements. A stack moves into the run that
+returns it, and <code>copy(s)</code> makes a new stack whose columns come from the
+function's frame, as <a href="/docs/packs-and-runs/#moves-and-copies">moves and copies</a>
+defines. Slow functions can't take or return stacks.</p>
 <h2 id="statements">Statements</h2>
 <div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>let name = e</code>, <code>let name: T = e</code></td><td>immutable binding</td></tr>
@@ -440,7 +444,8 @@ WebAssembly's indirect-call table. The interpreter invokes local callbacks
 by their function identity. Imported C callbacks need the same external
 implementation as a direct C call.</p>
 <h2 id="calling-vector-code">Calling vector code</h2>
-<p>Slow code calls a run as a statement and a scratch or rake as an expression:</p>
+<p>Slow code calls a stack run as an expression returning its result's stack, a
+general run as a statement, and a scratch or rake as an expression:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">score</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">y</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">extract</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">x</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">y</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">+</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">1.0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">)</span>
 
@@ -451,17 +456,16 @@ implementation as a direct C call.</p>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">best</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>The run call in <a href="#an-example">the example</a> above,
-<code>weigh(stack Samples { value: values, quality: qualities }, &lt;8&gt;, &lt;0.5&gt;, weighed)</code>,
-passes a stack, two uniforms and its output view.</p>
+<code>weigh(stack Samples { value: values, quality: qualities }, &lt;0.5&gt;)</code>, moves a
+stack into <code>weigh</code> and binds the stack it returns.</p>
 <p>Memory arguments, views and stacks, are passed bare. An array passed where a
 view is expected lends all its elements. Every scalar argument is marked
 <code>&lt;...&gt;</code>, as in <code>&lt;name&gt;</code>, <code>&lt;3&gt;</code>, <code>&lt;record.field&gt;</code> or <code>&lt;view[index]&gt;</code>, because it
-becomes a rack in the callee. A run declared <code>-&gt; T</code> takes its output view as a last argument. A
-scratch or rake is callable from slow code only when all its parameters are
+becomes a rack in the callee. A scratch or rake is callable from slow code only when all its parameters are
 uniform and its result is a scalar. Slow code can't pass or receive a rack.</p>
-<p>At a run call, every column of a traversed stack, of a stack the traversal
-stores into, and the output view must hold the traversal's count, or the call
-traps before the run starts.</p>
+<p>At a stack run call, every stack must have the result's count, and the result's
+columns may share memory with another argument only element for element, or
+the call traps before the run starts.</p>
 <h2 id="the-explicitness-rules">The explicitness rules</h2>
 <ul>
 <li>Slow code can't name, hold, pass or return a rack, mask or rack array.</li>
@@ -505,11 +509,11 @@ so programs that call C are tested through C (<code>test/abi/interop.rk</code>).
 <p><code>test/program_test.sh</code> runs every <code>test/program/*.rk</code> in the interpreter and,
 compiled from the emitted C in both addressings, under wasmtime, and requires
 equal results. Programs under <code>test/program/trap/</code> must trap in both.
-<code>test/abi_test.sh</code> calls runs from C across the <a href="/docs/packs-and-runs/#wasm32-boundary">wasm32
-boundary</a> and runs <code>interop.rk</code> against
-its C functions.
-<code>test/reject/slow_*.rk</code> and <code>test/reject/run_*.rk</code> show each explicitness rule
-rejecting a program that breaks it.</p>
+<code>test/abi_test.sh</code> calls runs from C across <a href="/docs/packs-and-runs/#the-c-boundary">the C
+boundary</a> and runs <code>interop.rk</code> against its
+C functions. <code>test/reject/slow_*.rk</code>, <code>test/reject/run_*.rk</code> and
+<code>test/reject/stack_*.rk</code> show each explicitness rule rejecting a program that
+breaks it.</p>
 <h2 id="the-c-unit">The C unit</h2>
 <p>Ordinary slow functions have external C linkage,
 including on WebAssembly, so independently compiled C can call them. Extracted
@@ -558,7 +562,7 @@ from host worker stacks. Allocation failure traps. Nonlocal exits such as C
 <code>longjmp</code> bypass frame cleanup and are unsupported across active Rake frames.</p>
 <h2 id="verification">Verification</h2>
 <p>For a native mixed program, both <code>--emit-obj</code> and <code>--verify-native</code> check each
-embedded register kernel and supported stream traversal in the final object.
+embedded register kernel and native stack run in the final object.
 The ordinary slow functions
 retain the platform compiler's C semantics and are outside that vector
 instruction contract. A slow-only unit uses <code>--emit-obj</code>.</p>

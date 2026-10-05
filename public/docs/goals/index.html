@@ -149,18 +149,21 @@ profile compiles. Lane indices, interleaving, lane shifts and rotations,
 scatter, compression, expansion and single-record layouts are planned.</p>
 <h2 id="data-layout-is-explicit">Data layout is explicit</h2>
 <p>A <code>pack</code> describes one record. A <code>stack</code> collects those records in
-structure-of-arrays storage, and a traversal visits its columns a rack at a
-time. Conversions between layouts and memory
-operations are written in the source or set by a documented calling
-convention. A traversal's tail never reads or writes past the count, and its
-inactive lanes raise no exception and have no effect.</p>
-<p>Today: general runs, stacks and traversals compile on <code>wasm-simd128</code>.
-The development compiler adds <code>f32</code>, <code>i32</code> and <code>u32</code> stream traversals and single-column
-stack updates on SSE2, AVX2, AVX-512 and NEON. An update can write its input
-stack or a separate destination with a different record layout.
-Explicit <code>widen</code> also reads signed and unsigned byte or 16-bit columns into
-32-bit working racks. Each column advances by its stored element width,
-and a partial rack reads only participating records. Outputs stay 32-bit.
+structure-of-arrays storage, and a stack run applies calculations to its whole
+columns while the compiler visits them a rack at a time. Conversions between
+layouts and memory operations are written in the source or set by a documented
+calling convention. A stack run's tail never reads or writes past the count,
+and its inactive lanes raise no exception and have no effect.</p>
+<p>Stacks are values that move into the run returning them, so every update is in
+place and a copy happens only where the source writes <code>copy</code>. A run selects
+records by masking, with <code>where</code>, or by compaction, with <code>compact</code>, and the
+kernel report states which method each target used.</p>
+<p>Today: stack runs compile on SSE2, AVX2, AVX-512, NEON and <code>wasm-simd128</code>, and
+general runs over views on <code>wasm-simd128</code>. Explicit <code>widen</code> reads signed and
+unsigned byte or 16-bit columns into 32-bit working racks. Each column advances
+by its stored element width, and a partial rack reads only participating
+records. Replacements write fields as wide as the run's domain, and compaction
+moves every column.
 Signed and unsigned integer-to-float conversions preserve those 32-bit lanes,
 with masked protection, nearest-even rounding and saturating float-to-integer
 results for both signed and unsigned reverse conversions.
@@ -177,8 +180,8 @@ tier</a> describes. The unreleased development compiler
 also compiles slow orchestration with register kernels into native objects.
 Their C unit embeds Rake-selected assembly, which remains opaque to the
 platform C compiler. Slow callers can pass uniform <code>f32</code>, <code>bool</code>, <code>i32</code> and <code>u32</code>
-arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results. Native runs beyond
-the stream subset and other scalar kernel boundaries remain work in progress.</p>
+arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results. Native general runs
+and other scalar kernel boundaries remain work in progress.</p>
 <h2 id="compilation-is-predictable">Compilation is predictable</h2>
 <p>On physical CPU profiles the compiler owns rack instruction selection,
 register allocation, instruction sequencing and assembly. The assembler only

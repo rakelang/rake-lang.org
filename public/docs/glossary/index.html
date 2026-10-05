@@ -93,8 +93,11 @@ explains CPU SIMD and GPU terms, with examples of lane and memory operations.</p
 <tr><td>slow block</td><td><code>slow { ... }</code>, a lexical scalar escape inside a run or slow function, optionally producing a scalar value</td></tr>
 <tr><td>fused binding</td><td><code>| name &lt;| e</code>, one stage of a pure fused computation</td></tr>
 <tr><td>pack</td><td>one record described by a <code>pack</code> declaration, with its fields stored together</td></tr>
-<tr><td>stack</td><td>a collection of packs transposed into one contiguous column for each field</td></tr>
-<tr><td>traversal</td><td><code>for chunk in input using f32s up to &lt;n&gt;:</code>, a rack-sized slice of a stack's columns at a time</td></tr>
+<tr><td>stack</td><td>a count of packs transposed into one contiguous column for each field</td></tr>
+<tr><td>stack run</td><td>a run that applies calculations to whole stacks and returns one: <code>s with { field: e }</code></td></tr>
+<tr><td>masking</td><td><code>where p</code>: a stack run replaces fields only in the records <code>p</code> selects</td></tr>
+<tr><td>compaction</td><td><code>compact s where p</code>: a stack run keeps only the records <code>p</code> selects</td></tr>
+<tr><td>move</td><td>passing a stack to the run that returns it, which updates its columns in place</td></tr>
 <tr><td>view</td><td><code>[]T</code>, elements with a count, borrowed from the caller</td></tr>
 <tr><td>profile</td><td>a named target, such as <code>x86-avx2</code>, that fixes the rack width and the rules</td></tr>
 <tr><td>widening</td><td>converting narrow stored elements, such as <code>u8</code>, to wider lanes without changing their values</td></tr>

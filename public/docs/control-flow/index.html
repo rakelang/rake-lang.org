@@ -102,7 +102,7 @@ or an extracted <code>f32</code> bound as a uniform.
 The physical profiles broadcast the operands, compare them as vectors and
 select the same branch in every participating lane. Both branches have
 instructions, with benign operands substituted for untaken work that could
-raise floating-point exceptions. A surrounding <code>through</code> or traversal tail
+raise floating-point exceptions. A surrounding <code>through</code> or a stack run's tail
 also limits participation.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">pick</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">near</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">far</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">distance</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">limit</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">if</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">distance</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">&lt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">limit</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">then</span> <span class="tok-variable">near</span> <span class="tok-keyword">else</span> <span class="tok-variable">far</span>
@@ -138,9 +138,8 @@ below makes every lane choose <code>near</code> when at least one lane is positi
   <span class="tok-function">pick_enabled</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">near</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">far</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-boolean">true</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>These native Boolean conditions and C <code>bool</code> parameters are included in
-Rake 0.7.0. The native <code>f32</code>, <code>i32</code> and <code>u32</code> stream subset also takes
-<code>i32</code>, <code>u32</code> and <code>bool</code> uniforms within its
-<a href="/docs/packs-and-runs/#native-cpu-streams">C register boundary</a>.</p>
+Rake 0.7.0. Native stack runs also take <code>i32</code>, <code>u32</code> and <code>bool</code> uniforms within
+their <a href="/docs/packs-and-runs/#the-c-boundary">C register boundary</a>.</p>
 <p>In slow code, only the chosen branch is evaluated.</p>
 <p>In vector code, a branch can't read memory. A load, gather or element read is
 bound with <code>let</code> before the conditional, so it visibly happens whichever way
@@ -168,12 +167,21 @@ within 4096, and otherwise it stays a loop with the same meaning. On
 WebAssembly each rack location stays one <code>v128</code> value in a local. In
 <code>test/program/vector_tier.rk</code>, a <code>repeat</code> of 5000 trips compiles to a loop of
 one <code>f32x4.mul</code>, one <code>f32x4.add</code> and the counter.</p>
-<p>The native stream subset accepts these unrolled repeats too, including
-nested copies and updates to local rack locations or arrays of racks.
-Assignments preserve earlier immutable snapshots, and each traversal chunk
-starts with fresh locations. Repeats beyond the unrolling budget still fail
-native compilation. <a href="/docs/packs-and-runs/#repeated-rack-updates">Repeated rack updates</a>
-shows a stream example.</p>
+<p>Native stack runs accept these unrolled repeats too, including nested copies
+and updates to local rack locations or arrays of racks. Assignments preserve
+earlier immutable snapshots, and each rack of records starts with fresh
+locations. Repeats beyond the unrolling budget still fail native compilation.</p>
+<pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
+  <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
+<span class="tok-punctuation-bracket">}</span>
+
+<span class="tok-keyword">run</span> <span class="tok-function">cubes</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">samples</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-keyword">stack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">:</span>
+  <span class="tok-keyword">let</span> <span class="tok-variable">value</span> <span class="tok-operator">=</span> <span class="tok-variable">samples</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span>
+  <span class="tok-variable">power</span> <span class="tok-operator">:=</span> <span class="tok-variable">value</span>
+  <span class="tok-keyword">repeat</span> <span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-keyword">from</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
+    <span class="tok-variable">power</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">power</span> <span class="tok-operator">*</span> <span class="tok-variable">value</span>
+  <span class="tok-variable">samples</span> <span class="tok-keyword">with</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">power</span> <span class="tok-punctuation-bracket">}</span>
+</code></pre>
 <h2 id="loops-and-branches-in-runs">Loops and branches in runs</h2>
 <p>A run's counted loop, <code>for &lt;i: i32&gt; from &lt;a&gt; up to &lt;b&gt; by &lt;s&gt;:</code>, has a uniform
 index, bounds and step. The step is 1 unless given. A step of zero or less
@@ -204,13 +212,11 @@ condition and branches around whole statements:</p>
 <p>A run has no <code>while</code>, <code>break</code>, <code>continue</code> or <code>return</code>, so every vector loop
 runs a counted number of iterations. Mutable rack locations, such as
 <code>total := &lt;0.0&gt;</code>, and arrays of them, such as <code>acc: [8]i32s := &lt;0&gt;</code>, carry
-values across iterations. In a traversal's tail an assignment updates only
+values across iterations. In a stack run's tail an assignment updates only
 the active lanes.</p>
-<p>A traversal, <code>for chunk in input using f32s up to &lt;count&gt;:</code>, is a different
-loop: it visits a stack's records a rack at a time, as <a href="/docs/packs-and-runs/">packs and
-runs</a> define. A counted loop may contain a traversal, and
-a traversal may contain counted loops, <code>repeat</code>, statement <code>if</code> and a
-traversal of the same lane count.</p>
+<p>A stack run has no loop of its own: the compiler visits its stacks' records a
+rack at a time, as <a href="/docs/packs-and-runs/">packs and runs</a> define. Its body may
+contain <code>repeat</code>, counted loops and statement <code>if</code>.</p>
 <h2 id="slow-control-flow">Slow control flow</h2>
 <p>Slow code has <code>if</code>, <code>else if</code> and <code>else</code>, <code>while</code>, the counted <code>for i from a up to b by s</code>, <code>break</code>, <code>continue</code> and <code>return</code>, as <a href="/docs/slow-tier/">the slow
 tier</a> defines. It holds no racks, so a run called inside a

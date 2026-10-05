@@ -146,7 +146,7 @@ multiplication. Use a marked uniform when the scalar meets a rack, as
 including reduced or extracted values. Float negation flips the sign bit,
 preserving zero signs and NaN payloads. Signed negation wraps, so negating
 −2147483648 gives −2147483648. Arithmetic under a partial lane mask remains WIP*,
-including inside a masked traversal. This support is included in Rake 0.7.0.</p>
+including inside a masked stack run. This support is included in Rake 0.7.0.</p>
 <h2 id="lane-order">Lane order</h2>
 <p>For a float rack <code>x</code> of <code>N</code> lanes:</p>
 <pre class="code code-text"><code>p[0] = x[0]
@@ -170,7 +170,7 @@ subdivisions of an AVX register. An integer scan includes lanes 0 through <code>
 in its result at lane <code>i</code>. For a rack holding <code>[2, 3, 1, 4]</code>, <code>scan_sum</code>
 gives <code>[2, 5, 6, 10]</code>.
 Each call starts a new prefix at lane 0. Carrying a running prefix from one
-traversal chunk to the next is separate work in the traversal's body.</p>
+rack to the next is separate work, in a general run's loop.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">total_counts</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">counts</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">u32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">u32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">counts</span><span class="tok-punctuation-bracket">)</span>
 
@@ -197,7 +197,7 @@ backend can't use a machine minimum or maximum directly where its NaN or
 signed-zero rule differs.</p>
 <h2 id="restrictions-and-profiles">Restrictions and profiles</h2>
 <p>Each lane of a reduction or scan depends on the others, so neither can run
-under a mask. They are rejected in a <code>through</code> block and in a traversal,
+under a mask. They are rejected in a <code>through</code> block and in a stack run,
 where the tail's mask would apply. They are also outside fused bindings: a
 reduction leaves the rack, and a scan orders its lanes.</p>
 <div class="table-scroll"><table><thead><tr><th>Profile</th><th class="align-center">Reductions and scans</th><th class="align-center"><code>all</code>, <code>any</code>, <code>bitmask</code> on float masks</th></tr></thead><tbody>

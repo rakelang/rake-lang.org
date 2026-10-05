@@ -21,7 +21,9 @@
   "const"
   "let"
   "return"
-  "yield"
+  "with"
+  "where"
+  "compact"
 ] @keyword
 
 [
@@ -32,8 +34,6 @@
   "into"
   "sweep"
   "for"
-  "in"
-  "using"
   "up"
   "to"
   "from"
@@ -92,7 +92,7 @@
 (mutable_binding name: (identifier) @variable)
 (assignment_statement target: (primary_expression (identifier) @variable))
 (through_statement name: (identifier) @variable)
-(traversal_statement binding: (identifier) @variable)
+(stack_result stack: (identifier) @variable)
 
 ; Rake marks one idea with each symbol: a tine is a mask, angle brackets a
 ; uniform, and the bars and arrows of a fused binding or sweep a data flow.
