@@ -696,8 +696,7 @@ run young_only(particles: stack Particles) -> stack Particles:
 ```
 
 Which is faster depends on how many particles survive, so the source chooses.
-A successful build ends with a kernel report naming the method each target
-used, such as AVX-512's `vcompressps` or AVX2's permutation table.
+A successful build ends with a kernel report identifying the method used for each target, such as AVX-512's `vcompressps` or AVX2's permutation table.
 
 ### Scalar code stays scalar
 

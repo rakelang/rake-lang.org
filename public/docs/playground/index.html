@@ -139,8 +139,7 @@ tabs under it:</p>
 <tr><td>Messages</td><td>the compiler's errors, each also underlined in the editor at its line and column</td></tr>
 </tbody></table>
 </div>
-<p>Stepping through a program in the Lanes tab shows one instruction acting on
-all the lanes at once, the idea the whole tutorial builds on.</p>
+<p>Stepping through a program in the Lanes tab shows how one instruction acts on all lanes at once, which provides the basis for the tutorial.</p>
 <p>The target menu offers WebAssembly, SSE2, AVX2, AVX-512 and NEON. The browser
 development compiler supports native slow orchestration with uniform <code>f32</code>,
 <code>i32</code> and <code>u32</code> kernel arguments and <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results.
@@ -159,7 +158,7 @@ lane trace comes from Rake's interpreter, using the selected profile's <code>f32
 rack width. The browser displays C or assembly without executing that
 generated machine code. Native object verification still requires <code>rakec</code>
 and the platform toolchain outside the browser.</p>
-<h2 id="how-it-works">How it works</h2>
+<h2 id="browser-compiler-and-interpreter">Browser compiler and interpreter</h2>
 <p>The compiler runs in the page. <code>rakec</code> is OCaml, and <code>js_of_ocaml</code> compiles
 its front end, interpreter and emitters for the browser, so the playground
 uses the interpreter and target emitters behind <code>rakec --interpret</code>,

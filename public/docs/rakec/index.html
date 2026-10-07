@@ -148,8 +148,7 @@ runtime's program string instead. Without parameters, <code>main</code> ignores 
 process arguments.</p>
 <p>Without an explicit target, <code>--interpret</code> uses WebAssembly's four <code>f32</code> lanes.
 <code>--target</code> selects the reference rack width, so an AVX2 float reduction uses
-eight lanes and an AVX-512 reduction uses sixteen. This interprets the source;
-it does not execute the generated machine code.</p>
+eight lanes and an AVX-512 reduction uses sixteen. This mode interprets the source instead of executing the generated machine code.</p>
 <p><a href="/docs/primitives-operations-and-targets/#profiles">Primitives, operations, and targets</a> explains how
 <code>native</code> chooses a profile and what <code>--width</code> checks, and <a href="/docs/packs-and-runs/#addressing">packs and
 runs</a> explains the addressing modes.</p>

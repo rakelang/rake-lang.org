@@ -131,9 +131,7 @@ in source order:</p>
 <tr><td><code>compact s with { ... } where p</code></td><td>replace the fields, then keep those records</td></tr>
 </tbody></table>
 </div>
-<p>The result is the run's last statement. It names one stack parameter, <code>s</code>,
-whose pack is the run's declared result. Fields it doesn't name keep their
-values. A replacement's value has the field's working rack type, so an <code>f32</code>
+<p>The run's last statement specifies one stack parameter, <code>s</code>, whose pack is the declared result. Fields omitted from that statement keep their values. A replacement's value has the field's working rack type, so an <code>f32</code>
 field takes <code>f32s</code>. Replacing a byte or 16-bit field is work in progress.</p>
 <p><code>p</code> is any predicate a rake's sweep accepts: a local tine, a global tine
 application such as <code>#alive(kill)</code>, or a composition such as
@@ -158,12 +156,11 @@ compaction with vector instructions:</p>
 <tr><td>SSE2</td><td>a jump to one of 16 fixed <code>pshufd</code> permutations</td></tr>
 </tbody></table>
 </div>
-<p>The <a href="#kernel-report">kernel report</a> names the method each build used.
+<p>The <a href="#kernel-report">kernel report</a> identifies the method used by each build.
 Compacting a run whose widest column has 8 bits is work in progress on
 WebAssembly.</p>
 <h3 id="several-stacks">Several stacks</h3>
-<p>A run can read stacks other than its result. They must have the same count as
-the result's stack:</p>
+<p>A run can read stacks other than its result. They need to have the same count as the result's stack:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>
@@ -206,8 +203,7 @@ stack while the compiler updates the columns in place:</p>
 </code></pre>
 <p>After <code>doubled(samples)</code>, the old value of <code>samples</code> is gone. Reading it is a
 compile error until it is assigned again, as <code>samples &lt;- doubled(samples)</code>
-does. A stack moved in one branch of an <code>if</code> counts as moved after it, and a
-stack moved inside a loop must be assigned again before the next iteration.</p>
+does. A stack moved in one branch of an <code>if</code> counts as moved after it, and a stack moved inside a loop needs to be assigned again before the next iteration.</p>
 <p><code>copy(samples)</code> creates a stack with its own columns and the same records,
 and leaves <code>samples</code> usable. The copy's columns come from the slow function's
 frame arena, so they last until that function returns, and a copy larger than
@@ -382,11 +378,10 @@ declarations:</p>
 it. A run reads each column pointer once and writes the result's count, which
 only a compaction changes. With a count of zero or less, the columns may be
 null. Every column holds at least <code>count</code> elements, and every stack in a call
-has the same count. Slow code calling a run checks these and traps. A C caller
-must meet them. On WebAssembly a positive count is at most 2^32 - 1.</p>
+has the same count. Slow code calling a run checks these and traps. A C caller needs to satisfy the same conditions. On WebAssembly a positive count is at most 2^32 - 1.</p>
 <p>The result's columns may share storage with another argument only when an
 element of one starts at exactly the same address as the corresponding element
-of the other, for an in-place update. Otherwise their storage must be disjoint.
+of the other, for an in-place update. Otherwise their storage needs to be disjoint.
 The C declaration has no <code>restrict</code>, because that exact aliasing is allowed.</p>
 <p>On x86-64 Linux a stack run follows System V, and on AArch64 Linux it follows
 AAPCS64. Stack descriptors take integer argument registers in source order, and
@@ -406,8 +401,7 @@ runs are work in progress and fail compilation.</p>
 <h2 id="verification">Verification</h2>
 <p>The final-object verifier compares each native run with its separately
 assembled selection, including branch offsets, memory operands and embedded
-literals. Any difference or unresolved relocation is rejected. On WebAssembly
-every SIMD instruction in a run must be one its source operations select.</p>
+literals. Any difference or unresolved relocation is rejected. On WebAssembly, every SIMD instruction in a run needs to come from instruction selection for its source operations.</p>
 <p><code>test/native_stream_test.sh</code> checks native stack runs against independent C
 results, with exact in-place output and every tail remainder, columns ending at
 guard pages, masked and compacted selections, compact columns and uniform

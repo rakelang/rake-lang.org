@@ -98,7 +98,7 @@ columns.</li>
 <li>One native kernel computes every output of a rack, so values the outputs
 share are computed once.</li>
 <li>A successful build of stack runs ends with a kernel report on standard
-error, naming each run's domain, columns, selection and its method, and
+error, listing each run's domain, columns, selection and selection method, and
 tail transfers. <code>--no-report</code> omits it.</li>
 <li>Stack descriptors are <code>struct rake_stack_P_v2</code>, a leading <code>int64_t count</code>
 followed by the column pointers. The result's descriptor is passed
@@ -626,11 +626,11 @@ scalar kernel boundaries remain work in progress.</p>
 </li>
 <li>
 <p>The interpreter accepts an explicit target profile for reference <code>f32</code>
-rack widths. The browser emits native mixed C and interprets it at that
-profile's width; it does not execute native machine code.</p>
+rack widths. The browser emits native mixed C and uses interpretation at that
+profile's width instead of executing native machine code.</p>
 </li>
 <li>
-<p>Native slow frames are thread-local; independent host threads can call
+<p>Native slow frames are thread-local, allowing independent host threads to call
 exported functions with large recursive locals. Module state stays shared.</p>
 </li>
 <li>
@@ -710,8 +710,7 @@ bit shifts,</li>
 shared by the interpreter, slow code and racks.</li>
 <li>Conditional expressions choose by a mask on every profile, and by a
 uniform on <code>wasm-simd128</code>.</li>
-<li>A uniform must be marked where it meets a rack: <code>values * &lt;factor&gt;</code>, not
-<code>values * factor</code>. The type checker reports the unmarked name.</li>
+<li>A uniform needs angle brackets when used with a rack: <code>values * &lt;factor&gt;</code>. The type checker reports the unmarked name.</li>
 <li><code>wrap</code> and <code>bitcast</code> are conversions only before a parenthesis, so they
 remain usable as identifiers. A scratch, rake or run can't be named after a C
 keyword, since each becomes a C function of its own name.</li>

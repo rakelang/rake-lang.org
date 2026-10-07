@@ -89,8 +89,7 @@ follow the calculation down the page:</p>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">scaled</span>
   <span class="tok-variable">moved</span>
 </code></pre>
-<p>The type annotation, as in <code>scaled: f32s</code>, is optional, and when present it
-must match the expression's type. A fused name is a value, like a <code>let</code> name:
+<p>The optional type annotation, as in <code>scaled: f32s</code>, needs to match the expression's type when provided. A fused name is a value, like a <code>let</code> name:
 it is bound once, and it isn't a memory location, an evaluation point or a
 rounding boundary. <code>scaled</code> exists for the reader. The two stages above are
 the same computation as <code>| moved &lt;| positions + velocities * &lt;0.5&gt;</code>.</p>

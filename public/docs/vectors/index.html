@@ -145,8 +145,7 @@ Element width and register width are different quantities.</p>
 <a href="https://docs.riscv.org/reference/isa/unpriv/v-st-ext.html">RISC-V vectors</a>
 and <a href="https://webassembly.github.io/spec/core/syntax/instructions.html#vector-instructions">WebAssembly vector instructions</a>.</p>
 <h3 id="moving-values-between-lanes">Moving values between lanes</h3>
-<p>A shuffle reads values already in registers. A gather reads values from
-memory. Both use indices, but their storage, latency and memory effects differ.</p>
+<p>A shuffle reads values already in registers, whereas a gather reads from memory. Although both use indices, their storage, latency and memory effects differ.</p>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning and example</th></tr></thead><tbody>
 <tr><td>Broadcast / splat</td><td>Replicate one value: <code>7 → [7,7,7,7]</code>. Usually synonyms. Broadcast can read a scalar from memory or one register lane.</td></tr>
 <tr><td>Shuffle / permute</td><td>Select and reorder source lanes, possibly repeating them: <code>[a,b,c,d]</code> with <code>[2,0,3,1]</code> gives <code>[c,a,d,b]</code>. Instructions differ in index freedom and source count.</td></tr>

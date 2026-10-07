@@ -131,8 +131,7 @@ or a process entry with an argument count and a pointer to byte strings:</p>
 </code></pre>
 <p><code>argc</code> includes the program at <code>argv[0]</code>. Each string ends with a zero byte,
 and <code>argv[argc]</code> is a null pointer. These are byte strings, so a UTF-8
-character may occupy several bytes. Pointer indexing is explicitly
-<code>unchecked</code>: the program must stay within the count and each string's end.</p>
+character may occupy several bytes. Pointer indexing is explicitly <code>unchecked</code>, so the program needs to keep accesses within the argument count and each string's bounds.</p>
 <p>The emitted entry has C's <code>int main(int argc, char **argv)</code> signature. A
 compiler-generated adapter copies the pointer array into typed <code>ptr u8</code>
 storage, sharing the original string bytes. The adapter frees that array when
@@ -199,7 +198,7 @@ scalar name. Outside it, <code>&lt;offset&gt;</code> explicitly broadcasts the r
 shadow an enclosing binding, though sibling blocks may reuse a name. A block
 inside a slow function shares that function's mutable locations. A block in a
 run can read its uniforms and scalar-element views, and write a mutable view.
-It can't name a rack, mask, rack array or stack column. Reduce or extract a
+It can't refer to a rack, mask, rack array or stack column. Reduce or extract a
 rack to a uniform before entering the block. Block results are scalar or
 void, so a local array, record or borrowed view can't escape through the result.</p>
 <p>On one line, separate statements with semicolons: <code>slow { let x = 2; x + 1 }</code>
@@ -298,10 +297,8 @@ accepts typed function pointers.</p>
 <tr><td><code>mut T</code></td><td>in a parameter list: a view, array or record the callee writes</td></tr>
 </tbody></table>
 </div>
-<p>Arrays and records are values: binding or assigning one copies it. Views and
-pointers alias the storage they name. A slow parameter of array or record type
-is passed by reference and is read-only. <code>mut</code> makes it writable, and the
-argument must then be a location the caller may write. A view parameter is
+<p>Arrays and records are values: binding or assigning one copies it. Views and pointers refer to existing storage. A slow parameter of array or record type
+is passed by reference and is read-only. <code>mut</code> makes the parameter writable, so the argument needs to refer to a location the caller is allowed to modify. A view parameter is
 passed by value and is writable through when declared <code>mut []T</code>.</p>
 <p>Slow code holds individual packs as ordinary records. It has no rack or mask
 values. A stack is built from writable views or arrays, one for each of the
@@ -325,14 +322,11 @@ defines. Slow functions can't take or return stacks.</p>
 </tbody></table>
 </div>
 <p>A name is bound once in its scope. It can't shadow an enclosing binding or a
-module definition. A counted loop's index is <code>i32</code> unless declared, its step
-must be positive, and it stops at the bound rather than stepping past it, so
-the index never overflows.</p>
+module definition. A counted loop's index defaults to <code>i32</code> unless another type is declared. Its step needs to be positive, and the loop stops at the bound without stepping past it, preventing index overflow.</p>
 <h2 id="expressions-and-their-meaning">Expressions and their meaning</h2>
 <p>Operands of an arithmetic or comparison operator have one type: there are no
 implicit conversions. A literal takes the type of the operand beside it or the
-type expected where it stands. An integer literal elsewhere is <code>i32</code> and must
-fit.</p>
+type expected where it stands. An integer literal elsewhere has type <code>i32</code> and needs to fit within that type's range.</p>
 <p>Integer <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code> and negation are checked: overflow, division
 by zero and the most negative value divided by <code>-1</code> trap. <code>%</code> is integer
 remainder, truncating as C does. The wrapping operations are explicit:
@@ -346,7 +340,7 @@ operand's precision.</p>
 <tr><td><code>a[i]</code></td><td>checked element: traps unless <code>0 &lt;= i &lt; count</code></td></tr>
 <tr><td><code>a[unchecked i]</code></td><td>element at <code>i</code>, with bounds the caller checks</td></tr>
 <tr><td><code>r.field</code>, <code>p.field</code></td><td>a record's field, directly or through a pointer</td></tr>
-<tr><td><code>Name { field: e, ... }</code></td><td>a record literal naming every field</td></tr>
+<tr><td><code>Name { field: e, ... }</code></td><td>a record literal specifying every field</td></tr>
 <tr><td><code>[a, b, c]</code>, <code>[e; n]</code></td><td>array literals</td></tr>
 <tr><td><code>"text"</code></td><td>a string literal, only as an extern's <code>ptr const u8</code> or <code>ptr const i8</code> argument</td></tr>
 </tbody></table>
@@ -380,7 +374,7 @@ restriction.</p>
 <p><code>addr(place)</code> produces a writable pointer when the location is writable and
 a read-only pointer otherwise. Taking the address of a checked element also
 checks its bounds, even before the pointer is dereferenced. A writable pointer
-may be borrowed as <code>ptr const T</code>. Nested pointer types must match exactly at every deeper level.
+may be borrowed as <code>ptr const T</code>. Nested pointer types need to match exactly at every deeper level.
 For example, a pointer to writable pointers cannot become a pointer to
 read-only pointers implicitly.</p>
 <p><code>unchecked_view</code> preserves its pointer's access. A view formed from
@@ -410,8 +404,7 @@ explicitly. For an opaque C context, <code>ptr ()</code> corresponds to <code>vo
 Use <code>ptr const ()</code> for a read-only <code>const void *</code> context. Callback signatures
 retain these qualifiers in both imported and exported C declarations.
 <code>bitcast(ptr (), pointer)</code> erases a data pointer's type, and
-<code>bitcast(ptr Context, opaque)</code> restores it. The context must still be alive
-and have the restored type and alignment when it is accessed.</p>
+<code>bitcast(ptr Context, opaque)</code> restores it. When accessed, the context needs to remain alive and have the restored type and alignment.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">record</span> <span class="tok-type">Context</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">total</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>
@@ -433,8 +426,7 @@ from functions and passed between C and Rake. Call a binding as
 <code>callback(arguments)</code>. For a record field, bind it first with
 <code>let callback = hooks.callback</code>. A zero-initialised function pointer is
 null. <code>is_null(callback)</code> checks it, and calling it traps.</p>
-<p>A slow callback with a record or array parameter must use an explicit
-<code>ptr T</code> parameter. Ordinary slow aggregate parameters borrow through Rake's
+<p>A slow callback that accepts a record or array needs an explicit <code>ptr T</code> parameter. Ordinary slow aggregate parameters borrow through Rake's
 own convention. <code>addr(main)</code> is rejected because the process entry has a
 compiler-owned startup adapter. Function pointers cannot be converted to
 data pointers, and this stage adds no closures or lambdas.</p>
@@ -463,9 +455,7 @@ view is expected lends all its elements. Every scalar argument is marked
 <code>&lt;...&gt;</code>, as in <code>&lt;name&gt;</code>, <code>&lt;3&gt;</code>, <code>&lt;record.field&gt;</code> or <code>&lt;view[index]&gt;</code>, because it
 becomes a rack in the callee. A scratch or rake is callable from slow code only when all its parameters are
 uniform and its result is a scalar. Slow code can't pass or receive a rack.</p>
-<p>At a stack run call, every stack must have the result's count, and the result's
-columns may share memory with another argument only element for element, or
-the call traps before the run starts.</p>
+<p>At a stack run call, every stack needs to have the result's count, and the result's columns may share memory with another argument only element for element. Violating either condition traps before the run starts.</p>
 <h2 id="the-explicitness-rules">The explicitness rules</h2>
 <ul>
 <li>Slow code can't name, hold, pass or return a rack, mask or rack array.</li>
@@ -508,7 +498,7 @@ same reference semantics as scratches. An extern has no implementation there,
 so programs that call C are tested through C (<code>test/abi/interop.rk</code>).</p>
 <p><code>test/program_test.sh</code> runs every <code>test/program/*.rk</code> in the interpreter and,
 compiled from the emitted C in both addressings, under wasmtime, and requires
-equal results. Programs under <code>test/program/trap/</code> must trap in both.
+equal results. Programs under <code>test/program/trap/</code> need to trap in both the interpreter and the compiled execution.
 <code>test/abi_test.sh</code> calls runs from C across <a href="/docs/packs-and-runs/#the-c-boundary">the C
 boundary</a> and runs <code>interop.rk</code> against its
 C functions. <code>test/reject/slow_*.rk</code>, <code>test/reject/run_*.rk</code> and
@@ -527,9 +517,7 @@ function.</p>
 C ABI. Scalar and pointer
 arguments pass by value, array and record arguments are borrowed pointers,
 and record results return by value. Header-backed records retain their C
-layout, including native pointer widths and padding. Rake emits checked
-scalar C; the platform compiler owns its register allocation and calling
-convention. Rake selects and verifies the vector kernels' instructions.</p>
+layout, including native pointer widths and padding. Rake emits checked scalar C, leaving its register allocation and calling convention to the platform compiler. Rake selects and verifies the vector kernels' instructions.</p>
 <p>Header-backed unions use the same C boundary, with the access contract above.
 Native slow frames are
 thread-local, while module state remains process-wide and needs the caller's
@@ -566,14 +554,11 @@ embedded register kernel and native stack run in the final object.
 The ordinary slow functions
 retain the platform compiler's C semantics and are outside that vector
 instruction contract. A slow-only unit uses <code>--emit-obj</code>.</p>
-<p>On WebAssembly, <code>rakec --verify-native</code> compiles the unit and disassembles it. Every scratch
-and rake must be locals, constants and register SIMD only. A run may call only
+<p>On WebAssembly, <code>rakec --verify-native</code> compiles the unit and disassembles it. Every scratch and rake needs to use only locals, constants and register SIMD. A run may call only
 the scalar helpers emitted for its explicit slow blocks. The verifier checks
 each direct call's relocation against those helper symbols. It rejects every
 other call, indirect or tail calls, and <code>global.get</code> or <code>global.set</code> (so no C
-stack frame, and no rack passing through memory Rake didn't name). Each SIMD
-instruction in it must be one its source operations select, or one of the
-documented equivalents Clang substitutes: constants folded into <code>v128.const</code>,
+stack frame, and no rack passing through memory Rake didn't name). Each SIMD instruction needs to come from instruction selection for its source operations or be one of the documented equivalents substituted by Clang: constants folded into <code>v128.const</code>,
 splats of loads into splatting loads, zero- and sign-extending loads, a
 signed or unsigned twin, a reversed or complemented comparison, an add for a
 subtraction of a constant or a doubling, and scalar float arithmetic computed

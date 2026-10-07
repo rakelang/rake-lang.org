@@ -618,8 +618,7 @@ column, and the stack's count shrinks to match:</p>
   <span class="tok-keyword">compact</span> <span class="tok-variable">particles</span> <span class="tok-keyword">where</span> <span class="tok-tag">#</span><span class="tok-tag">young</span>
 </code></pre>
 <p>Which is faster depends on how many particles survive, so the source chooses.
-A successful build ends with a kernel report naming the method each target
-used, such as AVX-512's <code>vcompressps</code> or AVX2's permutation table.</p>
+A successful build ends with a kernel report identifying the method used for each target, such as AVX-512's <code>vcompressps</code> or AVX2's permutation table.</p>
 <h3 id="scalar-code-stays-scalar">Scalar code stays scalar</h3>
 <p>Programs need setup, records, state and calls to C as well as kernels. That
 code is marked <code>slow</code>, and it can't hold a rack. Inside a run, <code>slow { ... }</code>
