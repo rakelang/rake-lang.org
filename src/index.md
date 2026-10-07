@@ -581,7 +581,8 @@ particles, it holds 600 positions together, 600 velocities together and
 target's SIMD width. Remember the hierarchy as "define our pack, then rack
 'em and stack 'em".
 
-<figure class="diagram">
+<figure class="diagram diagram-data-layout">
+<div class="diagram-scroll" tabindex="0" role="region" aria-label="Particle storage diagram, scroll horizontally on a narrow screen">
 <svg viewBox="0 0 680 250" role="img" aria-labelledby="data-layout-title data-layout-description">
 <title id="data-layout-title">One pack and a stack of columnar records</title>
 <desc id="data-layout-description">A particle pack has a position, velocity and age. A stack of 600 particles has a column of 600 positions, a column of 600 velocities and a column of 600 ages. A rack selects a SIMD-width slice of a column. The first eight positions form one AVX2 float rack.</desc>
@@ -605,6 +606,7 @@ target's SIMD width. Remember the hierarchy as "define our pack, then rack
 <rect class="diagram-cell" x="135" y="218" width="521" height="27" rx="4"/>
 <text class="diagram-value" x="395" y="232">a₀ … a₅₉₉</text>
 </svg>
+</div>
 <figcaption>The highlighted slice is one eight-lane AVX2 rack in a stack's column layout. The caller supplies a separate column for each field.</figcaption>
 </figure>
 
@@ -634,7 +636,8 @@ kind of run, and the count is 1,000,000. AVX2 splits that column into
 last rack has three active lanes. The stored column contains a million
 individual `f32` values, rather than a million-lane `f32s` value.
 
-<figure class="diagram">
+<figure class="diagram diagram-data-layout">
+<div class="diagram-scroll" tabindex="0" role="region" aria-label="Rack width diagram, scroll horizontally on a narrow screen">
 <svg viewBox="0 0 680 258" role="img" aria-labelledby="pack-width-title pack-width-description">
 <title id="pack-width-title">600 float records divided into SIMD racks</title>
 <desc id="pack-width-description">512-bit racks hold 16 floats, requiring 37 full racks and one half-full rack. AVX2 racks hold 8 floats, requiring 75 full racks. 128-bit racks hold 4 floats, requiring 150 full racks.</desc>
@@ -652,6 +655,7 @@ individual `f32` values, rather than a million-lane `f32s` value.
 <text class="diagram-value" x="396" y="203">150 full racks</text>
 <text class="diagram-label" x="18" y="247">Wider racks process more lanes per instruction.</text>
 </svg>
+</div>
 <figcaption>The rack counts follow from register width. Native AVX-512 runs use the 512-bit row, AVX2 runs use the 256-bit row, and SSE2, NEON and WebAssembly use the 128-bit row.</figcaption>
 </figure>
 

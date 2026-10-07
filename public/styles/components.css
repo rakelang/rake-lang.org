@@ -290,6 +290,7 @@ strong {
   min-width: 36rem;
 }
 
+.diagram-data-layout svg,
 .diagram-vector-ops svg {
   min-width: 34rem;
 }
