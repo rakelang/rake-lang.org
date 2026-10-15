@@ -75,9 +75,8 @@
 </nav>
     <main class="content">
 <h1 id="tines-through-and-sweeps">Tines, through and sweeps</h1>
-<p>Tines select lanes, through blocks compute under those masks, and the sweep chooses each lane's result. A tine
-describes which lanes to select. A through block computes under that mask,
-and the sweep chooses the value that leaves each lane.</p>
+<p>A tine selects lanes, a through block computes under that mask, and the
+sweep chooses the value that leaves each lane.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 
 <span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
@@ -104,7 +103,7 @@ and the sweep chooses the value that leaves each lane.</p>
 <p>A rake's body has any setup bindings, any local tines, at least one through
 block, and its final sweep, in that order. Global tines are defined outside
 the rake. Rakes compile on SSE2, AVX2, AVX-512, NEON and WebAssembly. The
-example uses <code>f32s</code>. The development compiler also accepts <code>i32s</code> and <code>u32s</code>
+example uses <code>f32s</code>, and the development compiler also accepts <code>i32s</code> and <code>u32s</code>
 results with <a href="/docs/primitives-operations-and-targets/#integer-racks">the native integer operation subset</a>.
 A scratch, rake or run can call one.</p>
 <h2 id="tines">Tines</h2>
@@ -123,19 +122,19 @@ uniform parameter and its argument:</p>
     <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">rooted</span>
     <span class="tok-operator-flow">|</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">gaps</span> <span class="tok-operator-flow">=&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 </code></pre>
-<p>Global tines can refer to other global tines, including ones defined later
-in the file. Recursive definitions are rejected. Their arguments use pure
+<p>Global tines can refer to other global tines, including later ones in the
+file, but not recursively. Their arguments use pure
 arithmetic and fields, with no ordinary function calls.</p>
 <p>A rake can also define a local tine such as
 <code>tine #valid means values &gt;= &lt;0.0&gt;</code>. It refers directly to that rake's
 inputs or setup bindings and is applied as <code>#valid</code>, without arguments.
 Local tines can refer only to earlier local tines. A predicate combines
 comparisons and tines with <code>not</code>, <code>and</code> and <code>or</code>.</p>
-<p><code>#valid(values) gaps</code> selects the complement: every lane that the tine
-doesn't select. Parentheses invert a composed mask, as in
-<code>(#positive or #negative) gaps</code>. This is Boolean inversion, not a different
-numeric comparison. A NaN fails <code>x &gt;= &lt;0.0&gt;</code> and therefore belongs to its
-<code>gaps</code>, even though it also fails <code>x &lt; &lt;0.0&gt;</code>.</p>
+<p><code>#valid(values) gaps</code> selects the complement: every lane outside the tine.
+Parentheses invert a composed mask, as in <code>(#positive or #negative) gaps</code>.
+You might read the gaps of <code>x &gt;= &lt;0.0&gt;</code> as <code>x &lt; &lt;0.0&gt;</code>, but <code>gaps</code> inverts
+the Boolean mask instead of the comparison, so a NaN, which fails both
+comparisons, belongs to the gaps.</p>
 <h2 id="through-blocks">Through blocks</h2>
 <p><code>through #valid(values) into rooted:</code> computes roots in the selected lanes
 and binds them to <code>rooted</code>. Without <code>else</code>, the other lanes have no defined
@@ -144,20 +143,16 @@ the original mask. Reading <code>rooted</code> under <code>#valid(values) gaps</
 its undefined lanes into a selected lane with a shuffle, is a compile error.</p>
 <p>The header accepts a local tine, a global application, or a composed
 predicate in parentheses, such as <code>through (#valid and #large gaps)</code>.
-Add <code>else &lt;0.0&gt;</code> when a later calculation needs a complete rack. That
-fallback supplies a value for every inactive lane and makes the binding
-available under any later mask.</p>
-<p>The body is any <code>let</code> and fused bindings, then the expression whose value is
+A fallback such as <code>else &lt;0.0&gt;</code> supplies a value for every inactive lane, so
+a later calculation can read the binding as a complete rack under any mask.</p>
+<p>The body is any <code>let</code> and fused bindings, then a final expression giving
 the result. It can't assign, loop, call a function other than a built-in
 operation, reduce across lanes, scan, or use <code>%</code>.</p>
-<p>Bindings introduced inside the body are local to it. The identifier after <code>into</code>
-belongs to the enclosing rake: later through blocks and the sweep can use
-that value under its defined mask, or the complete rack if it has a fallback.</p>
+<p>Bindings inside the body are local to it, while the identifier after <code>into</code>
+belongs to the enclosing rake.</p>
 <p>An inactive lane's computation doesn't happen. It can't fail on an invalid
 operand, raise a floating-point exception, touch memory or have any other
-effect from its through body. An explicit <code>else</code> supplies its result there.
-Without <code>else</code>, the lane is undefined and can't be read. <code>rakec --interpret</code>
-skips inactive lanes.</p>
+effect from its through body, and <code>rakec --interpret</code> skips it.</p>
 <p>A vector backend computes every lane, so it replaces the operands of
 inactive lanes with benign values before each operation that could raise an
 exception, then selects the results:</p>
@@ -171,10 +166,9 @@ exception, then selects the results:</p>
 </div>
 <p>The native IR records each replacement, and the IR verifier rejects an
 exception-capable operation under a mask whose operands weren't replaced.
-WebAssembly has no floating-point exception state, so its instructions never
-trap or set a flag. On <code>wasm-simd128</code> an inactive lane's value is discarded by
-the final selection, and the compiler replaces no operands. Memory accesses
-stay masked on every target.</p>
+WebAssembly has no floating-point exception state, so on <code>wasm-simd128</code> the
+compiler replaces no operands and the final selection discards each inactive
+lane's value. Memory accesses stay masked on every target.</p>
 <h2 id="sweeps">Sweeps</h2>
 <pre class="code code-rake"><code><span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">high</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">scores</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">means</span> <span class="tok-variable">scores</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">90.0</span><span class="tok-operator">&gt;</span></span>
 <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">pass</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">scores</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">means</span> <span class="tok-variable">scores</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">50.0</span><span class="tok-operator">&gt;</span></span>
@@ -199,27 +193,23 @@ stay masked on every target.</p>
   <span class="tok-function">grades</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">scores</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">1000.0</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">100.0</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">10.0</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>A score of 95 is in both tines, and the first arm gives it 3.
-A sweep lists arms in priority order. For each lane, the first arm whose tine
-holds gives the result. Tines may overlap, and the order of the arms decides
-between them. A final <code>_</code> arm is optional when the preceding masks provably
-cover every lane. Otherwise supply <code>_</code> or an explicit complementary mask
-using <code>gaps</code>. Unreachable arms are rejected. <code>sweep:</code> is always the last
-statement of a rake, and it gives the rake's result.</p>
-<p>The coverage proof follows the Boolean relationships between tines. It can
-prove <code>#a or #a gaps</code>, but it doesn't infer relationships between separate
-numeric comparisons. For example, <code>x &gt;= &lt;0.0&gt;</code> and <code>x &lt; &lt;0.0&gt;</code> leave NaNs
-uncovered. A later read is checked under its arm's effective mask, after
-earlier arms have taken priority.</p>
-<p>Backends implement the sweep with vector selections. Their inactive-lane
-temporary values remain an implementation detail: checked source can't
-read them or use them as a fallback.</p>
+<p>A sweep lists arms in priority order, and for each lane the first arm whose
+tine holds gives the result, so a score of 95, which is in both tines, gets 3.
+A final <code>_</code> arm is optional when the preceding masks provably cover every
+lane. Otherwise the sweep needs <code>_</code> or an explicit complementary mask using
+<code>gaps</code>. Unreachable arms are rejected.</p>
+<p>The coverage proof follows the Boolean relationships between tines, so it
+can prove <code>#a or #a gaps</code>, but it doesn't relate separate numeric
+comparisons: <code>x &gt;= &lt;0.0&gt;</code> and <code>x &lt; &lt;0.0&gt;</code> leave NaNs uncovered. A later read
+is checked under its arm's effective mask, after earlier arms have taken
+priority.</p>
+<p>Backends implement the sweep with vector selections. Checked source can't
+read their temporary values in inactive lanes or use them as a fallback.</p>
 <h2 id="intermediate-and-final-fallbacks">Intermediate and final fallbacks</h2>
 <p>A through block's optional <code>else</code> fills the inactive lanes of its
-intermediate rack. A sweep's optional <code>_</code> supplies a final result for lanes
-no earlier arm selected. They have different scopes, even when both are
-zero. The first example needs no intermediate fallback because it reads
-<code>rooted</code> only under its original tine.</p>
+intermediate rack. A sweep's optional <code>_</code> supplies a final result for every
+lane left unselected by earlier arms, so they have different scopes even when both are
+zero.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-keyword">through</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span> <span class="tok-keyword">else</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">into</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-delimiter">:</span>
@@ -245,14 +235,14 @@ zero. The first example needs no intermediate fallback because it reads
 </tbody></table>
 </div>
 <p>Here the sweep reads <code>rooted</code> only where <code>#valid</code> holds, so the intermediate
-zero in lane 1 is unused. Changing the through fallback to <code>&lt;999.0&gt;</code> leaves
-the final result unchanged. The optimiser collapses the nested selections
-on that same mask into one selection. If instead the sweep's <code>_</code> arm reads
-<code>rooted</code>, its fallback lanes become part of the final result.</p>
-<p>Tines, through blocks and sweeps are pure computations. They don't build lazy
-operations that wait for the sweep to execute. The compiler optimises their
-data flow together. A sweep selects a value for each lane in place, with no
-scattering, compaction or rearrangement of lanes.</p>
+zero in lane 1 is unused and a fallback of <code>&lt;999.0&gt;</code> would give the same
+result. The optimiser collapses the nested selections on that same mask into
+one selection. If the sweep's <code>_</code> arm read <code>rooted</code> instead, its fallback
+lanes would become part of the final result.</p>
+<p>Tines, through blocks and sweeps are pure computations, evaluated where they
+appear, and the compiler optimises their data flow together. A sweep selects
+a value for each lane in place, with no scattering, compaction or
+rearrangement of lanes.</p>
 
     </main>
 <nav class="page-contents" aria-label="On this page">

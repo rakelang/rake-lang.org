@@ -78,60 +78,51 @@
 <p>Rake is a language for SIMD programs. It lets a programmer state the vector
 structure of an algorithm, its registers, masks and data layout, without
 writing intrinsics or assembly. This page defines the language's compilation
-rules. The compiler rejects a program or profile it can't compile under
-them, and it never keeps a program by weakening a rack, a fused region or a
-rake into scalar code. Each section ends with what the compiler does today.</p>
+rules. When a program can't be compiled under them, the compiler rejects it,
+and it never keeps a program by weakening a rack, a fused region or a rake
+into scalar code. Each section ends with what the compiler does today.</p>
 <h2 id="racks-are-vector-values">Racks are vector values</h2>
 <p>A rack is one vector register of a physical CPU profile, or one vector
 value in a virtual machine profile. The profile fixes its width, and the
 element type gives the lane count: on a 256-bit profile an <code>f32s</code> rack has
 eight lanes. A rack is never split, narrowed, held in source-visible memory
-or computed lane by lane, so a program that would need any of these is
-rejected. A scalar target is a separate, explicit profile, never described as
-SIMD, and a build for another machine chooses its profile instead of taking
-the features of the machine it runs on.</p>
+or computed lane by lane. A scalar target is a separate, explicit profile,
+and a build for another machine chooses its profile instead of taking the
+host machine's features.</p>
 <p>Today: the x86 and AArch64 profiles keep each rack in one physical register,
-which the object verifier checks. The <code>wasm-simd128</code> profile keeps each rack
-as one <code>v128</code> value and uses SIMD instructions for rack work. Rake accepts the
-virtual machine's fiction and leaves physical register allocation to the
-WebAssembly runtime. The proposed GPU rack has a different representation:
-one lane per invocation in a specified warp or subgroup, as the GPU contract
-below describes.</p>
+and the object verifier checks it. The <code>wasm-simd128</code> profile keeps each rack
+as one <code>v128</code> value and leaves physical register allocation to the
+WebAssembly runtime.</p>
 <h2 id="scalars-are-marked">Scalars are marked</h2>
 <p>Plural types, such as <code>f32s</code>, are racks. Angle brackets mark a uniform scalar
 where it is declared and where it is used, so every broadcast from a scalar
-into a rack is visible. Seeing many brackets in a kernel invites the
-question of whether those values could vary by lane, or be stored and
-processed better. The type checker rejects an implicit conversion between a
-scalar and a rack.</p>
-<p><code>lanes</code>, the lane count, and <code>@</code>, the lane index, are planned. Both are
-reserved and unavailable.</p>
+into a rack is visible, and a kernel full of brackets prompts the question of
+whether those values should vary by lane. The type checker rejects an
+implicit conversion between a scalar and a rack. <code>lanes</code>, the lane count, and
+<code>@</code>, the lane index, are reserved for later.</p>
 <h2 id="lane-choices-are-masks">Lane choices are masks</h2>
-<p>Tines describe lane masks, either locally or as reusable typed global
-predicates. A through block computes under one. Without <code>else</code>, its result
-is defined only there, and the checker refuses reads outside that mask.
-A sweep picks each lane's result in priority order. The checker proves that
-its arms cover every lane, using <code>gaps</code> or a final <code>_</code> where needed. A vector backend
-keeps these choices as vector predication,
-with masked instructions or benign operands, and never turns them into
-branches for each lane. An inactive lane raises no floating-point exception,
-touches no memory and has no other effect. A masked operation that a profile
-can't compile under both this rule and the one-register rule is rejected.</p>
+<p>Tines describe lane masks, locally or as reusable typed global predicates. A
+through block computes under one, and without <code>else</code> its result is defined
+only under that mask. A sweep picks each lane's result in priority order, and
+the checker proves that its arms cover every lane. A vector backend keeps
+these choices as vector predication, with masked instructions or benign
+operands, and never turns them into branches for each lane. An inactive lane
+raises no floating-point exception, touches no memory and has no other
+effect.</p>
 <p>Today: rakes compile on <code>x86-sse2</code>, <code>x86-avx2</code>, <code>x86-avx512</code>,
 <code>aarch64-neon</code> and <code>wasm-simd128</code>.</p>
 <h2 id="fused-regions-are-pure-data-flow">Fused regions are pure data flow</h2>
 <p>Consecutive <code>| name &lt;| expression</code> bindings describe one pure graph of vector
-operations, with no calls, spills or reloads. Its identifiers are aliases. They
-impose no evaluation order, storage, instruction or rounding boundary, so the
-backend may rewrite the whole region to the cheapest graph for the profile,
-and different profiles may round its intermediates differently. <code>fma(a, b, c)</code>
-means one rounding, and is for programs whose correctness needs it. Rake has
-no mode that keeps a slower sequence of ordinary operations.</p>
+operations, with no calls, spills or reloads. Its identifiers are aliases
+that impose no evaluation order, storage, instruction or rounding boundary,
+so the backend may rewrite the whole region to the cheapest graph for the
+profile, and different profiles may round its intermediates differently.
+<code>fma(a, b, c)</code> means one rounding, for programs that depend on it.</p>
 <p>Today: the compiler substitutes identifiers and forms fused multiply-adds on
-<code>x86-avx2</code>, <code>x86-avx512</code> and <code>aarch64-neon</code>. Other rewrites are planned, as <a href="/docs/fused-bindings/">fused
-bindings</a> describe.</p>
+<code>x86-avx2</code>, <code>x86-avx512</code> and <code>aarch64-neon</code>, and <a href="/docs/fused-bindings/">fused
+bindings</a> describes the planned rewrites.</p>
 <h2 id="a-complete-vector-vocabulary">A complete vector vocabulary</h2>
-<p>Rake's vector operations are to cover:</p>
+<p>Rake's vector operations will cover:</p>
 <ul>
 <li>arithmetic, comparisons, masks and mathematical functions,</li>
 <li>the lane count and lane indices, and extracting and inserting lanes,</li>
@@ -139,88 +130,64 @@ bindings</a> describe.</p>
 <li>shuffles, interleaving, and shifts and rotations of lanes,</li>
 <li>fused multiply-add, chosen by the compiler or required by the source,</li>
 <li>gather, scatter, compression and expansion, and</li>
-<li>layouts of columns and of single records.
-Each operation has a type rule, a rule for inactive lanes,
-a set of profiles that support it and a verified lowering. A profile without
-a native form of an operation rejects it before generating code.</li>
+<li>layouts of columns and of single records.</li>
 </ul>
-<p>Today: <a href="/docs/primitives-operations-and-targets/">primitives, operations, and targets</a> lists what each
-profile compiles. Lane indices, interleaving, lane shifts and rotations,
-scatter, compression, expansion and single-record layouts are planned.</p>
+<p>Each operation has a type rule, a rule for inactive lanes, a set of
+supporting profiles and a verified lowering. A profile without a native form
+of an operation rejects it before generating code.</p>
+<p>Today: <a href="/docs/primitives-operations-and-targets/">primitives, operations, and targets</a>
+lists what each profile compiles.</p>
 <h2 id="data-layout-is-explicit">Data layout is explicit</h2>
 <p>A <code>pack</code> describes one record. A <code>stack</code> collects those records in
-structure-of-arrays storage, and a stack run applies calculations to its whole
-columns while the compiler visits them a rack at a time. Conversions between
-layouts and memory operations are written in the source or set by a documented
-calling convention. A stack run's tail never reads or writes past the count,
-and its inactive lanes raise no exception and have no effect.</p>
-<p>Stacks are values that move into the run returning them, so every update is in
-place and a copy happens only where the source writes <code>copy</code>. A run selects
-records by masking, with <code>where</code>, or by compaction, with <code>compact</code>, and the
-kernel report states which method each target used.</p>
+structure-of-arrays storage, and a stack run applies calculations to its
+whole columns while the compiler visits them a rack at a time. Layout
+conversions and memory operations are written in the source or set by a
+documented calling convention. A stack run's tail never reads or writes past
+the count.</p>
+<p>Stacks move into the run returning them, so every update is in place and a
+copy happens only where the source writes <code>copy</code>. A run selects records by
+masking, with <code>where</code>, or by compaction, with <code>compact</code>, and the kernel
+report shows the selection method on each target.</p>
 <p>Today: stack runs compile on SSE2, AVX2, AVX-512, NEON and <code>wasm-simd128</code>, and
-general runs over views on <code>wasm-simd128</code>. Explicit <code>widen</code> reads signed and
-unsigned byte or 16-bit columns into 32-bit working racks. Each column advances
-by its stored element width, and a partial rack reads only participating
-records. Replacements write fields as wide as the run's domain, and compaction
-moves every column.
-Signed and unsigned integer-to-float conversions preserve those 32-bit lanes,
-with masked protection, nearest-even rounding and saturating float-to-integer
-results for both signed and unsigned reverse conversions.
-<a href="/docs/packs-and-runs/">Packs and runs</a> defines
-their boundaries and checked tails.</p>
+general runs over views on <code>wasm-simd128</code>. <a href="/docs/packs-and-runs/">Packs and
+runs</a> defines their boundaries and checked tails.</p>
 <h2 id="scalar-code-stays-scalar">Scalar code stays scalar</h2>
 <p>A program's scalar work, its records, state, control flow and calls to C, is
 slow code, marked <code>slow</code>. A run enters it explicitly with <code>slow { ... }</code> and
 resumes vector mode at <code>}</code>. Slow code can't hold a rack, and reaches vector
-work only through calls whose uniform arguments are marked. The vector
-lowering rules above apply unchanged around those calls.</p>
+work only through calls with marked uniform arguments.</p>
 <p>Today: whole programs compile on <code>wasm-simd128</code>, as <a href="/docs/slow-tier/">the slow
-tier</a> describes. The unreleased development compiler
-also compiles slow orchestration with register kernels into native objects.
-Their C unit embeds Rake-selected assembly, which remains opaque to the
-platform C compiler. Slow callers can pass uniform <code>f32</code>, <code>bool</code>, <code>i32</code> and <code>u32</code>
-arguments and receive <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results. Native general runs
-and other scalar kernel boundaries remain work in progress.</p>
+tier</a> describes. The development compiler also builds
+native objects in which slow code calls register kernels, passing and
+receiving uniform <code>f32</code>, <code>bool</code>, <code>i32</code> and <code>u32</code> values.</p>
 <h2 id="compilation-is-predictable">Compilation is predictable</h2>
 <p>On physical CPU profiles the compiler owns rack instruction selection,
-register allocation, instruction sequencing and assembly. The assembler only
-encodes what it is given. Explicit slow code uses the platform C compiler.
-On WebAssembly, Rake owns selection of the virtual machine instructions and the
-shape of its <code>v128</code> values. The WebAssembly runtime owns their eventual
-physical registers. Every compiler stage can be inspected, and the compiler
-proves the profile's properties for an accepted program. When it can't prove
-one, it fails with the source construct, profile and obligation that failed.
-A benchmark result is reported with its source, profile, compiler version,
-command, input size and baseline.</p>
+register allocation, instruction sequencing and assembly, and the assembler
+only encodes what it's given. On WebAssembly, Rake selects the virtual
+machine instructions and the shape of its <code>v128</code> values, while the runtime
+chooses physical registers. Every compiler stage can be inspected. When the
+compiler can't prove a profile's properties for a program, it fails with the
+source construct, profile and obligation involved. A benchmark result is
+reported with its source, profile, compiler version, command, input size and
+baseline.</p>
 <p>Today: on SSE2, AVX2, AVX-512 and NEON the compiler selects instructions,
 allocates registers without spills and writes the assembly, and
-<code>--emit-native-ir</code> and <code>--emit-asm</code> show its work. <code>--emit-c</code> writes a C unit
-embedding that assembly. On <code>wasm-simd128</code> it selects the instructions, and
-<code>--emit-c</code> writes each as one intrinsic in C. Clang encodes them, choosing
-locals and occasionally an equivalent instruction,
-which <code>--verify-native</code> checks.</p>
+<code>--emit-native-ir</code> and <code>--emit-asm</code> show its work. On <code>wasm-simd128</code>,
+<code>--emit-c</code> writes each selected instruction as one intrinsic, clang encodes
+them, and <code>--verify-native</code> checks the result.</p>
 <h2 id="gpu-work-keeps-its-parallel-structure">GPU work keeps its parallel structure</h2>
-<p>A GPU rack will map its lanes onto a specified warp, wave or subgroup.
-Per-invocation arithmetic is that parallel work. A hidden loop serially
-processing the rack inside one invocation is forbidden. Uniform values,
-lane masks, collective participation, memory address patterns and
-synchronisation scopes will be explicit parts of the profile.</p>
-<p>The hardware schedules warps. Rake will preserve and verify the declared lane
-mapping and permitted control flow, including programmer-selected partial
-masks. Lane activity depends on the inputs. In regions with a strict
-resource contract, forbidden spills, reloads and helper
-paths cause rejection.</p>
-<p>The initial NVIDIA PTX route delegates final physical allocation and
-instruction scheduling to NVIDIA, then verifies the exact cubin. Portable
-SPIR-V could preserve the same source-level contract, with device-specific
-evidence for its final-code properties. A later direct physical backend
-would give Rake ownership of physical allocation and instruction scheduling.</p>
-<p>Register count, memory address structure and absence of forbidden lowering
-can be checked. Achieved occupancy, cache behaviour and elapsed time require
-measurement. Retaining more registers may reduce resident warps. Each
-resource policy has an explicit profile, and the compiler refuses a program
-that would require a different policy.</p>
+<p>A GPU rack will map its lanes onto a specified warp, wave or subgroup, so
+per-invocation arithmetic is the parallel work, and a hidden loop over the
+rack inside one invocation is forbidden. Uniform values, lane masks,
+collective participation, memory address patterns and synchronisation scopes
+will be explicit parts of the profile, and the compiler will verify the
+declared lane mapping and permitted control flow.</p>
+<p>The initial NVIDIA PTX route leaves final register allocation and
+instruction scheduling to NVIDIA, then verifies the exact cubin. Register
+count, memory address structure and the absence of forbidden lowering can be
+checked, whereas occupancy, cache behaviour and elapsed time need
+measurement. Each resource policy has an explicit profile, and the compiler
+refuses a program that would need a different one.</p>
 <p>Today: GPU support is a design. <a href="/docs/gpu/">GPU profiles</a> defines the first
 proposed NVIDIA profile, its artifact verifier and runtime boundary.</p>
 

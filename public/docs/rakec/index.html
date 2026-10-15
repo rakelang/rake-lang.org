@@ -75,8 +75,7 @@
 </nav>
     <main class="content">
 <h1 id="the-rakec-command">The rakec command</h1>
-<p><code>rakec</code> compiles one <code>.rk</code> file. Build it with <code>nix develop --command dune build</code>, which puts it at <code>_build/default/src/bin/main.exe</code>, or run it with
-<code>dune exec rakec --</code>.</p>
+<p><code>rakec</code> compiles one <code>.rk</code> file.</p>
 <pre class="code code-sh"><code><span class="tok-function">rakec</span> program.rk                                   <span class="tok-comment"># parse and type-check</span>
 <span class="tok-function">rakec</span> <span class="tok-constant">--interpret</span> program.rk                       <span class="tok-comment"># run main and print its result</span>
 <span class="tok-function">rakec</span> <span class="tok-constant">--interpret</span> program.rk <span class="tok-constant">--</span> alpha <span class="tok-constant">--flag</span>        <span class="tok-comment"># pass process arguments</span>
@@ -95,43 +94,38 @@
 <tr><td><code>--verify-native</code></td><td>the object, after disassembling and checking it</td></tr>
 <tr><td><code>--emit-tokens</code>, <code>--emit-ast</code></td><td>the tokens or the syntax tree, for debugging the front end</td></tr>
 <tr><td><code>--print-targets</code></td><td>the target profiles and their status</td></tr>
-<tr><td><code>--print-capabilities</code></td><td>every language feature and its status</td></tr>
+<tr><td><code>--print-capabilities</code></td><td>every language feature's status in the frontend and on each profile</td></tr>
 <tr><td><code>--version</code>, <code>--help</code></td><td>the version, or a summary of this page</td></tr>
 </tbody></table>
 </div>
-<p><code>--emit-c</code>, <code>--emit-asm</code>, <code>--emit-obj</code> and <code>--verify-native</code> write to the input's
-filename with <code>.c</code>, <code>.s</code> or <code>.o</code> unless <code>-o path</code> gives another. <code>-o</code> isn't allowed
-with the check, token and syntax-tree modes. A whole program, one with slow
-code, runs, records, state, embedded files, constants or externs, compiles for
-the wasm profiles. Rake 0.7.0 also supports native slow orchestration with
-register kernels. Their <code>--emit-c</code>
-output embeds Rake-selected assembly, and their <code>--emit-obj</code>
-output is a platform C object with verified kernels. <code>--verify-native</code> checks
-those kernels too. Native slow-only units have no vector function to verify,
-so they use <code>--emit-obj</code>. SSE2, AVX2, AVX-512 and NEON additionally compile
-<a href="/docs/packs-and-runs/#stack-runs">stack runs</a>. General runs over views remain
-work in progress on those profiles. A successful build of stack runs ends with
+<p><code>--emit-c</code>, <code>--emit-asm</code>, <code>--emit-obj</code> and <code>--verify-native</code> write to the
+input's filename with <code>.c</code>, <code>.s</code> or <code>.o</code> unless <code>-o path</code> gives another. <code>-o</code>
+isn't allowed with the check, token and syntax-tree modes.</p>
+<p>Whole programs, meaning those with slow code, runs, records, state, embedded
+files, constants or externs, compile for the wasm profiles. Native profiles
+compile slow code that calls register kernels, and <code>--emit-obj</code> produces a
+platform C object with verified kernels. Slow-only native units have no
+vector function to verify, so they use <code>--emit-obj</code> instead of
+<code>--verify-native</code>. SSE2, AVX2, AVX-512 and NEON also compile
+<a href="/docs/packs-and-runs/#stack-runs">stack runs</a>, while general runs over
+views are still in progress there. A successful build of stack runs ends with
 the <a href="/docs/packs-and-runs/#kernel-report">kernel report</a> on standard error,
-which <code>--no-report</code> omits. A
-native kernel called from slow code supports uniform <code>f32</code>, <code>bool</code>, <code>i32</code> and <code>u32</code>
-parameters and returns <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code>.</p>
+unless <code>--no-report</code> is given. A native kernel called from slow code takes
+uniform <code>f32</code>, <code>bool</code>, <code>i32</code> and <code>u32</code> parameters and returns one of those
+types.</p>
 <h2 id="c-output-and-c-interoperation">C output and C interoperation</h2>
 <p><code>--emit-c</code> gives you source to compile with your C toolchain. On physical CPU
-profiles it contains Rake-selected kernel assembly alongside the C for slow
-code. The C compiler lowers that slow code and implements its platform ABI.
-The embedded assembly retains Rake's vector instructions and allocated
-registers. On WebAssembly, the C unit expresses selected virtual instructions
-through <code>wasm_simd128.h</code> intrinsics.</p>
-<p>C ABI interoperation describes the binary boundary between functions,
-regardless of which source language produced them. Rake can call C functions,
-export slow functions and exchange header-backed records, unions and typed
-callbacks. Those abilities apply when Rake emits an object directly too.
+profiles it contains Rake-selected kernel assembly, with its vector
+instructions and allocated registers, alongside C for the slow code, and
+the C compiler lowers that C to the platform ABI. On WebAssembly, the C unit
+expresses the selected virtual instructions through <code>wasm_simd128.h</code>
+intrinsics.</p>
+<p>Rake can call C functions, export slow functions and exchange header-backed
+records, unions and typed callbacks, whether it emits C or an object.
 <a href="/docs/slow-tier/#definitions">The slow tier</a> explains the declarations.</p>
-<p>Use <code>--emit-asm</code> for a physical-target file containing only register kernels.
-It rejects whole programs and WebAssembly instead of writing C under an
-assembly option. Emitted source still needs compilation. <code>--verify-native</code>
-checks the vector functions in the resulting object against the selected
-profile, as <a href="/docs/backend/">the backend</a> explains.</p>
+<p><code>--emit-asm</code> writes a physical-target file containing only register kernels,
+and rejects whole programs and WebAssembly. <a href="/docs/backend/">The backend</a> explains
+what <code>--verify-native</code> checks.</p>
 <h2 id="options">Options</h2>
 <div class="table-scroll"><table><thead><tr><th>Option</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>--target p</code></td><td>the profile: <code>native</code> (the default), <code>x86-sse2</code>, <code>x86-avx2</code>, <code>x86-avx512</code>, <code>aarch64-neon</code>, <code>wasm-simd128</code>, <code>wasm-simd128-relaxed</code>, or the WIP scalar fallback</td></tr>
@@ -141,30 +135,31 @@ profile, as <a href="/docs/backend/">the backend</a> explains.</p>
 <tr><td><code>-- args...</code></td><td>process arguments for <code>--interpret</code>, including strings that begin with <code>-</code></td></tr>
 </tbody></table>
 </div>
-<p>Rake 0.7.0 supports <a href="/docs/slow-tier/#process-arguments">process arguments</a>
-through <code>slow main(argc: i32, argv: ptr ptr u8) -&gt; i32</code>. The input path is
-<code>argv[0]</code> in the interpreter. Native and WASI executables receive their
-runtime's program string instead. Without parameters, <code>main</code> ignores the
-process arguments.</p>
-<p>Without an explicit target, <code>--interpret</code> uses WebAssembly's four <code>f32</code> lanes.
-<code>--target</code> selects the reference rack width, so an AVX2 float reduction uses
-eight lanes and an AVX-512 reduction uses sixteen. This mode interprets the source instead of executing the generated machine code.</p>
-<p><a href="/docs/primitives-operations-and-targets/#profiles">Primitives, operations, and targets</a> explains how
-<code>native</code> chooses a profile and what <code>--width</code> checks, and <a href="/docs/packs-and-runs/#addressing">packs and
-runs</a> explains the addressing modes.</p>
+<p><code>slow main(argc: i32, argv: ptr ptr u8) -&gt; i32</code> receives the
+<a href="/docs/slow-tier/#process-arguments">process arguments</a>. In the
+interpreter, <code>argv[0]</code> is the input path, and native and WASI executables
+receive their runtime's program string instead. A <code>main</code> without parameters
+ignores the process arguments.</p>
+<p><code>--interpret</code> evaluates the source in the reference semantics without running
+generated machine code. Without <code>--target</code> it uses WebAssembly's four <code>f32</code>
+lanes, and a target sets the rack width, so an AVX2 float reduction uses
+eight lanes and an AVX-512 one sixteen.</p>
+<p><a href="/docs/primitives-operations-and-targets/#profiles">Primitives, operations, and targets</a>
+explains how <code>native</code> chooses a profile and what <code>--width</code> checks, and
+<a href="/docs/packs-and-runs/#addressing">packs and runs</a> explains the addressing
+modes.</p>
 <h2 id="tools-and-environment">Tools and environment</h2>
 <p>The front end, interpreter and textual output need only the OCaml package
-dependencies. Object emission additionally needs the selected target's
-toolchain. Native profiles use GNU ELF assemblers and disassemblers, even
-when the compiler itself runs on another operating system. A host's Mach-O
-or PE assembler is not a substitute for the selected ELF toolchain.</p>
-<p>For x86, Rake searches <code>x86_64-linux-gnu-</code>, <code>x86_64-unknown-linux-gnu-</code> and
-<code>x86_64-elf-</code> tools before unprefixed <code>as</code> and <code>objdump</code>. For AArch64 it
-searches <code>aarch64-linux-gnu-</code>, <code>aarch64-unknown-linux-gnu-</code>,
-<code>aarch64-none-linux-gnu-</code> and <code>aarch64-elf-</code> tools. On an AArch64 Linux host
-with unprefixed tools, set the overrides to <code>as</code> and <code>objdump</code>. An explicit
-override is one executable path, with no flags or shell expansion. A failed
-tool or verification step remains an error.</p>
+dependencies. Object emission also needs the selected target's toolchain.
+Native profiles use GNU ELF assemblers and disassemblers on every host
+operating system, and a Mach-O or PE assembler can't stand in for them.</p>
+<p>For x86, Rake searches for <code>x86_64-linux-gnu-</code>, <code>x86_64-unknown-linux-gnu-</code>
+and <code>x86_64-elf-</code> tools before unprefixed <code>as</code> and <code>objdump</code>. For AArch64 it
+searches for <code>aarch64-linux-gnu-</code>, <code>aarch64-unknown-linux-gnu-</code>,
+<code>aarch64-none-linux-gnu-</code> and <code>aarch64-elf-</code> tools, so an AArch64 Linux host
+with unprefixed tools sets the overrides to <code>as</code> and <code>objdump</code>. An override is
+one executable path, with no flags or shell expansion. A failed tool or
+verification step is an error.</p>
 <div class="table-scroll"><table><thead><tr><th>Variable</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>RAKE_X86_AS</code></td><td>GNU ELF x86-64 assembler, invoked with <code>--64</code></td></tr>
 <tr><td><code>RAKE_X86_OBJDUMP</code></td><td>GNU x86-64 object disassembler</td></tr>
@@ -175,10 +170,10 @@ tool or verification step remains an error.</p>
 </tbody></table>
 </div>
 <p>On Debian or Ubuntu, install <code>binutils</code> for x86 objects and
-<code>binutils-aarch64-linux-gnu</code> for AArch64 objects. The native
-whole-program path also needs <code>gcc</code> or <code>gcc-aarch64-linux-gnu</code> respectively.
-The Nix development shell supplies these toolchains. Other hosts can use a
-GNU ELF cross-toolchain with the same executable overrides.</p>
+<code>binutils-aarch64-linux-gnu</code> for AArch64 objects, plus <code>gcc</code> or
+<code>gcc-aarch64-linux-gnu</code> for native whole programs. The Nix development shell
+supplies these toolchains, and other hosts can use a GNU ELF cross-toolchain
+with the same overrides.</p>
 <p>The wasm profiles use these variables:</p>
 <div class="table-scroll"><table><thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>RAKE_WASM_CC</code></td><td><code>clang</code></td><td>the C compiler for wasm32 objects</td></tr>
@@ -186,25 +181,22 @@ GNU ELF cross-toolchain with the same executable overrides.</p>
 <tr><td><code>RAKE_WASM_CFLAGS</code></td><td>empty</td><td>extra flags when compiling a whole program</td></tr>
 </tbody></table>
 </div>
-<p>Process entries with arguments need WASI headers during WebAssembly object
-compilation. The development shell supplies their include path through
-<code>RAKE_WASM_CFLAGS</code>. Outside it, set that variable to your WASI include or
-sysroot flags and link the emitted object with WASI libc and its command
-startup object.</p>
-<p>The native C path uses <code>gcc</code> on x86 and searches
+<p>A process entry with arguments needs WASI headers when compiling a
+WebAssembly object. The development shell supplies their include path
+through <code>RAKE_WASM_CFLAGS</code>. Elsewhere, set that variable to your WASI include
+or sysroot flags, and link the object with WASI libc and its command startup
+object.</p>
+<p>The native C path uses <code>gcc</code> on x86 and searches for
 <code>aarch64-linux-gnu-gcc</code>, <code>aarch64-unknown-linux-gnu-gcc</code> and
-<code>aarch64-none-linux-gnu-gcc</code> on AArch64. <code>RAKE_NATIVE_CC</code> can select a
-different executable with the same GCC-compatible command-line interface.
-The compiler writes GNU C11, disables floating-point contraction and fast
-math, and compiles with warnings treated as errors. Its source directory is
-on the include path. Link the emitted object with the platform linker and
-its required C libraries, including <code>libm</code> for scalar maths. Native register
-kernels remain opaque GNU assembly in that C unit, so the C compiler cannot
-replace their selected instructions.</p>
+<code>aarch64-none-linux-gnu-gcc</code> on AArch64, and <code>RAKE_NATIVE_CC</code> can select any
+GCC-compatible compiler. It compiles GNU C11 without
+floating-point contraction or fast math, with warnings as errors and the
+source directory on the include path. Link the object with the platform
+linker and its C libraries, including <code>libm</code> for scalar maths.</p>
 <p>The emitted C reads two macros. <code>RAKE_WASM_LINKAGE</code> replaces <code>static inline</code>
 on each scratch and rake, and <code>RAKE_FRAME_BYTES</code> sets the size of a whole
-program's frame stack, 4 MiB by default, as <a href="/docs/slow-tier/#the-c-unit">the slow
-tier</a> describes.</p>
+program's frame stack, 4 MiB by default, as
+<a href="/docs/slow-tier/#the-c-unit">the slow tier</a> describes.</p>
 <h2 id="diagnostics">Diagnostics</h2>
 <p>Errors give the file, line and column and the stage that failed:</p>
 <pre class="code code-text"><code>program.rk:3:9: Type error: repeat is the unrolled vector loop; slow code counts with for

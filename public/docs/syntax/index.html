@@ -75,18 +75,16 @@
 </nav>
     <main class="content">
 <h1 id="syntax">Syntax</h1>
-<p>This page is the reference for Rake's source syntax: its layout, identifiers,
-literals, definitions, types, statements and expressions. The other pages
-define what each form means. A form that parses can still be unavailable on a
-target, and the compiler reports that separately from a syntax error.</p>
+<p>The other pages define what each form means. A form that parses can still be
+unavailable on a target, and the compiler reports that separately from a
+syntax error.</p>
 <h2 id="layout">Layout</h2>
 <p>Indentation is part of the grammar. A line that ends in <code>:</code> opens a body, and
 the lines of that body are indented further than the line that opened it,
 all by the same amount. A body ends when a line returns to an outer
 indentation. Indentation uses spaces, and a tab in indentation is an error.</p>
-<p>Lines inside parentheses, brackets or data braces continue the line they
-started on, so a long parameter list can be spread over several lines. A
-multiline pack or record body is indented. A <code>slow { ... }</code> body restores
+<p>Lines inside parentheses, brackets or data braces continue their starting
+line, while a multiline pack or record body is indented. A <code>slow { ... }</code> body restores
 statement layout, even inside a call: its statements are indented, and its
 closing brace returns to the opening line's indentation. Empty braces need
 no body. On one line, a slow block separates statements with semicolons.
@@ -99,8 +97,9 @@ with letters, digits and underscores. A name that starts with an uppercase
 letter is a type name, used for packs and records, such as <code>Samples</code>.
 Records and header-backed unions may also retain lowercase C typedef
 identifiers. Primitive type spellings such as <code>i32</code> may appear as member
-identifiers after a field type, in a literal or after <code>.</code>. A lone
-<code>_</code> is the default arm of a sweep, not an identifier. These words are reserved and can't be used as identifiers:</p>
+identifiers after a field type, in a literal or after <code>.</code>. A lone <code>_</code> is
+the default arm of a sweep. These words are reserved and can't be used as
+identifiers:</p>
 <pre class="code code-text"><code>and bool bools break by compact const continue scratch else embed extern f32 f32s
 f64 f64s false fma for from gaps i16 i16s i32 i32s i64 i64s i8 i8s if into
 lanes let mask means mut not or pack ptr rake record repeat return rotate_left
@@ -115,24 +114,24 @@ where while with
 literal up to 2^64 - 1 is accepted, and one above 2^63 - 1 is read as the bit
 pattern of a <code>u64</code>. Floats need a decimal point or an exponent: <code>1.0</code>, <code>2.</code>
 and <code>1e-3</code>. <code>true</code> and <code>false</code> are the Boolean literals. A string literal in
-double quotes specifies a file after <code>from</code>, or passes text to a C function. Its
-escapes are kept as written, for C to read.</p>
+double quotes gives a file after <code>from</code>, or passes text to a C function, and
+its escapes are kept as written for C to read.</p>
 <p>A minus sign before a literal makes it negative, and a minus sign between two
 operands subtracts, so <code>n-1</code> and <code>n - 1</code> mean the same. A literal's type comes
 from the value beside it or the type expected where it stands: in <code>x * 2</code>
 with <code>x</code> an <code>f32s</code>, the <code>2</code> is a float rack constant.</p>
-<p>Three marks carry machine meaning, and each has one role:</p>
+<p>Three marks carry machine meaning:</p>
 <ul>
 <li><code>&lt;value&gt;</code> is uniform, one scalar shared by every lane. The brackets appear
 where a uniform is declared, as in <code>&lt;scale: f32&gt;</code>, and where it is used, as
 in <code>&lt;scale&gt;</code>. They also mark literals and elements used as uniforms:
-<code>&lt;0.5&gt;</code>, <code>&lt;-1&gt;</code>, <code>&lt;config.limit&gt;</code> and <code>&lt;weights[i]&gt;</code>. A broadcast from a
-scalar into a rack is therefore always visible in the source.</li>
-<li><code>#active</code> is a tine, a named lane mask. The <code>#</code> sits directly against the
+<code>&lt;0.5&gt;</code>, <code>&lt;-1&gt;</code>, <code>&lt;config.limit&gt;</code> and <code>&lt;weights[i]&gt;</code>, so a broadcast from a
+scalar into a rack is always visible in the source.</li>
+<li><code>#active</code> is a tine, a named lane mask, with the <code>#</code> directly against the
 name.</li>
 <li><code>| result &lt;| expression</code> binds one stage of a fused computation. Read it
-from right to left: the expression flows into <code>result</code>. The leading bar
-lines up consecutive stages.</li>
+from right to left: the expression flows into <code>result</code>, and the leading
+bar lines up consecutive stages.</li>
 </ul>
 <h2 id="definitions">Definitions</h2>
 <p>A file holds one or more definitions:</p>
@@ -175,8 +174,9 @@ groups, and its literal initialises exactly one field.</p>
 parameter is written <code>&lt;name: type&gt;</code>. A result type follows <code>-&gt;</code>. A scratch's
 last expression supplies its result. A rake ends with its sweep. A stack run
 declared <code>-&gt; stack Name</code> ends with its result, such as <code>s with { field: e }</code>,
-and a general run without a result type writes through its <code>mut</code> views. A slow function without a result type returns nothing.
-<code>return</code> is reserved for leaving a slow function, not for a scratch.</p>
+and a general run without a result type writes through its <code>mut</code> views. A
+slow function without a result type returns nothing, and <code>return</code> only
+leaves a slow function.</p>
 <p>A scratch, rake or run may call scratches and rakes. The call is inlined, so
 calls nest at most 32 deep and recursion is rejected.</p>
 <h2 id="types">Types</h2>
@@ -190,13 +190,13 @@ calls nest at most 32 deep and recursion is rejected.</p>
 <tr><td><code>[N]T</code></td><td>an array of <code>N</code> elements, or of <code>N</code> racks when <code>T</code> is a rack</td></tr>
 <tr><td><code>ptr T</code>, <code>ptr const T</code></td><td>a C pointer with writable or read-only pointed-to storage</td></tr>
 <tr><td><code>Name</code></td><td>a record</td></tr>
-<tr><td><code>mut T</code></td><td>a parameter the callee writes</td></tr>
+<tr><td><code>mut T</code></td><td>a parameter written by the callee</td></tr>
 </tbody></table>
 </div>
-<p><code>f32s</code> racks work on every production profile. WebAssembly implements the
-integer racks <code>u8s</code>, <code>i16s</code>, <code>i32s</code>, <code>u32s</code>, <code>i64s</code> and <code>u64s</code>. The development
-compiler also supports <a href="/docs/primitives-operations-and-targets/#integer-racks">a native 32-bit integer subset</a>.
-The types <code>i8s</code>, <code>u16s</code>, <code>f64s</code> and <code>bools</code> parse but have no implementation yet.</p>
+<p>Every production profile implements <code>f32s</code>. WebAssembly also implements the
+integer racks in the table, and the native profiles
+<a href="/docs/primitives-operations-and-targets/#integer-racks">a 32-bit integer subset</a>.
+<code>i8s</code>, <code>u16s</code>, <code>f64s</code> and <code>bools</code> parse but have no implementation yet.</p>
 <h2 id="statements">Statements</h2>
 <div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>let name = e</code>, <code>let name: T = e</code></td><td>an immutable binding</td></tr>
@@ -217,14 +217,14 @@ The types <code>i8s</code>, <code>u16s</code>, <code>f64s</code> and <code>bools
 <tr><td><code>e</code></td><td>a scratch's final result, or a call evaluated for its effect</td></tr>
 </tbody></table>
 </div>
-<p>A name is bound once in its scope and can't shadow an enclosing name. A mutable location
-changes with <code>&lt;-</code>. <a href="/docs/control-flow/">Control flow</a> defines the
-conditionals and loops, <a href="/docs/packs-and-runs/">Packs and runs</a> stack runs,
-and <a href="/docs/slow-tier/">the slow tier</a> the scalar statements.</p>
+<p>A name is bound once in its scope and can't shadow an enclosing name.
+<a href="/docs/control-flow/">Control flow</a> defines the conditionals and loops,
+<a href="/docs/packs-and-runs/">Packs and runs</a> the stack runs, and
+<a href="/docs/slow-tier/">the slow tier</a> the scalar statements.</p>
 <h2 id="tines-through-and-sweeps">Tines, through and sweeps</h2>
-<p>A global tine defines a reusable predicate with typed inputs. Local tines
-can refer directly to a rake's inputs. A rake's body is, in order, any
-setup bindings, any local tines, its through blocks and the sweep:</p>
+<p>A global tine takes typed inputs, while a local tine can refer directly to
+a rake's inputs. A rake's body holds any setup bindings, then any local
+tines, its through blocks and the sweep:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">rake</span> <span class="tok-function">clamp_band</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">low</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">high</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">above</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">low</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">over</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">high</span><span class="tok-operator">&gt;</span></span>
@@ -237,14 +237,14 @@ setup bindings, any local tines, its through blocks and the sweep:</p>
     <span class="tok-operator-flow">|</span> <span class="tok-constant-builtin">_</span>     <span class="tok-operator-flow">=&gt;</span> <span class="tok-variable">shifted</span>
 </code></pre>
 <p>A tine's predicate uses comparisons, other tines, parentheses, <code>not</code>, <code>and</code>
-and <code>or</code>, and arithmetic and fields on its operands. Calls apply global
-tines, as in <code>#valid(values)</code>, but ordinary function calls aren't permitted.
-Postfix <code>gaps</code> inverts a tine or parenthesised predicate. A through block
-selects a local tine, a global application or a composed predicate.
-<code>else</code> is optional: without it, only the selected lanes have a defined
-value. <code>into</code> binds that result. A sweep takes the first matching arm for
-each lane and requires provable total coverage. A final <code>_</code> supplies any
-remaining lanes, or a <code>gaps</code> arm can cover them explicitly.
+and <code>or</code>, and arithmetic and fields on its operands. Calls in a predicate
+apply global tines, as in <code>#valid(values)</code>, and ordinary function calls
+aren't permitted. Postfix <code>gaps</code> inverts a tine or parenthesised predicate.
+A through block selects a local tine, a global application or a composed
+predicate, and <code>into</code> binds its result. Without the optional <code>else</code> value,
+only the selected lanes have a defined value. A sweep takes the first
+matching arm for each lane and needs provable total coverage, and a final
+<code>_</code> or a <code>gaps</code> arm can complete it.
 <a href="/docs/tines-and-through/">Tines, through and sweeps</a> defines the coverage
 and partial-value rules.</p>
 <h2 id="expressions">Expressions</h2>
@@ -261,36 +261,35 @@ and partial-value rules.</p>
 <tr><td>literals, identifiers, marks, calls, <code>(e)</code></td><td></td></tr>
 </tbody></table>
 </div>
-<p>A comparison of floats is false when either operand is NaN, and that includes
-<code>!=</code>: Rake's <code>!=</code> means "ordered and different". Integer arithmetic in slow
-code traps on overflow, and the wrapping forms <code>wrap_add</code>, <code>wrap_sub</code> and
-<code>wrap_mul</code> are explicit. A rack's integer arithmetic wraps, as its hardware
-does.</p>
+<p>A comparison of floats is false when either operand is NaN, including
+<code>!=</code>, so Rake's <code>!=</code> means "ordered and different". Integer arithmetic in
+slow code traps on overflow unless it uses <code>wrap_add</code>, <code>wrap_sub</code> or
+<code>wrap_mul</code>, while a rack's integer arithmetic wraps.</p>
 <p>Other primary forms are calls <code>f(a, b)</code>, conversions <code>i32(x)</code> (checked),
 <code>wrap(u8, x)</code> (the low bits) and <code>bitcast(u32, x)</code> (the same bits), record
 literals <code>Name { field: e }</code>, stack constructors <code>stack Name { field: column }</code>,
 <code>copy(s)</code> and <code>count(s)</code> for stacks, and array literals <code>[a, b, c]</code> and <code>[e; n]</code>.</p>
-<p>Rack operations use function-call syntax rather than operators:</p>
+<p>Rack operations are written as function calls:</p>
 <div class="table-scroll"><table><thead><tr><th>Operations</th><th>Page</th></tr></thead><tbody>
 <tr><td><code>sqrt</code> <code>abs</code> <code>floor</code> <code>ceil</code> <code>trunc</code> <code>nearest</code> <code>min</code> <code>max</code> <code>exp</code> <code>log</code> <code>log2</code> <code>tanh</code> <code>fma</code> <code>select</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
 <tr><td><code>relaxed_madd</code> <code>relaxed_nmadd</code> <code>relaxed_min</code> <code>relaxed_max</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
 <tr><td><code>dot</code> <code>narrow</code> <code>widen_low</code> <code>widen_high</code> <code>to_f32</code> <code>to_i32</code> <code>to_u32</code> <code>bitmask</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
 <tr><td><code>bit_and</code> <code>bit_or</code> <code>bit_xor</code> <code>bit_andnot</code> <code>shift_bits_left</code> <code>shift_bits_right</code> <code>shift_bits_right_signed</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
 <tr><td><code>shuffle(a, [3, 2, 1, 0])</code>, <code>shuffle(a, b, [0, 4, 1, 5])</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
-<tr><td><code>extract(rack, 2)</code>, <code>insert(rack, 2, &lt;x&gt;)</code></td><td><a href="/docs/reductions-and-scans/">Reductions and scans</a></td></tr>
+<tr><td><code>extract(rack, 2)</code>, <code>insert(rack, 2, &lt;x&gt;)</code></td><td><a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a></td></tr>
 <tr><td><code>sum</code> <code>product</code> <code>minimum</code> <code>maximum</code> <code>all</code> <code>any</code></td><td><a href="/docs/reductions-and-scans/">Reductions and scans</a></td></tr>
 <tr><td><code>scan_sum</code> <code>scan_product</code> <code>scan_minimum</code> <code>scan_maximum</code></td><td><a href="/docs/reductions-and-scans/">Reductions and scans</a></td></tr>
 <tr><td><code>widen(s.column)</code></td><td><a href="/docs/packs-and-runs/">Packs and runs</a></td></tr>
 </tbody></table>
 </div>
 <p>A shuffle's lane indices and the lane of <code>extract</code> and <code>insert</code> are integer
-literals, because the instruction encodes them. Slow code has its own scalar
-functions, listed in <a href="/docs/slow-tier/">the slow tier</a>.</p>
+literals, because the instruction encodes them. <a href="/docs/slow-tier/">The slow tier</a>
+lists slow code's scalar functions.</p>
 <p>These forms parse but have no implementation on any profile: <code>@</code> (the lane
 index), <code>lanes</code> (the lane count), <code>zip_low</code>, <code>shift_left</code>, <code>shift_right</code>,
 <code>rotate_left</code> and <code>rotate_right</code> (lane moves), and the math functions <code>sin</code>,
-<code>cos</code>, <code>tan</code>, <code>pow</code> and <code>atan2</code>. The compiler rejects a program that uses
-them and says which feature is missing.</p>
+<code>cos</code>, <code>tan</code>, <code>pow</code> and <code>atan2</code>. The compiler rejects them and reports the
+missing feature.</p>
 <h2 id="tokens">Tokens</h2>
 <p><code>&lt;|</code>, <code>=&gt;</code>, <code>-&gt;</code>, <code>&lt;-</code>, <code>:=</code>, <code>&lt;=</code>, <code>&gt;=</code> and <code>!=</code> are single tokens. <code>&lt;-1.0&gt;</code>
 is a uniform literal, not <code>&lt;-</code> followed by <code>1.0&gt;</code>, because a mark around a

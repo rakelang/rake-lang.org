@@ -75,41 +75,33 @@
 </nav>
     <main class="content">
 <h1 id="the-slow-tier-and-whole-programs">The slow tier and whole programs</h1>
-<p>A Rake program can hold its scalar orchestration as well as its vector
-kernels. Slow code is that orchestration: records, arrays, module state,
-embedded data, control flow, and calls to C. It is ordinary scalar code and is
-marked <code>slow</code> so that nobody mistakes it for vector code. A <code>slow { ... }</code>
-block is a lexical escape inside a run, like Rust's explicit <code>unsafe { ... }</code>
-boundary. The surrounding rack work retains its vector contract. A whole
-scalar function can instead be declared <code>slow name(...)</code>.</p>
-<p>Slow blocks are available in 0.5.0-beta and in the playground.</p>
+<p>Slow code is a Rake program's scalar orchestration: records, arrays, module
+state, embedded data, control flow and calls to C. It's marked <code>slow</code> so that
+nobody mistakes it for vector code. A whole scalar function is declared
+<code>slow name(...)</code>, and a <code>slow { ... }</code> block is a lexical escape inside a run,
+like Rust's <code>unsafe { ... }</code>, while the rack work around it stays vector code.</p>
 <p>A program with any slow, run, record, union, state, embed, const or extern
-definition is a whole program. On <code>wasm-simd128</code> it compiles to one C
-translation unit with a C entry point, which is what a C-only judge takes.
-Whole programs are implemented for <code>wasm-simd128</code> and
-<code>wasm-simd128-relaxed</code>. Rake 0.7.0 also emits native C and objects combining slow orchestration and
-register kernels on x86-64 and AArch64. SSE2, AVX2, AVX-512 and NEON also compile
-<a href="/docs/packs-and-runs/#stack-runs">stack runs</a>. General runs over views remain
-work in progress on those profiles.</p>
-<h3 id="native-kernel-calls">Native kernel calls</h3>
-<p>In Rake 0.7.0, a native register kernel called from slow code
-takes uniform <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> parameters and returns <code>f32</code>, <code>bool</code>, <code>i32</code>
-or <code>u32</code>. Rake selects and allocates
-the kernel's instructions. The generated C contains its opaque assembly,
-and the final object is checked against the selected profile. The platform C
-compiler lowers the slow caller and supplies the scalar calling convention.
-Other native scalar kernel boundaries remain work in progress.</p>
+definition is a whole program. On <code>wasm-simd128</code> and <code>wasm-simd128-relaxed</code> it
+compiles to one C translation unit with a C entry point, the form required
+by a C-only judge. On x86-64 and AArch64, Rake emits native C and objects
+that combine slow orchestration with register kernels, and SSE2, AVX2,
+AVX-512 and NEON also compile <a href="/docs/packs-and-runs/#stack-runs">stack runs</a>.
+General runs over views remain work in progress on those profiles.</p>
+<h2 id="native-kernel-calls">Native kernel calls</h2>
+<p>A native register kernel called from slow code takes uniform <code>f32</code>, <code>bool</code>,
+<code>i32</code> or <code>u32</code> parameters and returns one of those types. Rake selects the
+kernel's instructions and checks them in the final object, while the platform
+C compiler lowers the slow caller. Other native scalar kernel boundaries
+remain work in progress.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">carry</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">value</span><span class="tok-operator">&gt;</span></span>
 
 <span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">carry</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">3.5</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>This example preserves the value across the boundary and returns <code>3</code>. A
-kernel may also broadcast its uniforms and reduce a rack where the selected
-profile supports those operations. The reference interpreter uses the chosen
-profile's rack width when <code>--target</code> is supplied.</p>
-<p>Mask reductions can also return through this boundary:</p>
+<p>Where the selected profile supports it, a kernel may also broadcast its
+uniforms and reduce a rack, including to a Boolean, which reaches slow code as
+C <code>bool</code>:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">all_positive</span><span class="tok-punctuation-bracket">(</span><span class="tok-operator">&lt;</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">bool</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">all</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">value</span><span class="tok-operator">&gt;</span></span> <span class="tok-operator">&gt;</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
 
@@ -118,28 +110,23 @@ profile's rack width when <code>--target</code> is supplied.</p>
     <span class="tok-keyword">return</span> <span class="tok-number">1</span>
   <span class="tok-keyword">return</span> <span class="tok-number">0</span>
 </code></pre>
-<p>The kernel broadcasts the scalar across its rack, compares all lanes, and
-returns one Boolean. The comparison and reduction remain vector work. Slow
-code receives C <code>bool</code> and can branch on it.</p>
-<h3 id="process-arguments">Process arguments</h3>
-<p>Rake 0.7.0 accepts either <code>slow main() -&gt; i32</code>
-or a process entry with an argument count and a pointer to byte strings:</p>
+<h2 id="process-arguments">Process arguments</h2>
+<p><code>slow main</code> takes either no parameters or an argument count and a pointer to
+byte strings:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">argc</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">argv</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">ptr</span> <span class="tok-keyword">ptr</span> <span class="tok-type-builtin">u8</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">if</span> <span class="tok-function">is_null</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">argv</span><span class="tok-punctuation-bracket">[</span><span class="tok-keyword">unchecked</span> <span class="tok-variable">argc</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
     <span class="tok-keyword">return</span> <span class="tok-variable">argc</span>
   <span class="tok-keyword">return</span> <span class="tok-number">255</span>
 </code></pre>
-<p><code>argc</code> includes the program at <code>argv[0]</code>. Each string ends with a zero byte,
-and <code>argv[argc]</code> is a null pointer. These are byte strings, so a UTF-8
-character may occupy several bytes. Pointer indexing is explicitly <code>unchecked</code>, so the program needs to keep accesses within the argument count and each string's bounds.</p>
-<p>The emitted entry has C's <code>int main(int argc, char **argv)</code> signature. A
-compiler-generated adapter copies the pointer array into typed <code>ptr u8</code>
-storage, sharing the original string bytes. The adapter frees that array when
-<code>main</code> returns, so don't retain its address beyond the call. This avoids
-reading a C <code>char **</code> object through an incompatible pointer type. Linking
-this entry requires the platform C runtime, or WASI libc on WebAssembly.</p>
-<p>For the interpreter, pass arguments after <code>--</code>, as in <code>rakec --interpret program.rk -- alpha --flag</code>. Its <code>argv[0]</code> is the input file path. The browser
-interpreter supplies <code>program</code> at <code>argv[0]</code> and no additional arguments.</p>
+<p><code>argc</code> includes the program at <code>argv[0]</code>, each string ends with a zero byte,
+and <code>argv[argc]</code> is a null pointer. A UTF-8 character may occupy several
+bytes. Pointer indexing is <code>unchecked</code>, so the program needs to stay within
+the argument count and each string's bounds.</p>
+<p>The emitted entry is C's <code>int main(int argc, char **argv)</code>, which needs the
+platform C runtime, or WASI libc on WebAssembly. It passes <code>main</code> a copy of
+the pointer array, freed when <code>main</code> returns, so don't retain the array's
+address beyond the call. In <code>rakec --interpret</code>, <code>argv[0]</code> is the input file
+path, and the browser interpreter supplies <code>program</code> and no other arguments.</p>
 <h2 id="an-example">An example</h2>
 <pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
@@ -167,14 +154,11 @@ interpreter supplies <code>program</code> at <code>argv[0]</code> and no additio
   <span class="tok-variable">calls</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">calls</span> <span class="tok-operator">+</span> <span class="tok-number">1</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">7</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">4.0</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">+</span> <span class="tok-variable">calls</span>
 </code></pre>
-<p><code>rakec --interpret program.rk</code> runs <code>main</code> in Rake's executable semantics and
-prints its result. <code>rakec --emit-c --target wasm-simd128 -o program.c program.rk</code> writes the C unit, and <code>--verify-native</code> compiles it and checks
-every scratch, rake and run in the object (see <a href="#verification">Verification</a>).</p>
 <h2 id="slow-blocks">Slow blocks</h2>
-<p>Enter scalar code at <code>slow {</code>, and return to the enclosing mode at <code>}</code>. A
-block can contain scalar loops, calls, records, arrays and access to module
-state. Its last expression produces a scalar value. A final semicolon
-discards that value, and a block without a final expression produces nothing.</p>
+<p><code>slow {</code> enters scalar code and <code>}</code> returns to the enclosing mode. A block
+can contain scalar loops, calls, records, arrays and access to module state.
+Its last expression produces its scalar value, while a final semicolon or no
+final expression produces nothing.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">shift</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">steps</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">let</span> <span class="tok-variable">rack</span> <span class="tok-operator">=</span> <span class="tok-variable">values</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span>
   <span class="tok-keyword">let</span> <span class="tok-operator">&lt;</span><span class="tok-variable">offset</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-operator">=</span> <span class="tok-keyword">slow</span> <span class="tok-punctuation-bracket">{</span>
@@ -191,26 +175,23 @@ discards that value, and a block without a final expression produces nothing.</p
   <span class="tok-function">shift</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">3</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">shifted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span>
 </code></pre>
-<p>The scalar loop produces 0 + 1 + 2 = 3. One vector add then shifts the four
-lanes to 4, 5, 6 and 7, whose sum is 22. Inside the block, <code>steps</code> is a bare
-scalar name. Outside it, <code>&lt;offset&gt;</code> explicitly broadcasts the result.</p>
+<p>Inside the block, <code>steps</code> is a bare scalar name, and outside it <code>&lt;offset&gt;</code>
+explicitly broadcasts the result.</p>
 <p>Blocks have lexical scope and may nest. Their locals end at <code>}</code> and can't
-shadow an enclosing binding, though sibling blocks may reuse a name. A block
+shadow an enclosing binding, although sibling blocks may reuse a name. A block
 inside a slow function shares that function's mutable locations. A block in a
-run can read its uniforms and scalar-element views, and write a mutable view.
-It can't refer to a rack, mask, rack array or stack column. Reduce or extract a
-rack to a uniform before entering the block. Block results are scalar or
-void, so a local array, record or borrowed view can't escape through the result.</p>
-<p>On one line, separate statements with semicolons: <code>slow { let x = 2; x + 1 }</code>
-produces 3. Multiline bodies use the same indentation as other Rake bodies.
-<code>slow {}</code> is empty. A <code>return</code> inside a slow function's block returns from
-that function, as in Rust. Runs have no early <code>return</code>: use the block's final
-expression to produce its result. In a run, <code>break</code> and <code>continue</code> inside a
-block refer only to scalar loops inside that block.</p>
-<p>Scratches, rakes and fused regions remain pure vector kernels and reject slow
-blocks. Put scalar orchestration in the run that calls them. Blocks and whole
-programs with memory runs currently compile for WebAssembly only. The
-compiler also supports native slow functions and register kernels.</p>
+run can read the run's uniforms and scalar-element views and write a mutable
+view, but it can't refer to a rack, mask, rack array or stack column. Block
+results are scalar or void, so no local array, record or borrowed view
+escapes.</p>
+<p>Semicolons separate statements on one line, as in
+<code>slow { let x = 2; x + 1 }</code>, which produces 3, and multiline bodies are
+indented like other Rake bodies. <code>slow {}</code> is empty. A <code>return</code> inside a slow
+function's block returns from that function. Runs have no early <code>return</code>, and
+in a run, <code>break</code> and <code>continue</code> inside a block refer only to scalar loops
+inside that block.</p>
+<p>Scratches, rakes and fused regions reject slow blocks. Blocks and whole
+programs with memory runs compile for WebAssembly only.</p>
 <h2 id="definitions">Definitions</h2>
 <div class="table-scroll"><table><thead><tr><th>Definition</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>slow name(parameters) -&gt; T:</code></td><td>a scalar function, with or without <code>-&gt; T</code></td></tr>
@@ -224,13 +205,20 @@ compiler also supports native slow functions and register kernels.</p>
 </tbody></table>
 </div>
 <p><code>slow main() -&gt; i32</code> is the program's entry point. A value-returning slow
-function requires a return on every path. Slow functions may call each other
-in any order and recurse.</p>
-<p>A record declared with a header is a C struct whose layout C owns: the unit
+function needs a return on every path. Slow functions may call each other in
+any order and recurse.</p>
+<p>A record declared with a header is a C struct with C's layout. The unit
 includes the header, and each declared scalar, pointer or scalar-array field
 gets a <code>_Static_assert</code> that its C size matches. Function-pointer fields are
-also checked. Other records have Rake's
-layout. A record can't contain itself, directly or through other records.</p>
+also checked. Other records have Rake's layout. A record can't contain
+itself, directly or through other records.</p>
+<p><code>state</code> is a C static that keeps its value for the life of the process,
+starting from a constant or zero. <code>embed</code> makes a file's bytes a read-only
+<code>[]u8</code>, a 16-byte-aligned static. <code>const</code>
+binds a compile-time value computed from literals, and vector code may use an
+integer or float constant as a literal.</p>
+<p><code>extern slow</code> declares a C function from a header. Its parameters are
+scalars, pointers, records passed by value and typed function pointers.</p>
 <h3 id="opaque-c-pointer-types">Opaque C pointer types</h3>
 <p>An empty header-backed declaration preserves a C API's opaque typedef:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">record</span> <span class="tok-type">wasm_trap_t</span> <span class="tok-keyword">from</span> <span class="tok-string">&quot;wasmtime.h&quot;</span> <span class="tok-punctuation-bracket">{</span><span class="tok-punctuation-bracket">}</span>
@@ -238,16 +226,14 @@ layout. A record can't contain itself, directly or through other records.</p>
 
 <span class="tok-keyword">extern</span> <span class="tok-keyword">slow</span> <span class="tok-function">inspect</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">caller</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">ptr</span> <span class="tok-type">wasmtime_caller_t</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-keyword">ptr</span> <span class="tok-type">wasm_trap_t</span> <span class="tok-keyword">from</span> <span class="tok-string">&quot;wasmtime.h&quot;</span>
 </code></pre>
-<p>The header remains the only owner of the type's layout. Rake neither invents
-fields nor emits a replacement struct. These types are used through pointers,
-including exact pointee types in callback signatures. By-value use and record
-construction are rejected. Empty Rake-owned records are rejected too.</p>
+<p>The header alone defines the type's layout. These types are used through
+pointers, including exact pointee types in callback signatures, and by-value
+use, record construction and empty Rake-owned records are rejected.</p>
 <h3 id="c-unions">C unions</h3>
-<p>Rake 0.7.0 accepts header-backed unions. All
-their members overlap the same storage. C owns their size, alignment and ABI,
-including a union embedded in a struct, passed to an imported function or
-returned by value. An ordinary slow parameter borrows the union, just as it
-borrows a record. An imported C parameter passes it by value.</p>
+<p>A header-backed union's members all overlap the same storage, and C
+determines its size, alignment and ABI. An ordinary slow parameter borrows a
+union as it borrows a record, while an imported C parameter passes it by
+value.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">union</span> <span class="tok-type">foreign_value_t</span> <span class="tok-keyword">from</span> <span class="tok-string">&quot;values.h&quot;</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">i32</span><span class="tok-punctuation-delimiter">;</span>
   <span class="tok-type-builtin">i64</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">i64</span><span class="tok-punctuation-delimiter">;</span>
@@ -258,31 +244,19 @@ borrows a record. An imported C parameter passes it by value.</p>
 <span class="tok-keyword">slow</span> <span class="tok-function">integer_value</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i64</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type">foreign_value_t</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">return</span> <span class="tok-type">foreign_value_t</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">i64</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-variable">value</span> <span class="tok-punctuation-bracket">}</span>
 </code></pre>
-<p>The header supplies the C typedef <code>foreign_value_t</code>. A union literal selects
-exactly one member, and a field assignment changes the active member. Read
-the member selected by the C API's protocol, such as a neighbouring tag.
-Rake adds no hidden tag and does not define reinterpretation through an
-inactive member. Use a numeric <code>bitcast</code> for an equal-width bit conversion.
-Reading the wrong union member, or keeping a pointer after its storage ends,
-remains the caller's responsibility at this C boundary.</p>
-<p>Aggregate identifiers may retain a C typedef's lowercase spelling. Primitive
-spellings such as <code>i32</code> are also allowed for member declarations, literal
-fields and selections like <code>value.i32</code>. The generated C checks that the header
-actually declares a union, that its declared members overlap at offset zero,
-and that scalar, pointer and scalar-array member sizes agree.</p>
-<p>This is compiled C interoperation. The interpreter explicitly rejects C union
-storage because it has no platform C layout. The ABI checks compile an
-independent C header and exercise real calls on every CPU profile and
-WebAssembly. Rake-owned union layouts and interpreted union storage remain
-work in progress.</p>
-<p><code>state</code> is module state: a C static that holds its value for the life of the
-process, across turns of a judge's loop. Its initial value is a constant, or
-zero. <code>embed</code> makes a file's bytes a read-only <code>[]u8</code>, a 16-byte-aligned
-static. <code>const</code> binds a compile-time value computed from literals. Vector code
-may use an integer or float constant as a literal.</p>
-<p><code>extern slow</code> declares a C function from a header. Its parameters are
-scalars, pointers and records passed by value. Rake 0.7.0 also
-accepts typed function pointers.</p>
+<p>A union literal selects exactly one member, and a field assignment changes the
+active member. Rake adds no hidden tag and doesn't define reading an inactive
+member, so read the member selected by the C API's protocol, such as a
+neighbouring tag, and use a numeric <code>bitcast</code> for an equal-width bit
+conversion. Reading
+the wrong member, or keeping a pointer after its storage ends, is the
+caller's responsibility.</p>
+<p>Aggregate identifiers may keep a C typedef's lowercase spelling, and members
+may use primitive spellings such as <code>i32</code>, as in <code>value.i32</code>. The generated C
+checks that the header declares a union whose declared members overlap at
+offset zero with matching sizes. The interpreter rejects C union storage,
+which has no platform C layout, and Rake-owned union layouts remain work in
+progress.</p>
 <h2 id="types">Types</h2>
 <div class="table-scroll"><table><thead><tr><th>Type</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>i8</code> … <code>u64</code>, <code>f32</code>, <code>f64</code>, <code>bool</code></td><td>scalars</td></tr>
@@ -294,20 +268,19 @@ accepts typed function pointers.</p>
 <tr><td><code>slow(T, ...) -&gt; U</code></td><td>a typed C function pointer</td></tr>
 <tr><td><code>Name</code></td><td>a record</td></tr>
 <tr><td><code>stack Name</code></td><td>a stack: its count and a view of each column</td></tr>
-<tr><td><code>mut T</code></td><td>in a parameter list: a view, array or record the callee writes</td></tr>
+<tr><td><code>mut T</code></td><td>in a parameter list: a view, array or record writable by the callee</td></tr>
 </tbody></table>
 </div>
-<p>Arrays and records are values: binding or assigning one copies it. Views and pointers refer to existing storage. A slow parameter of array or record type
-is passed by reference and is read-only. <code>mut</code> makes the parameter writable, so the argument needs to refer to a location the caller is allowed to modify. A view parameter is
-passed by value and is writable through when declared <code>mut []T</code>.</p>
-<p>Slow code holds individual packs as ordinary records. It has no rack or mask
-values. A stack is built from writable views or arrays, one for each of the
-pack's fields: <code>stack Samples { value: values, quality: qualities }</code>. Its
-count is their length, and the literal traps if they differ. <code>s.field</code> is a
-column as a view of <code>count(s)</code> elements. A stack moves into the run that
-returns it, and <code>copy(s)</code> makes a new stack whose columns come from the
-function's frame, as <a href="/docs/packs-and-runs/#moves-and-copies">moves and copies</a>
-defines. Slow functions can't take or return stacks.</p>
+<p>Arrays and records are values, so binding or assigning one copies it, while
+views and pointers refer to existing storage. A slow parameter of array or
+record type is passed by reference and is read-only unless declared <code>mut</code>, in
+which case its argument needs to be a writable location in the caller. A view
+parameter is passed by value and is writable through when declared <code>mut []T</code>.</p>
+<p>Slow code holds individual packs as ordinary records and has no rack or mask
+values. It builds a stack from writable views or arrays, one for each of the
+pack's fields, as in <code>stack Samples { value: values, quality: qualities }</code>,
+and <a href="/docs/packs-and-runs/#moves-and-copies">moves and copies</a> defines its
+count, columns, moves and copies. Slow functions can't take or return stacks.</p>
 <h2 id="statements">Statements</h2>
 <div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>let name = e</code>, <code>let name: T = e</code></td><td>immutable binding</td></tr>
@@ -321,24 +294,26 @@ defines. Slow functions can't take or return stacks.</p>
 <tr><td><code>e</code></td><td>a call evaluated for its effect</td></tr>
 </tbody></table>
 </div>
-<p>A name is bound once in its scope. It can't shadow an enclosing binding or a
-module definition. A counted loop's index defaults to <code>i32</code> unless another type is declared. Its step needs to be positive, and the loop stops at the bound without stepping past it, preventing index overflow.</p>
-<h2 id="expressions-and-their-meaning">Expressions and their meaning</h2>
-<p>Operands of an arithmetic or comparison operator have one type: there are no
-implicit conversions. A literal takes the type of the operand beside it or the
-type expected where it stands. An integer literal elsewhere has type <code>i32</code> and needs to fit within that type's range.</p>
+<p>A name is bound once in its scope and can't shadow an enclosing binding or a
+module definition. A counted loop's index is <code>i32</code> unless declared otherwise.
+Its step needs to be positive, and the loop stops at the bound without
+stepping past it, so the index can't overflow.</p>
+<h2 id="expressions">Expressions</h2>
+<p>Operands of an arithmetic or comparison operator have one type, because there
+are no implicit conversions. A literal takes the type of the operand beside it
+or the type expected in its position, and otherwise has type <code>i32</code> and needs
+to fit its range.</p>
 <p>Integer <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code> and negation are checked: overflow, division
 by zero and the most negative value divided by <code>-1</code> trap. <code>%</code> is integer
-remainder, truncating as C does. The wrapping operations are explicit:
-<code>wrap_add</code>, <code>wrap_sub</code> and <code>wrap_mul</code>. Float arithmetic is IEEE 754 in the
-operand's precision.</p>
+remainder, truncating as C does. <code>wrap_add</code>, <code>wrap_sub</code> and <code>wrap_mul</code> wrap
+explicitly. Float arithmetic is IEEE 754 in the operand's precision.</p>
 <div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>T(x)</code></td><td>a checked conversion, which traps unless the value fits <code>T</code>. A float converts to an integer toward zero, and an integer to a float to nearest</td></tr>
 <tr><td><code>wrap(T, x)</code></td><td>the low bits of an integer, as integer type <code>T</code></td></tr>
 <tr><td><code>bitcast(T, x)</code></td><td>the same bits as a numeric type of the same width</td></tr>
 <tr><td><code>if c then a else b</code></td><td>evaluates <code>c</code>, then only the chosen branch</td></tr>
 <tr><td><code>a[i]</code></td><td>checked element: traps unless <code>0 &lt;= i &lt; count</code></td></tr>
-<tr><td><code>a[unchecked i]</code></td><td>element at <code>i</code>, with bounds the caller checks</td></tr>
+<tr><td><code>a[unchecked i]</code></td><td>element at <code>i</code>, with bounds checked by the caller</td></tr>
 <tr><td><code>r.field</code>, <code>p.field</code></td><td>a record's field, directly or through a pointer</td></tr>
 <tr><td><code>Name { field: e, ... }</code></td><td>a record literal specifying every field</td></tr>
 <tr><td><code>[a, b, c]</code>, <code>[e; n]</code></td><td>array literals</td></tr>
@@ -359,29 +334,27 @@ operand's precision.</p>
 <tr><td><code>addr(place)</code>, <code>is_null(p)</code></td><td>a pointer to a location, and a test for null</td></tr>
 </tbody></table>
 </div>
-<p>A pointer is always indexed <code>p[unchecked i]</code>, because it carries no bounds.</p>
+<p>A pointer carries no bounds, so it's always indexed <code>p[unchecked i]</code>.</p>
 <p><code>exp</code>, <code>log</code>, <code>log2</code> and <code>tanh</code> are fixed sequences of binary32 operations
 (Cephes' single-precision polynomials), the same in slow code, in racks and in
 the interpreter, so every target agrees bit for bit. Float <code>min</code> and <code>max</code> of
 a NaN give a NaN. Of two zeros, <code>min</code> gives negative zero if either is, and
 <code>max</code> positive zero if either is.</p>
 <h3 id="read-only-pointers">Read-only pointers</h3>
-<p>Rake 0.7.0 preserves C pointer qualifiers.
-<code>ptr const T</code> corresponds to <code>const T *</code>: it prevents writes through that
-pointer. Another writable alias may still change the same object. An immutable
-<code>let</code> binding prevents replacement of the pointer itself, which is a separate
-restriction.</p>
-<p><code>addr(place)</code> produces a writable pointer when the location is writable and
-a read-only pointer otherwise. Taking the address of a checked element also
-checks its bounds, even before the pointer is dereferenced. A writable pointer
-may be borrowed as <code>ptr const T</code>. Nested pointer types need to match exactly at every deeper level.
-For example, a pointer to writable pointers cannot become a pointer to
-read-only pointers implicitly.</p>
-<p><code>unchecked_view</code> preserves its pointer's access. A view formed from
-<code>ptr const T</code> is <code>[]T</code>, and a writable view may be borrowed as <code>[]T</code> without
-copying its elements. Erasing and restoring a pointer through <code>ptr ()</code> or
-<code>ptr const ()</code> preserves read-only access. The caller remains responsible for
-the pointer's lifetime, bounds and alignment.</p>
+<p><code>ptr const T</code> corresponds to <code>const T *</code>. It prevents writes through that
+pointer, although another writable alias may still change the same object,
+and an immutable <code>let</code> binding separately prevents replacing the pointer
+itself.</p>
+<p><code>addr(place)</code> produces a writable pointer when the location is writable and a
+read-only pointer otherwise. Taking the address of a checked element checks
+its bounds immediately. A writable pointer may be borrowed as <code>ptr const T</code>,
+but nested pointer types need to match exactly at every deeper level, so a
+pointer to writable pointers can't implicitly become a pointer to read-only
+pointers.</p>
+<p><code>unchecked_view</code> and erasure through <code>ptr ()</code> or <code>ptr const ()</code> preserve a
+pointer's access, so a view formed from <code>ptr const T</code> is <code>[]T</code>. A writable
+view may be borrowed as <code>[]T</code>. The caller is responsible for a pointer's
+lifetime, bounds and alignment.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">slow</span> <span class="tok-function">read</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">value</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">ptr</span> <span class="tok-keyword">const</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">return</span> <span class="tok-variable">value</span><span class="tok-punctuation-bracket">[</span><span class="tok-keyword">unchecked</span> <span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span>
 
@@ -392,19 +365,19 @@ the pointer's lifetime, bounds and alignment.</p>
   <span class="tok-keyword">return</span> <span class="tok-function">read</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">borrowed</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <h2 id="function-pointers-and-callbacks">Function pointers and callbacks</h2>
-<p>Rake 0.7.0 supports C function pointers in
-slow code. Write <code>slow(i32) -&gt; i32</code> for a pointer to a function taking an
-<code>i32</code> and returning an <code>i32</code>. Write <code>-&gt; ()</code> for a callback returning C
-<code>void</code>. Function-pointer arguments and results use the platform C ABI.
-They may be scalars, data pointers, other function pointers or C aggregates
-passed by value.</p>
+<p><code>slow(i32) -&gt; i32</code> is a C function pointer to a function taking an <code>i32</code> and
+returning an <code>i32</code>, and <code>-&gt; ()</code> declares a callback returning C <code>void</code>.
+Function-pointer arguments and results use the platform C ABI and may be
+scalars, data pointers, other function pointers or C aggregates passed by
+value.</p>
 <p><code>addr(function)</code> takes the address of a slow function or an imported C
-function. A callback carries no captured variables, so pass its context
-explicitly. For an opaque C context, <code>ptr ()</code> corresponds to <code>void *</code>.
-Use <code>ptr const ()</code> for a read-only <code>const void *</code> context. Callback signatures
-retain these qualifiers in both imported and exported C declarations.
+function. A callback carries no captured variables, so its context is passed
+explicitly. For an opaque C context, <code>ptr ()</code> corresponds to <code>void *</code> and
+<code>ptr const ()</code> to <code>const void *</code>, and callback signatures keep these
+qualifiers in imported and exported C declarations.
 <code>bitcast(ptr (), pointer)</code> erases a data pointer's type, and
-<code>bitcast(ptr Context, opaque)</code> restores it. When accessed, the context needs to remain alive and have the restored type and alignment.</p>
+<code>bitcast(ptr Context, opaque)</code> restores it. When accessed, the context needs
+to remain alive and have the restored type and alignment.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">record</span> <span class="tok-type">Context</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">total</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>
@@ -422,19 +395,15 @@ retain these qualifiers in both imported and exported C declarations.
   <span class="tok-keyword">return</span> <span class="tok-function">apply</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">addr</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">add</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-keyword">ptr</span> <span class="tok-type-builtin"><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">addr</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">context</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>Function pointers can be stored in records, arrays and module state, returned
-from functions and passed between C and Rake. Call a binding as
-<code>callback(arguments)</code>. For a record field, bind it first with
-<code>let callback = hooks.callback</code>. A zero-initialised function pointer is
-null. <code>is_null(callback)</code> checks it, and calling it traps.</p>
-<p>A slow callback that accepts a record or array needs an explicit <code>ptr T</code> parameter. Ordinary slow aggregate parameters borrow through Rake's
-own convention. <code>addr(main)</code> is rejected because the process entry has a
-compiler-owned startup adapter. Function pointers cannot be converted to
-data pointers, and this stage adds no closures or lambdas.</p>
-<p>The C emitter uses typed function-pointer declarations and calls directly
-through them. It delegates the slow ABI to the platform compiler, including
-WebAssembly's indirect-call table. The interpreter invokes local callbacks
-by their function identity. Imported C callbacks need the same external
-implementation as a direct C call.</p>
+from functions and passed between C and Rake. A binding is called as
+<code>callback(arguments)</code>, and a record field is bound first, as in
+<code>let callback = hooks.callback</code>. A zero-initialised function pointer is null,
+so <code>is_null(callback)</code> detects it, and calling it traps.</p>
+<p>Ordinary slow aggregate parameters borrow through Rake's own convention, so a
+slow callback that accepts a record or array needs an explicit <code>ptr T</code>
+parameter. <code>addr(main)</code> is rejected because the process entry has a
+compiler-generated startup adapter. Function pointers can't be converted to
+data pointers, and slow code has no closures or lambdas.</p>
 <h2 id="calling-vector-code">Calling vector code</h2>
 <p>Slow code calls a stack run as an expression returning its result's stack, a
 general run as a statement, and a scratch or rake as an expression:</p>
@@ -447,15 +416,11 @@ general run as a statement, and a scratch or rake as an expression:</p>
   <span class="tok-keyword">let</span> <span class="tok-variable">best</span> <span class="tok-operator">=</span> <span class="tok-function">score</span><span class="tok-punctuation-bracket">(</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">a</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">b</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">best</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>The run call in <a href="#an-example">the example</a> above,
-<code>weigh(stack Samples { value: values, quality: qualities }, &lt;0.5&gt;)</code>, moves a
-stack into <code>weigh</code> and binds the stack it returns.</p>
-<p>Memory arguments, views and stacks, are passed bare. An array passed where a
-view is expected lends all its elements. Every scalar argument is marked
-<code>&lt;...&gt;</code>, as in <code>&lt;name&gt;</code>, <code>&lt;3&gt;</code>, <code>&lt;record.field&gt;</code> or <code>&lt;view[index]&gt;</code>, because it
-becomes a rack in the callee. A scratch or rake is callable from slow code only when all its parameters are
-uniform and its result is a scalar. Slow code can't pass or receive a rack.</p>
-<p>At a stack run call, every stack needs to have the result's count, and the result's columns may share memory with another argument only element for element. Violating either condition traps before the run starts.</p>
+<p>Views and stacks are passed bare, and an array passed where a view is
+expected lends all its elements. Every scalar argument is marked <code>&lt;...&gt;</code>, as
+in <code>&lt;name&gt;</code>, <code>&lt;3&gt;</code>, <code>&lt;record.field&gt;</code> or <code>&lt;view[index]&gt;</code>, because it becomes a
+rack in the callee. Slow code can call a scratch or rake only when all its
+parameters are uniform and its result is a scalar.</p>
 <h2 id="the-explicitness-rules">The explicitness rules</h2>
 <ul>
 <li>Slow code can't name, hold, pass or return a rack, mask or rack array.</li>
@@ -463,124 +428,96 @@ uniform and its result is a scalar. Slow code can't pass or receive a rack.</p>
 with uniform parameters, and every scalar that becomes a rack is marked
 <code>&lt;...&gt;</code> at the call. A <code>&lt;...&gt;</code> mark anywhere else in slow code is an error.</li>
 <li>Outside a slow block, vector code can't call slow code or an extern, and
-can't read module state. Enter <code>slow { ... }</code> explicitly to do that work.</li>
-<li>Inside vector code the existing rules are unchanged: uniform scalars are
-marked at their declaration and use, broadcasts are explicit, and a
-computation the target can't keep in racks is rejected.</li>
+can't read module state.</li>
+<li>Inside vector code, uniform scalars are marked at their declaration and
+use, broadcasts are explicit, and a computation that can't stay in the
+target's racks is rejected.</li>
+<li>A run may keep a rack alive across a slow block, but the block can't
+capture it or turn it into scalar lanes.</li>
+<li>Slow code can't appear in a fused binding.</li>
+<li>Slow code's <code>if</code> is scalar control flow around vector calls and never
+selects lanes, which remains the job of tines, <code>through</code>, sweeps and mask
+<code>if</code>s.</li>
 </ul>
-<h2 id="vector-boundaries">Vector boundaries</h2>
-<ul>
-<li>One rack is one <code>v128</code>. A run may keep that virtual value alive across a
-slow block, but the block can't capture it or turn it into scalar lanes.
-The WebAssembly runtime owns physical register allocation across the call.</li>
-<li>Fused regions stay pure. A fused binding is vector code. Slow code can't
-appear in it, and the tier adds no operation to the fused contract.</li>
-<li>Rakes stay predicated. Slow code's <code>if</code> is scalar control flow around
-vector calls. It never selects lanes. Lane selection remains a tine, a
-<code>through</code>, a sweep or a mask <code>if</code>.</li>
-<li>Scalars and broadcasts stay explicit. A scalar returned by a slow block
-meets a rack only at an explicit <code>&lt;...&gt;</code> broadcast.</li>
-<li>Properties are proved or rejected. Every scratch, rake and run in a whole
-program goes through the same checks and object verification as before, and
-slow code has its own checked semantics.</li>
-<li>Existing lowering is unchanged. Scratches and rakes are emitted by the same
-selection and C emission. A run's pure rack expressions become always-inline
-functions lowered through that same pipeline. Slow code is plain C beside
-them.</li>
-</ul>
+<p>Scratches, rakes and runs in a whole program get the same selection, C
+emission, checks and object verification as in any other program, and slow
+code is plain C beside them.</p>
 <h2 id="executable-semantics">Executable semantics</h2>
 <p><code>rakec --interpret</code> defines what a whole program means, independently of its
 C. It runs slow code over values, copying records and arrays and aliasing
 views and pointers. It traps where the C traps: checked arithmetic,
-conversions, indexing, slices and the counts at run calls. Only the frame
-stack's limit is the C's alone. It evaluates a run's rack expressions in the
-same reference semantics as scratches. An extern has no implementation there,
-so programs that call C are tested through C (<code>test/abi/interop.rk</code>).</p>
-<p><code>test/program_test.sh</code> runs every <code>test/program/*.rk</code> in the interpreter and,
-compiled from the emitted C in both addressings, under wasmtime, and requires
-equal results. Programs under <code>test/program/trap/</code> need to trap in both the interpreter and the compiled execution.
-<code>test/abi_test.sh</code> calls runs from C across <a href="/docs/packs-and-runs/#the-c-boundary">the C
-boundary</a> and runs <code>interop.rk</code> against its
-C functions. <code>test/reject/slow_*.rk</code>, <code>test/reject/run_*.rk</code> and
-<code>test/reject/stack_*.rk</code> show each explicitness rule rejecting a program that
-breaks it.</p>
+conversions, indexing, slices and the counts at run calls, and only the frame
+stack's limit is missing. The interpreter evaluates a run's rack
+expressions in the same reference semantics as scratches. An extern has no
+implementation there, so programs that call C are tested through C.</p>
 <h2 id="the-c-unit">The C unit</h2>
-<p>Ordinary slow functions have external C linkage,
-including on WebAssembly, so independently compiled C can call them. Extracted
-block helpers remain internal. A parameterless entry is <code>int main(void)</code>,
-and a process entry uses the adapter described above.
-Records, arrays and views are structs. State and embedded data are statics.
-Checked arithmetic, conversions, indexing and slices are small inline helpers
-that call <code>__builtin_trap</code>. Each run is an external, never-inlined <code>void</code>
-function.</p>
-<p>On the native path, slow functions use the platform
-C ABI. Scalar and pointer
-arguments pass by value, array and record arguments are borrowed pointers,
-and record results return by value. Header-backed records retain their C
-layout, including native pointer widths and padding. Rake emits checked scalar C, leaving its register allocation and calling convention to the platform compiler. Rake selects and verifies the vector kernels' instructions.</p>
-<p>Header-backed unions use the same C boundary, with the access contract above.
-Native slow frames are
-thread-local, while module state remains process-wide and needs the caller's
-normal synchronization when several threads use it.</p>
-<p>A slow block in scalar code becomes a GNU C statement expression, preserving
-its lexical scope and enclosing function's <code>return</code>. A block in a run becomes
-a never-inlined scalar helper. Its captured uniforms are scalar parameters,
-and its captured views are passed as pointer/count pairs, so the run needs no
-C stack frame. Rack values never cross that helper boundary.</p>
-<p>The compiler groups a slow function's aggregate locals into one
-frame. The platform C compiler supplies its actual size and alignment,
-including header-backed records, unions, nested aggregates and padding.
-Frames of at most 256 bytes stay on the host stack through an aligned GNU C
-allocation. Larger frames use Rake's bounded arena, with alignment padding
-counted against its capacity. Releasing a frame also releases that padding.
-Scalar locals and compiler-generated expression temporaries remain the
-platform C compiler's responsibility.</p>
-<p><code>RAKE_FRAME_BYTES</code> sets the arena's capacity, 4 MiB unless defined otherwise when
-compiling the C. Each call takes a frame and releases it on normal return.
-Running out of capacity traps. A returned value is copied before releasing
-its frame.</p>
-<p>WebAssembly reserves the arena in linear memory, keeping those large locals
-off the C stack. wasm-ld places the default 64 KiB stack after static data,
-where an overflow could overwrite that data without a trap.</p>
-<p>On native targets, each thread allocates an arena on its first framed call
-and keeps it until the thread exits, when a C11 thread-specific key frees it.
-Nested calls and synchronous C callbacks share that thread's arena. Only the
-pointer and cursor occupy TLS. The arena's storage is allocated separately
-from host worker stacks. Allocation failure traps. Nonlocal exits such as C
-<code>longjmp</code> bypass frame cleanup and are unsupported across active Rake frames.</p>
+<p>Ordinary slow functions have external C linkage, including on WebAssembly, so
+independently compiled C can call them. A parameterless entry is
+<code>int main(void)</code>. Records, arrays and views are structs, state and embedded
+data are statics, and each run is an external, never-inlined <code>void</code> function.
+Checked operations call <code>__builtin_trap</code>.</p>
+<p>On the native path, slow functions use the platform C ABI. Scalar and pointer
+arguments pass by value, array and record arguments are borrowed pointers, and
+record results return by value. Header-backed records and unions keep their C
+layout, including native pointer widths and padding. Module state is
+process-wide and needs the caller's usual synchronization when several
+threads use it.</p>
+<p>A slow block in a run becomes a never-inlined scalar helper that takes
+captured uniforms as scalars and captured views as pointer/count pairs, so
+the run needs no C stack frame.</p>
+<p>A slow function's aggregate locals form one frame. Frames of at most 256
+bytes stay on the host stack, and larger ones use Rake's bounded arena, which
+lives in linear memory on WebAssembly and is thread-local on native targets.
+On WebAssembly this keeps large locals off the C stack, because wasm-ld places
+its default 64 KiB stack after static data, where an overflow would overwrite
+that data without a trap.
+<code>RAKE_FRAME_BYTES</code> sets its capacity, 4 MiB unless defined otherwise when
+compiling the C, and alignment padding counts against it. Each call releases
+its frame on normal return, after copying any returned value. Running out of
+capacity or failing to allocate a thread's arena traps. Nonlocal exits such as
+C <code>longjmp</code> bypass frame cleanup and are unsupported across active Rake
+frames.</p>
 <h2 id="verification">Verification</h2>
-<p>For a native mixed program, both <code>--emit-obj</code> and <code>--verify-native</code> check each
-embedded register kernel and native stack run in the final object.
-The ordinary slow functions
-retain the platform compiler's C semantics and are outside that vector
-instruction contract. A slow-only unit uses <code>--emit-obj</code>.</p>
-<p>On WebAssembly, <code>rakec --verify-native</code> compiles the unit and disassembles it. Every scratch and rake needs to use only locals, constants and register SIMD. A run may call only
-the scalar helpers emitted for its explicit slow blocks. The verifier checks
-each direct call's relocation against those helper symbols. It rejects every
-other call, indirect or tail calls, and <code>global.get</code> or <code>global.set</code> (so no C
-stack frame, and no rack passing through memory Rake didn't name). Each SIMD instruction needs to come from instruction selection for its source operations or be one of the documented equivalents substituted by Clang: constants folded into <code>v128.const</code>,
-splats of loads into splatting loads, zero- and sign-extending loads, a
-signed or unsigned twin, a reversed or complemented comparison, an add for a
-subtraction of a constant or a doubling, and scalar float arithmetic computed
-in a vector lane. It may have no more lane extractions
-and replacements, and no more loops, than its source states. Slow code isn't
-held to these rules: it is scalar, and Clang may use SIMD moves to copy its
-aggregates.</p>
+<p>For a native mixed program, <code>--emit-obj</code> and <code>--verify-native</code> both check each
+embedded register kernel and native stack run in the final object. The
+ordinary slow functions keep the platform compiler's C semantics and aren't
+held to these instruction checks. A slow-only unit uses <code>--emit-obj</code>.</p>
+<p>On WebAssembly, <code>rakec --verify-native</code> compiles and disassembles the unit.
+Every scratch and rake needs to use only locals, constants and register SIMD.
+A run may call only the scalar helpers for its explicit slow blocks, matched
+by each call's relocation, and the verifier rejects every other call,
+indirect or tail calls, and <code>global.get</code> or <code>global.set</code>. A run therefore has
+no C stack frame, and no rack passes through unnamed memory. Each SIMD
+instruction needs to come from instruction selection for its source
+operations or be one of Clang's documented substitutions:</p>
+<ul>
+<li>constants folded into <code>v128.const</code></li>
+<li>splats of loads turned into splatting loads</li>
+<li>zero- and sign-extending loads</li>
+<li>a signed or unsigned twin</li>
+<li>a reversed or complemented comparison</li>
+<li>an add for a subtraction of a constant or a doubling</li>
+<li>scalar float arithmetic computed in a vector lane</li>
+</ul>
+<p>A run also may have no more lane extractions and replacements, and no more
+loops, than its source states. Slow code is scalar and exempt from these
+rules, so Clang may use SIMD moves to copy its aggregates.</p>
 
     </main>
 <nav class="page-contents" aria-label="On this page">
 <p class="page-contents-title">On this page</p>
 <ul>
+<li><a href="#native-kernel-calls">Native kernel calls</a></li>
+<li><a href="#process-arguments">Process arguments</a></li>
 <li><a href="#an-example">An example</a></li>
 <li><a href="#slow-blocks">Slow blocks</a></li>
 <li><a href="#definitions">Definitions</a></li>
 <li><a href="#types">Types</a></li>
 <li><a href="#statements">Statements</a></li>
-<li><a href="#expressions-and-their-meaning">Expressions and their meaning</a></li>
+<li><a href="#expressions">Expressions</a></li>
 <li><a href="#function-pointers-and-callbacks">Function pointers and callbacks</a></li>
 <li><a href="#calling-vector-code">Calling vector code</a></li>
 <li><a href="#the-explicitness-rules">The explicitness rules</a></li>
-<li><a href="#vector-boundaries">Vector boundaries</a></li>
 <li><a href="#executable-semantics">Executable semantics</a></li>
 <li><a href="#the-c-unit">The C unit</a></li>
 <li><a href="#verification">Verification</a></li>

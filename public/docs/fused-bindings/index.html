@@ -75,30 +75,28 @@
 </nav>
     <main class="content">
 <h1 id="fused-bindings">Fused bindings</h1>
-<p><em>Binding</em> is general programming terminology for associating a name with a
-value. A declaration introduces the name, and a definition supplies its
-meaning. Rake's <code>let name = expression</code> does both: it gives the expression's
-value a name that later code can use.</p>
-<p><em>Fusion</em> is a compiler term for combining separate pieces of work so they
-can execute together. Rake's <code>| name &lt;| expression</code> binds one stage of a
-fused vector calculation. Read it from right to left: the expression flows
-into <code>name</code>. Consecutive stages line up on their leading bars, so we can
-follow the calculation down the page:</p>
+<p>Rake's <code>let name = expression</code> gives an expression's value a name. A fused
+binding, <code>| name &lt;| expression</code>, binds one stage of a fused vector
+calculation, and fusion lets the compiler combine those stages so they execute
+together. Read a stage from right to left: the expression flows into <code>name</code>.
+Consecutive stages line up on their leading bars, so the calculation reads
+down the page:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">scaled</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.5</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">scaled</span>
   <span class="tok-variable">moved</span>
 </code></pre>
-<p>The optional type annotation, as in <code>scaled: f32s</code>, needs to match the expression's type when provided. A fused name is a value, like a <code>let</code> name:
-it is bound once, and it isn't a memory location, an evaluation point or a
-rounding boundary. <code>scaled</code> exists for the reader. The two stages above are
-the same computation as <code>| moved &lt;| positions + velocities * &lt;0.5&gt;</code>.</p>
-<h2 id="the-contract">The contract</h2>
+<p>The optional type annotation, as in <code>scaled: f32s</code>, needs to match the
+expression's type. A fused name is a value, like a <code>let</code> name: it's bound
+once, and it isn't a memory location, an evaluation point or a rounding
+boundary. <code>scaled</code> exists for the reader, and the two stages above are the
+same computation as <code>| moved &lt;| positions + velocities * &lt;0.5&gt;</code>.</p>
+<h2 id="permitted-expressions">Permitted expressions</h2>
 <p>Every rack on the implemented profiles lives in one physical CPU register or
 one WebAssembly <code>v128</code> value, with no source-visible spills. A fused
-binding requires its expression to be pure data flow that the
-compiler can emit as one contiguous run of vector instructions. The compiler
-proves that or rejects the binding. It never falls back to something weaker.</p>
+binding's expression needs to be pure data flow, emitted as one contiguous
+run of vector instructions. The compiler proves this or rejects the binding,
+and never falls back to something weaker.</p>
 <p>A fused expression may contain arithmetic, comparisons, mask logic, uniforms,
 <code>if ... then ... else</code>, <code>fma</code>, shuffles, and calls to these built-in
 operations:</p>
@@ -109,9 +107,9 @@ relaxed_madd relaxed_nmadd relaxed_min relaxed_max
 </code></pre>
 <p>It can't contain a call to a scratch, rake or other function, a reduction, a
 scan, <code>extract</code>, <code>insert</code>, <code>bitmask</code>, indexing or another memory access, a
-conversion such as <code>bitcast</code>, or a record or array. A function's effects
-aren't inferred yet, so a user-defined call can't enter a fused region even
-when it is pure. A rejection gives the binding and the reason:</p>
+conversion such as <code>bitcast</code>, or a record or array. The compiler doesn't infer
+a function's effects yet, so a user-defined call can't enter a fused region
+even when it's pure. A rejection gives the binding and the reason:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">spread</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">total</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-function">sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-variable">total</span>
@@ -124,22 +122,22 @@ subexpressions and form fused instructions, choosing the cheapest graph for
 the profile. Different profiles may therefore round one floating-point
 expression differently.</p>
 <p>The compiler implements part of that. It substitutes fused identifiers, and on
-<code>x86-avx2</code>, <code>x86-avx512</code> and <code>aarch64-neon</code> it contracts an <code>f32</code> multiply feeding an add in the
-same fused region into one fused multiply-add, removing the multiply when
-nothing else uses it. <code>advance</code> above compiles to one <code>vfmadd231ps</code> on AVX2
-and AVX-512, and one <code>fmla</code> on NEON. A multiply and an add outside a fused region, or in
-two different regions, stay separate. <code>wasm-simd128</code> contracts nothing,
-because WebAssembly SIMD128 has no fused multiply-add. SSE2 also keeps the
-multiply and add separate, because its ISA has no fused instruction. Reassociation,
-factoring, distribution and the sharing of subexpressions aren't implemented.
-Integer multiply and add retain their wrapping integer semantics. This
-floating-point rewrite doesn't apply to them.</p>
-<p><code>fma(a, b, c)</code> requires <code>a * b + c</code> rounded once. The compiler also forms fused multiply-adds
-where the source permits contraction. On AVX2, AVX-512 and NEON it is one fused instruction,
-and <code>--verify-native</code> checks that the object holds exactly the fused
-multiply-adds the compiler selected, both contracted and explicit.
-SSE2 and <code>wasm-simd128</code> reject <code>fma</code>. Rake has no slower, stricter arithmetic mode: a
-program that depends on an exact operation specifies it explicitly.</p>
+<code>x86-avx2</code>, <code>x86-avx512</code> and <code>aarch64-neon</code> it contracts an <code>f32</code> multiply
+feeding an add in the same fused region into one fused multiply-add, removing
+the multiply when nothing else uses it. <code>advance</code> above compiles to one
+<code>vfmadd231ps</code> on AVX2 and AVX-512, and one <code>fmla</code> on NEON. A multiply and an
+add outside a fused region, or in two different regions, stay separate.
+<code>x86-sse2</code> and <code>wasm-simd128</code> contract nothing, because neither instruction
+set has a fused multiply-add. Reassociation, factoring, distribution and the
+sharing of subexpressions aren't implemented. Integer multiply and add keep
+their wrapping semantics, so this floating-point rewrite never applies to
+them.</p>
+<p><code>fma(a, b, c)</code> computes <code>a * b + c</code> with a single rounding. On AVX2, AVX-512
+and NEON it's one fused instruction, and <code>--verify-native</code> checks that the
+object's fused multiply-adds, both contracted and explicit, match the
+compiler's selection exactly. SSE2 and <code>wasm-simd128</code> reject <code>fma</code>. Rake has
+no slower, stricter arithmetic mode, so a program that depends on an exact
+operation specifies it explicitly.</p>
 <p>Reductions and scans have a defined lane order. That order is part of their
 result, and fusion never reassociates it, even when their input comes from a
 fused region.</p>
@@ -148,7 +146,7 @@ fused region.</p>
 <nav class="page-contents" aria-label="On this page">
 <p class="page-contents-title">On this page</p>
 <ul>
-<li><a href="#the-contract">The contract</a></li>
+<li><a href="#permitted-expressions">Permitted expressions</a></li>
 <li><a href="#rewrites-and-fused-multiply-add">Rewrites and fused multiply-add</a></li>
 </ul>
 </nav>

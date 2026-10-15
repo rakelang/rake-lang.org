@@ -3,8 +3,8 @@
 <div>
 <h1>Rake</h1>
 <p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
-<p>Rust's type system and borrow checker enforce memory safety in safe code. Inside an <code>unsafe</code> block, the programmer is responsible for memory safety. Rake's compiler checks that vector calculations become vector instructions. It reviews the generated assembly for you. If it can't keep a calculation vectorised, compilation fails. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
-<p>Rake is a SIMD, or vector, programming language. It's built for calculations that apply the same operation to many numbers at once. Its current profiles target CPUs and WebAssembly. The planned GPU profiles will preserve parallel work across warp lanes and check execution costs against an explicit contract.</p>
+<p>Rust's type system and borrow checker enforce memory safety in safe code, and inside an <code>unsafe</code> block the programmer is responsible for it. Rake's compiler checks that vector calculations become vector instructions, reviewing the generated assembly for you, and compilation fails if it can't keep a calculation vectorised. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
+<p>Rake is a SIMD, or vector, programming language for calculations that apply the same operation to many numbers at once. Its current profiles target CPUs and WebAssembly, and the planned GPU profiles will preserve parallel work across warp lanes and check execution costs against an explicit contract.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
 <li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
@@ -13,7 +13,7 @@
 </div>
 </div>
 
-## Why Rake
+## Checked vectorisation
 
 Suppose we want the square roots of a column of numbers, with zero for
 negative inputs. An ordinary C loop is easy to read:
@@ -33,8 +33,8 @@ void safe_root_c(const float *values, float *roots, size_t count)
 }
 ```
 
-With GCC 14.3 and our AVX2 build flags, this becomes a vector loop. Now
-consider a similar loop using a different maths function:
+GCC 14.3 turns this into a vector loop for AVX2. A similar loop with a
+different maths function fares worse:
 
 ```c
 void sin_array_scalar(const float *input, float *output, size_t count)
@@ -44,10 +44,10 @@ void sin_array_scalar(const float *input, float *output, size_t count)
 }
 ```
 
-C still compiles it. In this build, the loop calls the scalar `sinf` library
-function once per element. Successful compilation has allowed the work to
-become scalar. We can enable vectorisation diagnostics or inspect the assembly
-to discover that change.
+C still compiles it, but in this build the loop calls the scalar `sinf`
+library function once per element. The build succeeds anyway, so only
+vectorisation diagnostics or the assembly would show that the work became
+scalar.
 
 Rake makes the vector requirement part of compilation:
 
@@ -64,16 +64,13 @@ native lowering: call to 'sin' is not supported by native scratch lowering
 ```
 
 The profile has no vector lowering for this operation, so Rake stops at the
-line responsible. It can inline supported calculations and select vector
-instructions. If those transformations can't preserve the profile's vector
-rules, it reports an error. That feedback tells us where a calculation needs
-attention before it reaches the application.
+line responsible, before the scalar loop reaches the application.
 
 ### Explicit SIMD
 
 The usual next step is to write the vector operations explicitly. For the
 square-root loop, C's AVX2 intrinsics expose the register width, lane mask,
-loads and stores. The final partial vector needs its own memory mask:
+loads and stores, and the final partial vector needs its own memory mask:
 
 ```c
 #include <immintrin.h>
@@ -104,33 +101,8 @@ void safe_root_avx2(const float *values, float *roots, size_t count)
 }
 ```
 
-Rust's [`wide` SIMD crate](https://docs.rs/wide/1.5.0/wide/struct.f32x8.html)
-gives these values methods. We still write the eight-element chunks,
-conversions and remainder loop:
-
-```rust
-use wide::f32x8;
-
-fn safe_roots(values: &[f32], roots: &mut [f32]) {
-    assert_eq!(values.len(), roots.len());
-    let mut input = values.chunks_exact(8);
-    let mut output = roots.chunks_exact_mut(8);
-    for (chunk, result) in input.by_ref().zip(output.by_ref()) {
-        let value = f32x8::from(<[f32; 8]>::try_from(chunk).unwrap());
-        let zero = f32x8::splat(0.0);
-        let valid = value.simd_ge(zero);
-        let rooted = valid.blend(value, zero).sqrt();
-        let lanes: [f32; 8] = valid.blend(rooted, zero).into();
-        result.copy_from_slice(&lanes);
-    }
-    for (&value, result) in input.remainder().iter().zip(output.into_remainder()) {
-        *result = if value >= 0.0 { value.sqrt() } else { 0.0 };
-    }
-}
-```
-
 [ISPC](https://ispc.github.io/ispc.html) supplies a parallel loop and manages
-its lanes. Its C-family syntax retains the array indices and statements:
+its lanes, while its C-family syntax keeps the array indices and statements:
 
 ```c
 export void safe_roots(uniform float values[],
@@ -166,34 +138,12 @@ run roots(input: stack Samples, output: stack Samples) -> stack Samples:
   output with { value: safe_root(input.value) }
 ```
 
-The masks remain visible in the source, while the width-specific instructions
-and memory handling belong to the compiler.
+### A polynomial sine
 
-### A vector-friendly fix
-
-For the rejected sine calculation, suppose our algorithm uses angles between
-−0.5 and 0.5 radians. We can replace the general library call with a
-ninth-degree polynomial over that interval. C can vectorise its arithmetic:
-
-```c
-static inline float bounded_sine_c(float value)
-{
-    const float square = value * value;
-    const float fifth = 0.0000027557319223985893f * square - 0.0001984126984126984f;
-    const float fourth = fifth * square + 0.008333333333333333f;
-    const float third = fourth * square - 0.16666666666666666f;
-    const float second = third * square + 1.0f;
-    return value * second;
-}
-
-void bounded_sine_column_c(const float *values, float *output, size_t count)
-{
-    for (size_t i = 0; i < count; ++i)
-        output[i] = bounded_sine_c(values[i]);
-}
-```
-
-The same calculation now passes Rake's vector checks:
+Suppose our algorithm only needs the sine of angles between −0.5 and 0.5
+radians. A ninth-degree polynomial over that interval can replace the general
+library call, and because it needs only multiplies and adds, it passes Rake's
+vector checks:
 
 <!-- rake-check: verify x86-avx2 -->
 ```rake
@@ -206,17 +156,11 @@ scratch bounded_sine(values: f32s) -> f32s:
   values * second
 ```
 
-Both compiled versions agreed with `sinf` to a maximum observed absolute
-error of 2.98 × 10⁻⁸ across 8,000 evenly spaced inputs in that interval.
-The C vector loop uses packed multiplies and adds. Rake selects and verifies
-the corresponding vector kernel. Restricting the input domain gives us a
-small calculation we can implement with the available vector operations.
-
 ### Measured execution
 
-These bars return to the square-root example. All four versions process
-the same million-element input. C's automatic vectoriser already handles
-this loop, and its two vector versions and Rake finish at similar times.
+These bars return to the square-root example, with all four versions
+processing the same million-element input. C's automatic vectoriser already
+handles this loop, so its two vector versions and Rake finish at similar times.
 
 <figure class="diagram diagram-benchmark">
 <div class="diagram-panels">
@@ -264,19 +208,16 @@ this loop, and its two vector versions and Rake finish at similar times.
 </svg>
 </div>
 </div>
-<figcaption>Ryzen 7 5800X3D, AVX2, GCC 14.3, 5 October 2026, while other work kept its 16 threads busy. Medians of 31 samples, each averaging four passes, with execution order rotated. The scalar row disables C's vectoriser. The right panel enlarges the three vector rows with its own labelled scale.</figcaption>
+<figcaption>Ryzen 7 5800X3D, AVX2, GCC 14.3, 5 October 2026, while other work kept its 16 threads busy. Medians of 31 samples, each averaging four passes, with execution order rotated. The scalar row disables C's vectoriser.</figcaption>
 </figure>
 
 [The benchmark source, flags and raw samples](https://github.com/rakelang/rake/tree/main/demo/safe-root)
 include bitwise result comparisons, guard-page tail checks and disassemblies.
-Rake makes the vector lowering a checked requirement while keeping the
-source focused on the calculation.
 
-## A first look
+## The programming model
 
-Rake's execution model can be pictured in three steps: define the `tine`s,
-`rake` data `through` them, then `sweep` the results. We'll read the program
-in that order, starting with what vector processing means.
+Rake has no branches inside a rack. Its execution model has three steps:
+define the `tine`s, `rake` data `through` them, then `sweep` the results.
 
 ### One instruction, several numbers
 
@@ -345,29 +286,21 @@ in that order, starting with what vector processing means.
 <figcaption>Highlighted cells are processed by one add instruction. Four vector lanes are shown here.</figcaption>
 </figure>
 
-Imagine a person at a desk with a long tape passing over it. They can modify
-the number in front of them, perhaps by adding 1. In a scalar loop, they
-advance the tape and repeat that operation for the next number.
+Picture a person at a desk with a long tape passing over it. In a scalar
+loop, they add 1 to the number in front of them, then advance the tape and
+repeat. A vector operation gives them a wider desk with several numbers side
+by side, and linked pens apply the one instruction to all of them at once.
+This is SIMD, *single instruction, multiple data*, and each position is a
+*lane*. A processor holds the values in a vector register, and its width sets
+how many fit: a 128-bit register holds four 32-bit numbers, and a 256-bit
+register holds eight. Rake
+calls the row of values held together a *rack*.
 
-A vector operation gives them a wider desk with several numbers side by
-side. There's still one person issuing the instruction, but linked pens
-apply it to every number at once, as the diagram's wide desk shows.
+### Tines
 
-This is SIMD: *single instruction, multiple data*. Each position is called a
-*lane*. The instruction “add 1” acts on all the lanes together.
-
-A processor holds these values in a vector register. Its width determines
-how many numbers fit: a 128-bit register holds four 32-bit numbers, while a
-256-bit register holds eight. “32-bit” describes the space one number takes.
-Rake calls the row of values held together a *rack*.
-
-### Define the tines
-
-Let's extend that first operation with a second case, so we can see how
-tines combine. Positive numbers take their
-square roots. Negative numbers take the square roots of their magnitudes,
-then keep their negative signs: 16 becomes 4, and −4 becomes −2. Here's that
-compound definition, which we'll read from top to bottom:
+This rake takes the square root of each nonnegative number, and for a
+negative number it takes the root of the magnitude and keeps the sign, so 16
+becomes 4 and −4 becomes −2:
 
 <!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 -->
 ```rake
@@ -387,17 +320,12 @@ rake signed_root(values: f32s) -> f32s:
     | (#nonnegative(values) or #negative(values)) gaps => <0.0>
 ```
 
-A tine is a prong on a garden rake. In the language, a `tine` is a labelled
-*mask*: a true-or-false choice for each lane. The hash, `#`, resembles the
-crossing lines and prongs of a rake. It also marks a label, another way to
-think about referring to a mask. Read
-`tine #nonnegative(values: f32s) means values >= <0.0>` as “the nonnegative tine catches
-numbers that are greater than or equal to zero”. The second tine catches
-the negative numbers.
-
-`<0.0>` is a *uniform*, one scalar value shared by every lane. The angle
-brackets visually stretch that value across the whole rack. Each comparison
-checks every input number against the same zero:
+A `tine`, named after the prongs of a garden rake, is a labelled *mask*: a
+true-or-false choice for each lane. Read the first line as “the nonnegative
+tine catches numbers that are greater than or equal to zero”. `<0.0>` is a
+*uniform*, one scalar value shared by every lane, and the angle brackets mark
+every point where a scalar becomes a rack, so the cost of broadcasting is
+always visible:
 
 ```text
 values:        [16,    -4,     9,    -1]
@@ -405,31 +333,17 @@ values:        [16,    -4,     9,    -1]
 #negative:    [false, true, false,  true]
 ```
 
-The tine's parameter, `values: f32s`, says that it takes a rack of 32-bit
-floating-point numbers. `tine #nonnegative` declares its label, and
-`means values >= <0.0>` defines how to calculate its mask. That follows the
-familiar distinction between a declaration, which introduces an identifier,
-and a definition, which supplies its meaning. Both are on one line here.
+Tines are defined outside the rake, so another rake can reuse them with
+different data. They store no global mask: applying `#nonnegative(values)`
+computes the mask for that particular input.
 
-This definition sits outside the rake, so another rake can reuse it with
-different data. It stores no global mask. The application
-`#nonnegative(values)` computes the mask for the particular input.
+### Rakes and through blocks
 
-### Rake the data
-
-With the tines defined, the `rake signed_root` line introduces the operation
-that will use them. `values` is its input, and the arrow says that the
-result is another `f32s` rack. The `rake` keyword tells the compiler that
-this definition will choose work for individual lanes. Its through blocks
-supply that work, and its sweep chooses the result.
-
-### through
-
-Now that we've selected the valid lanes, we can pass them through a
-calculation. Read `through #nonnegative(values) into positive_roots:` as
-“calculate the nonnegative lanes using the body below, and bind those
-results to `positive_roots`”. The body is `sqrt(values)`.
-The second block calculates `-sqrt(-values)` under the negative tine:
+The `rake` keyword tells the compiler that `signed_root` chooses work for
+individual lanes. Its through blocks supply that work, and its sweep chooses
+the result. Read `through #nonnegative(values) into positive_roots:` as
+“calculate the nonnegative lanes using the body below, and bind those results
+to `positive_roots`”:
 
 ```text
 values:         [16, -4, 9, -1]
@@ -437,63 +351,27 @@ positive_roots: [ 4,  ·, 3,  ·]
 negative_roots: [ ·, -2, ·, -1]
 ```
 
-The dots mean undefined lanes. We haven't supplied an intermediate
-fallback, so those lanes can't be read. The compiler checks every later
-use against the mask where the value is defined.
+The dots are undefined lanes, and the compiler checks every later use of
+`positive_roots` against the mask where it's defined. The binding doesn't need
+a temporary array, so the value can stay in a vector register.
 
-Giving the result the name `positive_roots` is called *binding* a name to a value.
-Binding is general programming terminology, used in languages such as
-[OCaml](https://ocaml.org/docs/values-and-functions). It's the association
-between a name and what that name means. Here `into positive_roots` introduces the
-identifier, and the block defines its value through the masked calculation.
+### Sweeps
 
-We can now use `positive_roots` under the same mask, or a narrower one, in
-a later block or in the sweep. A binding doesn't
-require the compiler to store a temporary array: this value can stay in a
-vector register. Identifiers introduced inside a through body are local to
-that body. Its result binding is available to the rest of the rake.
+A `sweep` chooses the values that leave the function, trying its arms in
+order. The first two take each lane's root from the through block that
+computed it. The last arm gives zero to the lanes in neither mask, found by
+`gaps`, an exact mask inversion, so a NaN that passed neither comparison still
+gets a value. The result is
+`[4, -2, 3, -1]`, with each value still in its original lane, and because
+`sweep:` is the rake's result form, it needs no `return` keyword.
 
-### sweep
-
-We've calculated an intermediate rack. A `sweep` chooses the values that
-leave the function. Read its arms in order: `| #nonnegative(values) => positive_roots`
-takes the positive roots in the nonnegative lanes. The next arm takes the
-negative roots in the negative lanes. The final arm uses
-`(#nonnegative(values) or #negative(values)) gaps`: the gaps in the union
-of both masks. It gives zero to any lane left over, including a NaN that
-passed neither comparison. `gaps` is exact mask inversion.
-
-The result is `[4, -2, 3, -1]`. Each value stays in its original lane, so a
-sweep doesn't shuffle or compact the rack. `sweep:` is itself the rake's
-result form, which is why it doesn't need a `return` keyword.
-
-### Intermediate and final results
-
-The sweep reads each partial result only in its defined lanes:
-
-| Stage | Lane 0 | Lane 1 | Lane 2 | Lane 3 |
-| --- | ---: | ---: | ---: | ---: |
-| Input | 16 | −4 | 9 | −1 |
-| `positive_roots` | 4 | undefined | 3 | undefined |
-| `negative_roots` | undefined | −2 | undefined | −1 |
-| Sweep result | 4 | −2 | 3 | −1 |
-
-For a negative input, the sweep takes the value from `negative_roots`.
-Trying to take it from `positive_roots` is a compile error. If a later
-calculation needs the whole intermediate rack, add an explicit through
-fallback such as `else <0.0>`. That makes every lane defined.
-
-A sweep can also use a final `_` arm for unmatched lanes. It is optional
-when the masks provably cover every lane, as these tines and their `gaps`
-do. Separate numeric comparisons aren't assumed to cover all inputs:
-NaNs fail both comparisons in this example.
-
-Reading the definition in stages explains how the calculation depends on
-its inputs. The sweep selects values computed by the through blocks. The
-compiler can optimise these pure calculations together. Both square roots
-become vector instructions. On
-physical CPU profiles, the compiler supplies benign operands in their
-inactive lanes. WebAssembly SIMD has no floating-point exception flags.
+Reading `positive_roots` in a negative lane would be a compile error. If a
+later calculation needs a whole intermediate rack, a through fallback such as
+`else <0.0>` defines every lane. A final `_` arm catches unmatched lanes, and
+it's optional when the masks provably cover every lane, as these tines and
+their `gaps` do. Lanes outside a mask can't fail or raise a floating-point
+exception, because physical CPU profiles give inactive lanes benign operands
+and WebAssembly SIMD has no floating-point exception flags.
 
 [Lesson 8](/docs/playground/#lesson-8) lets you try an undefined-lane read,
 then add a fallback and inspect the result. [Tines, through and sweeps](/docs/tines-and-through/)
@@ -501,42 +379,14 @@ defines the scope and masking rules.
 
 ## Characteristics
 
-### Racks are vector values
+### Fused stages
 
-`f32s` is a rack of `f32` values. On AVX2 it is one physical register holding
-eight floats, and on NEON one holding four. On WebAssembly it is one `v128`
-value holding four. Rake adheres to the virtual machine's fiction and doesn't
-try to replace the runtime's physical register allocation. Outside a `slow`
-block, rack work uses vector instructions wherever
-the selected profile supports the operation, or the compiler refuses it.
-
-### Scalars are marked
-
-A value shared by every lane is a uniform, and angle brackets mark it where
-it is declared and where it is used: `<dt: f32>` and `<dt>`. Every point where
-a scalar becomes a rack is visible on the page, which makes the cost of
-broadcasting easy to see.
-
-### Masks choose lanes
-
-There are no branches inside a rack. A tine such as `#nonnegative` identifies a mask of
-lanes, a `through` block computes under it, and a sweep picks each lane's
-result by priority, with proven coverage or a final `_`. Lanes outside a
-mask can't fail or raise a floating-point exception.
-
-### Stages fuse
-
-Once we've given an intermediate value a name, it can look as though we've
-asked the processor to perform and store that step separately. *Fusion* is
-the general compiler term for combining pieces of work so they can execute
-together. Compilers may fuse loops, for example, to do their work in one
-pass. Rake's fused bindings let it combine stages of a vector calculation.
-
-In `| name <| expression`, the expression flows from right to left into its
-name. This is still a binding. The leading `|` marks it as part of a fused
-calculation. The compiler keeps its stages together as a contiguous sequence
-of vector instructions. Here a `scratch`, a function of racks that
-doesn't need tines, calculates a new position in two stages:
+*Fusion* is the general compiler term for combining pieces of work so they
+execute together. In `| name <| expression`, the expression flows from right
+to left into its name. It's still a binding, but the leading `|` marks it as a
+fused stage, and the compiler keeps consecutive stages together as one
+contiguous sequence of vector instructions. Here a `scratch`, a function of
+racks that doesn't need tines, calculates a new position in two stages:
 
 ```rake
 scratch advance(positions: f32s, velocities: f32s, <dt: f32>) -> f32s:
@@ -545,23 +395,17 @@ scratch advance(positions: f32s, velocities: f32s, <dt: f32>) -> f32s:
   moved
 ```
 
-`step` is the velocity multiplied by the time interval. `moved` adds that
-step to the position. The bindings make the calculation legible, while
-allowing the compiler to combine the multiply and add into one instruction.
-On AVX2 the code becomes one `vbroadcastss` to share `dt` across the lanes,
-then one `vfmadd231ps`, a fused multiply-add. It rounds the combined
-calculation once. Strict WebAssembly SIMD has no such instruction, so that
-target keeps the multiply and add separate.
-
-[Fused bindings](/docs/fused-bindings/) defines which rewrites Rake permits.
-[LLVM's loop-fusion documentation](https://llvm.org/docs/LoopFusion.html)
-describes another use of the same compiler term.
+The names keep the calculation legible, while on AVX2 the code becomes one
+`vbroadcastss` to share `dt` across the lanes and one `vfmadd231ps`, a fused
+multiply-add that rounds the combined calculation once. Strict WebAssembly
+SIMD has no such instruction, so that target keeps the multiply and add
+separate. [Fused bindings](/docs/fused-bindings/) defines which rewrites Rake
+permits.
 
 ### Packs, racks and stacks
 
-A scratch or rake operates on one rack. To describe the data it will work
-on, we define a `pack`: one record, with its fields stored together. Here
-one particle has a position, velocity and age:
+A `pack` describes one record, here a particle with a position, velocity and
+age:
 
 ```rake
 pack Particles {
@@ -570,16 +414,10 @@ pack Particles {
 }
 ```
 
-These fields use `f32` and `u8`, because each record stores one float or byte.
-Their rack counterparts, `f32s` and `u8s`, describe values during vector
-computation. Putting `f32s` in this declaration would confuse a stored
-element with a processor-sized row of elements.
-
-A `stack` is a collection of those packs transposed into columns. For 600
-particles, it holds 600 positions together, 600 velocities together and
-600 ages together. Each unsized column can be split into racks at the
-target's SIMD width. Remember the hierarchy as "define our pack, then rack
-'em and stack 'em".
+A `stack` stores many packs as columns, so 600 particles become 600 positions
+together, 600 velocities together and 600 ages together, and each column
+splits into racks at the target's SIMD width. Remember the hierarchy as
+"define our pack, then rack 'em and stack 'em".
 
 <figure class="diagram diagram-data-layout">
 <div class="diagram-scroll" tabindex="0" role="region" aria-label="Particle storage diagram, scroll horizontally on a narrow screen">
@@ -610,10 +448,8 @@ target's SIMD width. Remember the hierarchy as "define our pack, then rack
 <figcaption>The highlighted slice is one eight-lane AVX2 rack in a stack's column layout. The caller supplies a separate column for each field.</figcaption>
 </figure>
 
-A `run` applies scratches and rakes to whole stacks. `positions.value` is the
-whole column of 600 values, and the compiler splits it into racks, including
-the final partial rack. This run feeds our 600 positions into `signed_root`
-and returns the stack with the results:
+A `run` applies scratches and rakes to whole stacks. This one feeds a column
+of positions into `signed_root` and returns the stack with the results:
 
 <!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 with 4 -->
 ```rake
@@ -625,62 +461,12 @@ run roots(positions: stack Positions) -> stack Positions:
   positions with { value: signed_root(positions.value) }
 ```
 
-The stack carries its count, 600 here. It needn't be a power of two or a
-multiple of the rack width, and the final rack loads and stores only the
-records that exist. Calling the run moves the stack into it, so the run updates
-the column in place.
-
-For the comparison at the top, `safe_root` replaces `signed_root` in the same
-kind of run, and the count is 1,000,000. AVX2 splits that column into
-125,000 eight-lane racks. The benchmark also checks 1,000,003 entries, whose
-last rack has three active lanes. The stored column contains a million
-individual `f32` values, rather than a million-lane `f32s` value.
-
-<figure class="diagram diagram-data-layout">
-<div class="diagram-scroll" tabindex="0" role="region" aria-label="Rack width diagram, scroll horizontally on a narrow screen">
-<svg viewBox="0 0 680 258" role="img" aria-labelledby="pack-width-title pack-width-description">
-<title id="pack-width-title">600 float records divided into SIMD racks</title>
-<desc id="pack-width-description">512-bit racks hold 16 floats, requiring 37 full racks and one half-full rack. AVX2 racks hold 8 floats, requiring 75 full racks. 128-bit racks hold 4 floats, requiring 150 full racks.</desc>
-<text class="diagram-label" x="18" y="24">One column: 600 f32 records</text>
-<rect class="diagram-cell diagram-cell-active" x="18" y="38" width="644" height="30" rx="4"/>
-<text class="diagram-value" x="340" y="53">600 values in memory</text>
-<text class="diagram-label" x="18" y="106">512-bit: 16 per rack</text>
-<rect class="diagram-cell diagram-cell-active" x="246" y="84" width="300" height="34" rx="4"/>
-<text class="diagram-value" x="396" y="101">37 full + 1 half rack</text>
-<text class="diagram-label" x="18" y="157">AVX2: 8 per rack</text>
-<rect class="diagram-cell diagram-cell-active" x="246" y="135" width="300" height="34" rx="4"/>
-<text class="diagram-value" x="396" y="152">75 full racks</text>
-<text class="diagram-label" x="18" y="208">128-bit: 4 per rack</text>
-<rect class="diagram-cell diagram-cell-active" x="246" y="186" width="300" height="34" rx="4"/>
-<text class="diagram-value" x="396" y="203">150 full racks</text>
-<text class="diagram-label" x="18" y="247">Wider racks process more lanes per instruction.</text>
-</svg>
-</div>
-<figcaption>The rack counts follow from register width. Native AVX-512 runs use the 512-bit row, AVX2 runs use the 256-bit row, and SSE2, NEON and WebAssembly use the 128-bit row.</figcaption>
-</figure>
-
-512-bit SIMD handles twice as many `f32` lanes per instruction as AVX2, and
-four times as many as 128-bit SIMD. Elapsed time also depends on memory
-bandwidth, instruction costs and processor frequency. *WIP: work in progress.*
-
-Our particles use the same kind of run. The age stays one byte per record in
-memory, and `widen` brings it into 32-bit lanes for the calculation:
-
-```rake
-pack Particles {
-  f32: position, velocity;
-  u8: age;
-}
-
-run advance(particles: stack Particles, <dt: f32>) -> stack Particles:
-  let age = to_f32(widen(particles.age))
-  particles with { position: particles.position + particles.velocity * <dt> / (age + <1.0>) }
-```
-
-A run can also choose which particles to touch. `where #young` after its
-result updates only the young particles, and the others keep their values.
-`compact` keeps only the young particles instead, moved to the front of each
-column, and the stack's count shrinks to match:
+The stack carries its count, which needn't be a multiple of the rack width,
+and the final rack loads and stores only the records that exist. Calling the
+run moves the stack into it, so the run updates the column in place. A run can
+also choose which records to touch: `where #young` after its result would
+update only the young particles, while `compact` keeps only them, moved to the
+front of each column, and shrinks the count to match:
 
 <!-- rake-check: verify x86-sse2 x86-avx2 x86-avx512 aarch64-neon wasm-simd128 -->
 ```rake
@@ -696,14 +482,13 @@ run young_only(particles: stack Particles) -> stack Particles:
 ```
 
 Which is faster depends on how many particles survive, so the source chooses.
-A successful build ends with a kernel report identifying the method used for each target, such as AVX-512's `vcompressps` or AVX2's permutation table.
 
-### Scalar code stays scalar
+### Slow code
 
 Programs need setup, records, state and calls to C as well as kernels. That
 code is marked `slow`, and it can't hold a rack. Inside a run, `slow { ... }`
-is a scoped escape for scalar loops, calls and state updates. It can produce a
-scalar value, which becomes a rack only through an explicit broadcast:
+is a scoped escape for scalar work, and its scalar result becomes a rack only
+through an explicit broadcast:
 
 ```rake
 run shift(values: []i32, out: mut []i32, <steps: i32>):
@@ -717,7 +502,7 @@ run shift(values: []i32, out: mut []i32, <steps: i32>):
   out[<0>] <- rack + <offset>
 ```
 
-The loop computes a scalar offset. After `}`, one vector add applies it to
+The loop computes a scalar offset, and after `}` one vector add applies it to
 every lane. [The slow tier](/docs/slow-tier/#slow-blocks) defines the boundary.
 
 ### Verified output
@@ -725,9 +510,7 @@ every lane. [The slow tier](/docs/slow-tier/#slow-blocks) defines the boundary.
 `rakec --verify-native` disassembles what it built and checks it against the
 profile's rules: no hidden calls or stack work, one physical register per rack
 on physical targets, and only the permitted WebAssembly virtual instructions
-on `wasm-simd128`. A rack sine has no vector implementation yet, so the
-compiler rejects `sin(values)` instead of calling a scalar library function
-once per lane.
+on `wasm-simd128`.
 
 ## Notation
 
@@ -742,26 +525,11 @@ Most of Rake reads like any expression language. These marks are its own:
 | `:=` and `<-` | `total := <0.0>`, `total <- total + x` | a mutable location, and assigning to it |
 | `~~` | `~~ a comment` | a comment to the end of the line |
 
-The double squiggle, `~~`, is Rake's own line-comment marker. It evokes
-furrows in raked sand, part of the language's desert theme. Lua's equivalent
-is `--`. Rake borrows `let` bindings, expression-based conditionals and nested
-`(* ... *)` block comments from OCaml.
-
-We're still condensing this visual language into something “uniquely
-comprehensible”. Function spellings such as `bit_and()` are temporary: they
-keep bitwise operations separate from other operators while the symbology
-settles. Any replacement will change the compiler, grammar and examples
-together.
-
-If you know [Gleam's pipe operator](https://tour.gleam.run/everything/),
-the flow marks may look familiar. In Rake, `<|` binds a stage from right to
-left, while `<-` assigns to a mutable location. Neither creates a lazy
-pipeline. The fused stages describe one computation for the compiler to
-optimise.
-
-Indentation shows structure, as in Python, and a line ending in `:` opens a
-body. [The tutorial](/docs/playground/#reading-rake) explains each mark for
-readers who come from C or Python.
+`~~` evokes furrows in raked sand. Rake borrows `let` bindings,
+expression-based conditionals and `(* ... *)` block comments from OCaml, and
+indentation from Python, with a line ending in `:` opening a body.
+[The tutorial](/docs/playground/#reading-rake) explains each mark for readers
+who come from C or Python.
 
 ## Targets
 
@@ -773,55 +541,30 @@ readers who come from C or Python.
 | `aarch64-neon` | one 128-bit register, 4 32-bit lanes | float racks and a 32-bit integer subset, as assembly |
 | `wasm-simd128` | one `v128`, 4 `f32` lanes | float and integer racks, runs and whole programs, as C |
 
+The native profiles also compile stack runs over `f32`, `i32` and `u32`
+columns, while general native runs are still work in progress.
 [Primitives, operations, and targets](/docs/primitives-operations-and-targets/) lists what each profile
-compiles, and [the roadmap](/docs/roadmap/) what comes next.
+compiles, [the backend](/docs/backend/#whole-programs) explains which parts
+of a program come from Rake and which use a platform C compiler, and
+[the roadmap](/docs/roadmap/) covers what comes next.
 
-Rake 0.7.0's native integer subset supports wrapping add/subtract
-and bitwise AND/OR/XOR on `i32s` and `u32s`. Signed and unsigned comparisons
-produce masks for selection and mask reductions. Literal and runtime-uniform
-bit shifts work on every physical profile. A runtime `u32` count uses its low
-five bits, so a count of 32 leaves each lane unchanged. The operation reference
-lists the other implemented integer operations and the remaining WIP* coverage.
-
-Rake 0.7.0 also combines native slow orchestration
-with Rake-selected register kernels, through a limited scalar C boundary.
-Typed C callbacks and process arguments are implemented there. Stack runs
-compile on SSE2, AVX2, AVX-512 and NEON over `f32`, `i32` and `u32` columns,
-with masking, compaction and several replaced columns. These runs accept `f32`, `i32`, `u32` and `bool` uniforms within the profile's register
-limits.
-Uniform conditions can use `and`, `or` and `not`. A run can bind an
-intermediate Boolean and reuse it in later conditions.
-Explicit `widen` also reads signed or unsigned byte and 16-bit columns into
-32-bit working racks, keeping their storage compact and their tails checked.
-Bitcasts between `i32s` and `u32s` preserve lane bits. `to_f32` converts
-signed or unsigned integer racks numerically, and `to_i32` or `to_u32`
-converts floats to the corresponding integer type, including in stack runs.
-Float-to-integer conversion rounds to nearest with ties to even,
-saturates out-of-range values and converts NaNs to zero.
-General native runs remain WIP*. [The backend](/docs/backend/#whole-programs) explains
-which parts Rake emits and which parts use a platform C compiler.
-
-To compile a program with your own C toolchain, use `rakec --emit-c`. Its
-native C unit embeds the selected kernel assembly alongside the scalar
-code. On WebAssembly it uses SIMD intrinsics. C ABI interoperation is the
-calling and data-layout boundary: it lets Rake call C functions and exchange
-records, unions and typed callbacks, whether you request C source or an
-object file. [The compiler command](/docs/rakec/#c-output-and-c-interoperation)
-explains both outputs. `--emit-asm` is reserved for physical-target files
-containing register kernels only.
+`rakec --emit-c` writes C for your own toolchain, embedding the kernel
+assembly on native targets and using SIMD intrinsics on WebAssembly. Rake can
+call C functions and exchange records, unions and typed callbacks across the C
+ABI, as [the compiler command](/docs/rakec/#c-output-and-c-interoperation)
+explains.
 
 ## GPU execution: the design
 
-A CPU rack fits in one vector register. On an NVIDIA GPU, the planned rack
-will span a warp of 32 threads instead. Each thread holds one lane's value.
-Rake will check that the work stays mapped across those lanes, with no hidden
-loop that processes the rack serially inside one thread.
+On an NVIDIA GPU, the planned rack will span a warp of 32 threads, each
+holding one lane's value, and Rake will check that no hidden loop processes
+the rack serially inside one thread.
 
 <figure class="diagram diagram-gpu-rack">
 <div class="diagram-scroll" tabindex="0" role="region" aria-label="GPU rack diagram, scroll horizontally on a narrow screen">
 <svg viewBox="0 0 680 228" role="img" aria-labelledby="home-gpu-title home-gpu-description">
 <title id="home-gpu-title">A proposed GPU rack maps values across a warp</title>
-<desc id="home-gpu-description">32 values map to 32 thread lanes. Lanes zero, one, two, thirty and thirty-one are illustrated, with the intervening lanes omitted. Each participating thread applies plus one to its own value. Rake checks that mapping. Hardware schedules the warp.</desc>
+<desc id="home-gpu-description">32 values map to 32 thread lanes. Lanes zero, one, two, thirty and thirty-one are illustrated, with the intervening lanes omitted. Each participating thread applies plus one to its own value, and Rake checks that mapping while hardware schedules the warp.</desc>
 <text class="diagram-label" x="18" y="24">Column in memory: 32 values</text>
 <rect class="diagram-cell diagram-cell-active" x="18" y="38" width="644" height="32" rx="4"/>
 <text class="diagram-value" x="340" y="54">One value per thread lane</text>
@@ -845,17 +588,11 @@ loop that processes the rack serially inside one thread.
 <figcaption>GPU design: each thread performs one lane's arithmetic in parallel with the other threads of its warp.</figcaption>
 </figure>
 
-Masks can leave some lanes inactive because the input takes different paths.
-Hardware schedules the warps. The proposed compiler will preserve the declared
-control flow and reject forbidden spills, reloads or helper calls in checked regions. Memory
-address patterns and synchronisation scopes will remain explicit.
-
-The first proposed profile, `nvidia-ptx-sm120`, will emit inspectable PTX,
-then use a pinned NVIDIA toolchain to build a cubin ahead of time. NVIDIA
-will allocate physical registers and schedule instructions. Rake will verify
-the resulting device artifact and load those exact bytes, with no unverified
-PTX JIT fallback. Later designs cover portable SPIR-V/Vulkan and a direct
-physical backend for a documented ISA.
+The first proposed profile, `nvidia-ptx-sm120`, will emit inspectable PTX and
+build a cubin ahead of time with a pinned NVIDIA toolchain. Rake will verify
+that device artifact and load those exact bytes, with no unverified PTX JIT
+fallback. Some properties can be checked in the artifact, while others only
+show up when it runs:
 
 | Checkable contract | Needs execution evidence |
 | --- | --- |
@@ -864,10 +601,9 @@ physical backend for a documented ISA.
 | explicit lane-to-address patterns | memory transactions, caches and transfer costs |
 | declared numerical and synchronisation rules | elapsed time and application throughput |
 
-Keeping more values in registers can reduce the number of resident warps.
-Enough independent work and balanced workloads also affect throughput.
-[The GPU design](/docs/gpu/) defines the proposed
-contract, and [the comparison with ISPC and Bend 2](/docs/comparisons/#gpu-execution-rake-ispc-and-bend)
+[The GPU design](/docs/gpu/) defines the proposed contract, including later
+SPIR-V/Vulkan and direct physical backends, and
+[the comparison with ISPC and Bend 2](/docs/comparisons/#gpu-execution-rake-ispc-and-bend)
 separates lane-parallel kernels from parallel fork–join tasks.
 
 ## Projects using Rake
@@ -886,25 +622,16 @@ separates lane-parallel kernels from parallel fork–join tasks.
 
 ## Getting Rake
 
-The compiler is written in OCaml, and its Nix development shell pins every
-tool it uses:
-
-```sh
-git clone https://github.com/rakelang/rake
-cd rake
-nix develop --command dune build
-nix develop --command dune exec rakec -- --interpret program.rk
-```
-
-[The rakec command](/docs/rakec/) lists its modes and options. Rake is
-released under the MIT licence. Rake is pre-1.0: the language and its binary
-boundaries may still change between versions.
+The compiler, `rakec`, is written in OCaml, and
+[its repository](https://github.com/rakelang/rake) explains how to build it
+in a pinned Nix development shell. [The rakec command](/docs/rakec/) lists its
+modes and options. Rake is released under the MIT licence, and it's pre-1.0,
+so the language and its binary boundaries may still change between versions.
 
 ### Syntax highlighting
 
-The Tree-sitter grammar is available through these package managers. These
-packages provide parsing and highlighting for editor integrations, rather
-than the Rake compiler:
+These Tree-sitter grammar packages provide parsing and highlighting for editor
+integrations. They don't include the compiler:
 
 <ul class="link-row">
 <li><a class="link-button" href="https://pypi.org/project/tree-sitter-rake/">PyPI · tree-sitter-rake</a></li>

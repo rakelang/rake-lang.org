@@ -76,20 +76,17 @@
     <main class="content">
 <h1 id="vectors-cheat-sheet">Vectors cheat sheet</h1>
 <p>A vector operation does the same work on several values at once. This page
-explains the vocabulary used to describe that work, starting with CPU
-registers and then GPU threads. Use your browser's find command to look up a
-term. The examples use four lanes so you can follow every value.</p>
+explains the vocabulary for that work, first for CPU registers and then for
+GPU threads, with four-lane examples so you can follow every value. For
+Rake's own terms, see the <a href="/docs/glossary/">language glossary</a>, and for what Rake
+implements, see <a href="/docs/primitives-operations-and-targets/">primitives, operations, and targets</a>.
+Rake's <a href="/docs/gpu/">GPU profiles</a> are currently a design.</p>
 <p><a href="#cpu">CPU</a> · <a href="#gpu">GPU</a></p>
-<p>These are hardware and programming terms, rather than a list of available
-Rake functions. <a href="/docs/primitives-operations-and-targets/">Primitives, operations, and targets</a>
-lists implemented support. Rake's <a href="/docs/gpu/">GPU profiles</a> are currently a
-design. The <a href="/docs/glossary/">language glossary</a> explains Rake's own terminology.</p>
 <h2 id="cpu">CPU</h2>
 <h3 id="values-lanes-and-registers">Values, lanes and registers</h3>
 <p>Think of a vector register as a row of cells. Each cell holds one element,
 and an instruction can operate on the whole row. A 256-bit register holds
-eight 32-bit floats, sixteen 16-bit integers or thirty-two 8-bit integers.
-Element width and register width are different quantities.</p>
+eight 32-bit floats, sixteen 16-bit integers or thirty-two 8-bit integers.</p>
 <figure class="diagram diagram-vector-ops">
 <div class="diagram-scroll" tabindex="0" role="region" aria-label="CPU lane operations, scroll horizontally on a narrow screen">
 <svg viewBox="0 0 680 284" role="img" aria-labelledby="vector-basic-title vector-basic-desc">
@@ -115,28 +112,23 @@ Element width and register width are different quantities.</p>
 <text class="diagram-value" x="519" y="237">[c, a, d, b]</text>
 </svg>
 </div>
-<figcaption>Arithmetic changes values. Broadcast duplicates one value. Shuffle changes which lane supplies each result.</figcaption>
+<figcaption>Arithmetic changes values, a broadcast copies one value into every lane, and a shuffle changes which lane supplies each result.</figcaption>
 </figure>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>Scalar</td><td>One value, such as a single float. Scalar execution processes one element per operation.</td></tr>
-<tr><td>f32 / FP32 / binary32</td><td>A 32-bit IEEE 754 floating-point value, normally C's <code>float</code>. <code>f64</code> / FP64 uses 64 bits. Integer element types specify signedness and bit width.</td></tr>
-<tr><td>Vector / packed value</td><td>Several elements held together in a register for parallel operations. Rake uses <code>pack</code> separately for a record declaration.</td></tr>
-<tr><td>Element / lane</td><td>An element is a stored value. A lane is its position within a vector operation. Some instruction manuals also use “lane” for a larger sub-register, so check the instruction's granularity.</td></tr>
-<tr><td>SIMD</td><td>Single instruction, multiple data: one instruction operates on multiple elements.</td></tr>
-<tr><td>Vector width / element width</td><td>The register's bit capacity and the bits per element. Their ratio gives the element count for a fixed-width vector.</td></tr>
-<tr><td>Vector register / register file</td><td>Fast processor storage for a vector, and the collection of registers available to execution.</td></tr>
-<tr><td>Uniform / varying</td><td>A uniform has the same value across lanes. A varying value can differ by lane. A uniform may be computed at runtime.</td></tr>
-<tr><td>Fixed-width / scalable vector</td><td>Fixed-width code uses a specified register size. Scalable-vector code can adapt its active element count to the machine.</td></tr>
-<tr><td>VLA / vector-length agnostic</td><td>Code written without assuming one hardware vector length. A loop can process the available number of elements at each step.</td></tr>
-<tr><td>Vector length / VL</td><td>The current active element count, especially in scalable architectures. It can be smaller than the register's maximum capacity.</td></tr>
-<tr><td>SWAR</td><td>SIMD within a register: treating a scalar word as several smaller fields and operating on them with bit tricks.</td></tr>
-<tr><td>SSE / SSE2 / XMM</td><td>x86 instruction families with 128-bit XMM registers. SSE2 adds, among other operations, packed integer and double-precision operations.</td></tr>
-<tr><td>AVX / AVX2 / YMM</td><td>x86 families using 256-bit YMM vectors as well as narrower forms. AVX2 extends packed integer operations and adds gathers.</td></tr>
-<tr><td>AVX-512 / ZMM / opmask</td><td>x86 extensions with 512-bit ZMM vectors and dedicated mask registers. Individual extensions support different element types and operations.</td></tr>
-<tr><td>NEON / Advanced SIMD</td><td>Arm's fixed-width SIMD, including 128-bit vectors on AArch64.</td></tr>
-<tr><td>SVE / SVE2</td><td>Arm scalable vector extensions. Software can use predicates and write vector-length-agnostic loops.</td></tr>
-<tr><td>RVV / VLEN / SEW / LMUL</td><td>RISC-V vectors, hardware register length, selected element width, and register grouping multiplier. LMUL can group registers for one logical vector.</td></tr>
-<tr><td>WebAssembly SIMD / v128</td><td>A virtual 128-bit vector and its operations. The runtime performs physical instruction selection and register allocation.</td></tr>
+<tr><td>Scalar</td><td>One value, such as a single float.</td></tr>
+<tr><td>f32 / FP32 / binary32</td><td>A 32-bit IEEE 754 float, C's <code>float</code>. <code>f64</code> / FP64 uses 64 bits.</td></tr>
+<tr><td>Vector / packed value</td><td>Several elements held together in a register. In Rake, <code>pack</code> declares a record instead.</td></tr>
+<tr><td>Element / lane</td><td>An element is a stored value, and a lane is its position within a vector operation.</td></tr>
+<tr><td>SIMD</td><td>Single instruction, multiple data: one instruction operates on several elements.</td></tr>
+<tr><td>Uniform / varying</td><td>A uniform has the same value in every lane, while a varying value can differ by lane.</td></tr>
+<tr><td>Fixed-width / scalable vector / VLA</td><td>Fixed-width code assumes one register size. Scalable, vector-length-agnostic code adapts to the machine's vector length (VL), the active element count at each step.</td></tr>
+<tr><td>SSE / SSE2 / XMM</td><td>x86 families with 128-bit XMM registers. SSE2 adds packed integer and double-precision operations, among others.</td></tr>
+<tr><td>AVX / AVX2 / YMM</td><td>x86 families with 256-bit YMM registers. AVX2 extends packed integer operations and adds gathers.</td></tr>
+<tr><td>AVX-512 / ZMM / opmask</td><td>x86 extensions with 512-bit ZMM registers and dedicated mask registers.</td></tr>
+<tr><td>NEON / Advanced SIMD</td><td>Arm's fixed-width SIMD, with 128-bit vectors on AArch64.</td></tr>
+<tr><td>SVE / SVE2</td><td>Arm's scalable vectors, with predicates and vector-length-agnostic loops.</td></tr>
+<tr><td>RVV / VLEN / SEW / LMUL</td><td>RISC-V vectors, the hardware register length, the selected element width, and the multiplier that groups registers into one logical vector.</td></tr>
+<tr><td>WebAssembly SIMD / v128</td><td>A virtual 128-bit vector. The runtime selects the physical instructions and allocates registers.</td></tr>
 </tbody></table>
 </div>
 <p>Architecture references: <a href="https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html">Intel intrinsics</a>,
@@ -145,45 +137,39 @@ Element width and register width are different quantities.</p>
 <a href="https://docs.riscv.org/reference/isa/unpriv/v-st-ext.html">RISC-V vectors</a>
 and <a href="https://webassembly.github.io/spec/core/syntax/instructions.html#vector-instructions">WebAssembly vector instructions</a>.</p>
 <h3 id="moving-values-between-lanes">Moving values between lanes</h3>
-<p>A shuffle reads values already in registers, whereas a gather reads from memory. Although both use indices, their storage, latency and memory effects differ.</p>
+<p>A shuffle reads values already in registers, whereas a gather reads from
+memory, so although both use indices, they differ in latency and memory
+effects.</p>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning and example</th></tr></thead><tbody>
-<tr><td>Broadcast / splat</td><td>Replicate one value: <code>7 → [7,7,7,7]</code>. Usually synonyms. Broadcast can read a scalar from memory or one register lane.</td></tr>
-<tr><td>Shuffle / permute</td><td>Select and reorder source lanes, possibly repeating them: <code>[a,b,c,d]</code> with <code>[2,0,3,1]</code> gives <code>[c,a,d,b]</code>. Instructions differ in index freedom and source count.</td></tr>
-<tr><td>Swizzle / table lookup</td><td>Indexed lane selection, often from one source vector or a small register table. “Swizzle” is common in shader and WebAssembly terminology.</td></tr>
-<tr><td>Static / dynamic shuffle</td><td>Static indices are known at compilation. Dynamic indices are values computed at runtime. Support and cost can differ.</td></tr>
-<tr><td>Zip / interleave</td><td>Alternate elements from two vectors: <code>[a,b]</code> and <code>[x,y]</code> become <code>[a,x,b,y]</code>.</td></tr>
-<tr><td>Unpack</td><td>Instruction-set terminology for interleaving lanes or widening packed values. Check which meaning and source halves an instruction uses.</td></tr>
+<tr><td>Broadcast / splat</td><td>Replicate one value, from memory or a register lane: <code>7 → [7,7,7,7]</code>.</td></tr>
+<tr><td>Shuffle / permute</td><td>Select and reorder source lanes, possibly repeating them: <code>[a,b,c,d]</code> with <code>[2,0,3,1]</code> gives <code>[c,a,d,b]</code>.</td></tr>
+<tr><td>Swizzle / table lookup</td><td>Indexed lane selection from one vector or a small register table.</td></tr>
+<tr><td>Static / dynamic shuffle</td><td>A shuffle whose indices are known at compilation, or computed at runtime.</td></tr>
+<tr><td>Zip / interleave / unpack</td><td>Alternate elements from two vectors: <code>[a,b]</code> and <code>[x,y]</code> become <code>[a,x,b,y]</code>. Some instruction sets use “unpack” for this or for widening.</td></tr>
 <tr><td>Unzip / deinterleave</td><td>Separate alternating elements: <code>[a,x,b,y]</code> becomes <code>[a,b]</code> and <code>[x,y]</code>.</td></tr>
-<tr><td>Transpose</td><td>Exchange row and column positions. A matrix of vectors can become vectors of corresponding fields.</td></tr>
-<tr><td>Reverse</td><td>Reverse lane order: <code>[a,b,c,d] → [d,c,b,a]</code>. Byte reversal within each element is a different operation.</td></tr>
-<tr><td>Slide / shift lanes / align</td><td>Move whole elements or bytes across positions, with defined fill or a second source. This differs from shifting bits inside each element.</td></tr>
-<tr><td>Rotate lanes</td><td>Move lanes cyclically: <code>[a,b,c,d] → [d,a,b,c]</code>. A bit rotation stays inside an element.</td></tr>
-<tr><td>Extract / insert</td><td>Read one lane as a scalar, or replace one lane with a scalar. Extraction can introduce a vector-to-scalar dependency.</td></tr>
-<tr><td>Concatenate / split</td><td>Join vector pieces or divide a vector into pieces. The result may occupy multiple physical registers.</td></tr>
-<tr><td>Compress / compact</td><td>Pack selected lanes toward the start: <code>[a,b,c,d]</code> under <code>[1,0,1,0]</code> gives <code>[a,c,…]</code>. The remaining lanes have instruction-specific contents.</td></tr>
+<tr><td>Transpose</td><td>Exchange rows and columns, turning vectors of records into vectors of fields.</td></tr>
+<tr><td>Reverse / rotate lanes</td><td><code>[a,b,c,d]</code> becomes <code>[d,c,b,a]</code>, or cyclically <code>[d,a,b,c]</code>. Bit reversal and rotation stay inside an element.</td></tr>
+<tr><td>Slide / shift lanes</td><td>Move whole elements or bytes across positions, filling from a defined value or a second source. Shifting bits inside each element is a different operation.</td></tr>
+<tr><td>Extract / insert</td><td>Read one lane as a scalar, or replace one lane with a scalar.</td></tr>
+<tr><td>Compress / compact</td><td>Pack selected lanes toward the start: <code>[a,b,c,d]</code> under <code>[1,0,1,0]</code> gives <code>[a,c,…]</code>.</td></tr>
 <tr><td>Expand</td><td>Place dense values in selected positions: <code>[a,c]</code> under <code>[1,0,1,0]</code> gives <code>[a,fill,c,fill]</code>.</td></tr>
-<tr><td>Lane-local / cross-lane</td><td>Lane-local work depends only on corresponding inputs. Cross-lane work exchanges or combines elements. Some instructions restrict exchange to 128-bit sub-vectors.</td></tr>
+<tr><td>Lane-local / cross-lane</td><td>Lane-local work depends only on corresponding inputs, while cross-lane work exchanges or combines elements. Some instructions only exchange within 128-bit sub-vectors.</td></tr>
 </tbody></table>
 </div>
 <p>The <a href="https://gcc.gnu.org/onlinedocs/gcc/Vector-Extensions.html">GCC vector reference</a>
-illustrates shuffle selection and conversion. Intel and Arm use different
-operation spellings, so consult the instruction's element and sub-vector rules.</p>
+illustrates shuffle selection and conversion.</p>
 <h3 id="masks-and-selection">Masks and selection</h3>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>Comparison</td><td>Compare corresponding elements and produce a mask, such as <code>[1,4,2,9] &gt; 3 → [0,1,0,1]</code>.</td></tr>
-<tr><td>Mask / predicate</td><td>A true/false choice per lane. Its representation may be vector bits or a dedicated predicate register.</td></tr>
-<tr><td>Active / inactive lane</td><td>A lane included or excluded by the operation's mask. Suppression of computation and memory access depends on the instruction and profile.</td></tr>
-<tr><td>Predication</td><td>Execute under a predicate. The instruction defines whether inactive lanes suppress work, retain old values or produce a fill value.</td></tr>
+<tr><td>Comparison</td><td>Compare corresponding elements to produce a mask: <code>[1,4,2,9] &gt; 3 → [0,1,0,1]</code>.</td></tr>
+<tr><td>Mask / predicate</td><td>A true or false choice per lane, held as vector bits or in a dedicated predicate register.</td></tr>
+<tr><td>Active / inactive lane</td><td>A lane included in, or excluded by, the operation's mask.</td></tr>
+<tr><td>Predication / merge / zero masking</td><td>Execute under a mask. Depending on the instruction, inactive lanes skip the work, keep an old value (merge masking) or become zero (zero masking).</td></tr>
 <tr><td>Select / blend</td><td>Choose one of two values per lane: mask <code>[1,0,1,0]</code> selects <code>[a,y,c,w]</code> from <code>[a,b,c,d]</code> and <code>[x,y,z,w]</code>.</td></tr>
-<tr><td>Merge masking / zero masking</td><td>Inactive lanes preserve a supplied or previous value, or become zero. These are different result policies.</td></tr>
-<tr><td>Any / all / none</td><td>Reduce a mask to one truth value: at least one lane, every lane, or no lanes satisfy it.</td></tr>
-<tr><td>Movemask / bitmask</td><td>Collect specified lane bits into a scalar bitset. An x86 movemask often extracts sign bits, rather than testing arbitrary nonzero values.</td></tr>
-<tr><td>Population count / popcount</td><td>Count set bits. Applied to a lane mask, it counts selected lanes.</td></tr>
-<tr><td>First / last set bit</td><td>Locate a selected lane in a mask. The result for an empty mask requires a specified convention.</td></tr>
-<tr><td>Masked load / masked store</td><td>Memory operations restricted to selected lanes. Fault suppression and inactive results depend on the instruction.</td></tr>
-<tr><td>Fault suppression / first-fault</td><td>Suppression prevents some inactive accesses from faulting. First-fault loads, on supporting architectures, record how far a load succeeded. Neither makes arbitrary invalid pointers safe.</td></tr>
-<tr><td>Speculation / safe operands</td><td>A compiler may calculate both candidates before selecting. Replacing invalid inactive inputs with safe ones can prevent unwanted arithmetic exceptions.</td></tr>
-<tr><td>Partial operation</td><td>An operation valid for only part of its input domain, such as real square root for non-negative values. Safe evaluation requires suppressed arithmetic or benign operands in inactive lanes.</td></tr>
+<tr><td>Any / all / none</td><td>Reduce a mask to one truth value.</td></tr>
+<tr><td>Movemask / bitmask</td><td>Collect one bit per lane into a scalar. An x86 movemask usually takes each lane's sign bit.</td></tr>
+<tr><td>Popcount / first set bit</td><td>Count a mask's selected lanes, or find the first one. An empty mask needs a defined result.</td></tr>
+<tr><td>Masked load / store / first-fault</td><td>Memory operations on selected lanes only. Fault suppression stops some inactive accesses from faulting, and first-fault loads record how far a load got, but neither makes an invalid pointer safe.</td></tr>
+<tr><td>Speculation / partial operation</td><td>Calculating both candidates before selecting. An operation valid for only part of its domain, such as square root, needs suppressed arithmetic or safe operands in inactive lanes.</td></tr>
 </tbody></table>
 </div><h3 id="combining-lanes-and-calculating-values">Combining lanes and calculating values</h3>
 <figure class="diagram diagram-vector-ops">
@@ -203,35 +189,24 @@ operation spellings, so consult the instruction's element and sub-vector rules.<
 <text class="diagram-instruction" x="484" y="138">exclusive scan: [0, 1, 3, 6]</text>
 </svg>
 </div>
-<figcaption>A reduction produces one combined value. A scan retains each partial result.</figcaption>
+<figcaption>A reduction produces one combined value, while a scan keeps each partial result.</figcaption>
 </figure>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>Element-wise / vertical operation</td><td>Apply an operation independently at corresponding lane positions, such as vector addition.</td></tr>
-<tr><td>Horizontal operation / reduction</td><td>Combine lanes into fewer results, such as a sum, minimum or maximum.</td></tr>
-<tr><td>Pairwise operation</td><td>Combine adjacent pairs. Pairwise adds of <code>[a,b,c,d]</code> produce the two results <code>a+b</code> and <code>c+d</code>.</td></tr>
-<tr><td>Scan / prefix sum</td><td>Produce running partial results. Inclusive includes the current element. Exclusive starts with an identity and excludes the current element.</td></tr>
-<tr><td>Segmented reduction / scan</td><td>Combine values within separately marked groups, restarting at each segment boundary.</td></tr>
-<tr><td>Dot product</td><td>Multiply corresponding elements, then sum those products. The instruction or algorithm specifies accumulation width and rounding.</td></tr>
-<tr><td>FMA / fused multiply-add</td><td>Calculate <code>a*b+c</code> with one final rounding, which can differ from separate multiply and add.</td></tr>
-<tr><td>Multiply-accumulate / MAC</td><td>Multiply and add into an accumulator. The selected instruction determines whether the operations round separately or once as an FMA.</td></tr>
-<tr><td>Saturating arithmetic</td><td>Clamp an overflowing integer to its representable limit, such as unsigned 8-bit <code>250+10 → 255</code>.</td></tr>
-<tr><td>Wrapping / modular arithmetic</td><td>Keep the result modulo the integer width: unsigned 8-bit <code>250+10 → 4</code>.</td></tr>
-<tr><td>Widen / narrow</td><td>Convert to a wider or narrower element type. Narrowing needs a rule for rounding, truncation, saturation or overflow.</td></tr>
-<tr><td>Sign extend / zero extend</td><td>Widen signed integers by copying the sign bit, or unsigned integers by filling upper bits with zero.</td></tr>
-<tr><td>Numeric conversion / bitcast</td><td>Conversion changes representation to preserve a numerical value where possible. Bitcast reinterprets the same bits as another type.</td></tr>
-<tr><td>Packed arithmetic / packed conversion</td><td>Operate on several elements together. “Pack” in some integer instruction sets specifically means narrowing and joining values.</td></tr>
-<tr><td>Bitwise AND / OR / XOR / NOT</td><td>Operate on individual bits inside each element. A Boolean lane mask is a separate interpretation.</td></tr>
-<tr><td>Logical / arithmetic shift</td><td>Shift bits inside each element. A logical shift fills with zero, while arithmetic right shift repeats the sign bit.</td></tr>
-<tr><td>Bit rotate / bit reverse</td><td>Wrap displaced bits to the other end, or reverse their order. Neither rearranges whole vector lanes.</td></tr>
-<tr><td>CLZ / CTZ / bit count</td><td>Count leading zeros, trailing zeros or set bits within an element. Zero-input behaviour is instruction-specific.</td></tr>
-<tr><td>Absolute difference / SAD</td><td>Calculate the distance between corresponding values. Sum of absolute differences adds those distances, often for image matching.</td></tr>
-<tr><td>Reciprocal / reciprocal square root</td><td>Calculate <code>1/x</code> or <code>1/sqrt(x)</code>. Estimate instructions offer limited accuracy, sometimes followed by refinement steps.</td></tr>
-<tr><td>Transcendental / elementary math</td><td>Functions such as <code>sin</code>, <code>exp</code> and <code>log</code>. A vector implementation may require a polynomial or library sequence rather than one instruction.</td></tr>
-<tr><td>Ordered / unordered comparison</td><td>An ordered floating comparison requires non-NaN operands. An unordered comparison can report the presence of NaN. Read the exact operator's NaN rule.</td></tr>
-<tr><td>NaN / infinity / signed zero</td><td>Special floating-point values. Their comparison, minimum/maximum and arithmetic rules affect reproducibility.</td></tr>
-<tr><td>Subnormal / FTZ / DAZ</td><td>A subnormal represents a very small value. Flush-to-zero discards subnormal results. Denormals-are-zero treats subnormal inputs as zero where supported.</td></tr>
-<tr><td>Rounding / ULP / fast math</td><td>Rounding chooses a representable result. An ULP measures its representable spacing. Fast-math settings permit specific departures from strict numerical rules.</td></tr>
-<tr><td>Reassociation</td><td>Change grouping, such as <code>(a+b)+c</code> to <code>a+(b+c)</code>. Floating-point results can change, including in tree reductions.</td></tr>
+<tr><td>Element-wise / vertical</td><td>Apply an operation independently at each lane position.</td></tr>
+<tr><td>Horizontal / reduction</td><td>Combine lanes into fewer results, such as a sum or maximum.</td></tr>
+<tr><td>Scan / prefix sum</td><td>Running partial results. An inclusive scan includes the current element, and an exclusive scan starts from an identity and excludes it.</td></tr>
+<tr><td>Dot product</td><td>Multiply corresponding elements and sum the products, with instruction-specific accumulation width and rounding.</td></tr>
+<tr><td>FMA / MAC</td><td>A fused multiply-add calculates <code>a*b+c</code> with one rounding. A multiply-accumulate may round once or twice, depending on the instruction.</td></tr>
+<tr><td>Saturating / wrapping arithmetic</td><td>An overflow clamps to the limit, or wraps modulo the width: unsigned 8-bit <code>250+10</code> gives 255 or 4.</td></tr>
+<tr><td>Widen / narrow / extend</td><td>Convert to a wider or narrower element type. Signed widening copies the sign bit and unsigned widening fills with zeros, while narrowing needs a rule for overflow.</td></tr>
+<tr><td>Conversion / bitcast</td><td>A conversion preserves the numerical value where possible, while a bitcast reinterprets the same bits.</td></tr>
+<tr><td>Logical / arithmetic shift</td><td>Shift bits inside each element, filling with zeros or, for arithmetic right shifts, the sign bit.</td></tr>
+<tr><td>Transcendental functions</td><td><code>sin</code>, <code>exp</code>, <code>log</code> and similar. A vector implementation may compute them with a polynomial or library sequence.</td></tr>
+<tr><td>Ordered / unordered comparison</td><td>An ordered comparison is false when an operand is NaN, while an unordered one reports it.</td></tr>
+<tr><td>NaN / infinity / signed zero</td><td>Special float values with their own comparison, minimum, maximum and arithmetic rules.</td></tr>
+<tr><td>Subnormal / FTZ / DAZ</td><td>Very small floats. Flush-to-zero discards subnormal results, and denormals-are-zero treats subnormal inputs as zero.</td></tr>
+<tr><td>Rounding / ULP / fast math</td><td>Rounding picks a representable result, an ULP is the spacing between representable values, and fast math permits specific departures from strict rules.</td></tr>
+<tr><td>Reassociation</td><td>Regrouping, such as <code>(a+b)+c</code> to <code>a+(b+c)</code>, which can change a floating-point result, including in tree reductions.</td></tr>
 </tbody></table>
 </div><h3 id="memory-and-data-layout">Memory and data layout</h3>
 <figure class="diagram diagram-vector-ops">
@@ -252,37 +227,28 @@ operation spellings, so consult the instruction's element and sub-vector rules.<
 <text class="diagram-value" x="340" y="206">[a, X, c, Z, Y, f, W, h]</text>
 </svg>
 </div>
-<figcaption>A contiguous load reads neighbouring elements. Gather and scatter use one address per lane.</figcaption>
+<figcaption>A contiguous load reads neighbouring elements, while gather and scatter use one address per lane.</figcaption>
 </figure>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>Load / store</td><td>Transfer data from memory into registers, or from registers into memory.</td></tr>
-<tr><td>Contiguous / unit-stride</td><td>Neighbouring lanes access neighbouring elements: indices <code>[0,1,2,3]</code>.</td></tr>
-<tr><td>Strided access</td><td>A constant gap separates elements: indices <code>[0,2,4,6]</code>.</td></tr>
-<tr><td>Gather</td><td>Load through an address or index per lane: <code>out[i] = memory[index[i]]</code>.</td></tr>
-<tr><td>Scatter</td><td>Store through an address or index per lane: <code>memory[index[i]] = value[i]</code>. Duplicate destinations require a defined conflict policy.</td></tr>
-<tr><td>Indexed / segmented load</td><td>Indexed loads use separate offsets. Segmented loads read several fields of interleaved records into separate vectors on supporting ISAs.</td></tr>
-<tr><td>Alignment / unaligned access</td><td>Alignment constrains an address to a multiple of a byte boundary. Unaligned support, legality and cost depend on the instruction and crossed boundaries.</td></tr>
-<tr><td>Cache line / locality</td><td>A cache transfers a block of nearby bytes. Temporal locality reuses data, while spatial locality uses nearby data.</td></tr>
-<tr><td>AoS / array of structures</td><td>Consecutive complete records: <code>x0,y0,x1,y1,…</code>.</td></tr>
-<tr><td>SoA / structure of arrays</td><td>Separate field columns: <code>x0,x1,…</code> and <code>y0,y1,…</code>. Rake's stack uses this layout.</td></tr>
-<tr><td>AoSoA / tiled layout</td><td>Small SoA blocks stored as an array. A tile can group a vector's worth of records.</td></tr>
-<tr><td>Prefetch</td><td>Request data before its use. It is a latency hint whose effectiveness depends on the access pattern.</td></tr>
-<tr><td>Streaming / non-temporal store</td><td>A store with cache-policy hints intended for data with little expected reuse. Alignment and ordering requirements still apply.</td></tr>
-<tr><td>Aliasing / overlap</td><td>Different pointers may refer to the same memory. A vectorised loop needs valid rules for overlapping reads and writes.</td></tr>
-<tr><td>Tail / remainder</td><td>The final incomplete vector when division by the lane count leaves a remainder. Masking or a separately specified cleanup handles it.</td></tr>
-<tr><td>Strip mining / chunking</td><td>Divide a longer loop into vector-sized chunks, then handle the remainder.</td></tr>
+<tr><td>Contiguous / strided</td><td>Neighbouring lanes access neighbouring elements, <code>[0,1,2,3]</code>, or elements a constant gap apart, <code>[0,2,4,6]</code>.</td></tr>
+<tr><td>Gather / scatter</td><td>Load or store through one index per lane: <code>out[i] = memory[index[i]]</code> and <code>memory[index[i]] = value[i]</code>. A scatter needs a rule for duplicate destinations.</td></tr>
+<tr><td>Alignment</td><td>An address that's a multiple of a byte boundary. Unaligned access support and cost vary by instruction.</td></tr>
+<tr><td>Cache line / locality</td><td>A cache's unit of transfer, a block of nearby bytes. Good locality means reusing data or using nearby data.</td></tr>
+<tr><td>AoS / SoA / AoSoA</td><td>Records stored whole (<code>x0,y0,x1,y1,…</code>), as separate field columns (<code>x0,x1,…</code> and <code>y0,y1,…</code>), or as small SoA tiles. Rake's stack uses SoA.</td></tr>
+<tr><td>Aliasing / overlap</td><td>Different pointers referring to the same memory, so a vectorised loop needs rules for overlapping reads and writes.</td></tr>
+<tr><td>Strip mining / tail</td><td>Dividing a loop into vector-sized chunks, and the incomplete final chunk, handled by masking or separate cleanup.</td></tr>
 </tbody></table>
 </div><h3 id="data-streams-and-traversal">Data streams and traversal</h3>
-<p>A data stream is a sequence of elements to process, such as a column with a
-million floats. A stream traversal walks along that sequence one rack at a
-time. It loads the next rack, calculates the result, stores it and advances
-to the next group of elements. The sequence can be any length, so the final
+<p>A data stream is a sequence of elements or records, in memory or arriving from
+a file or network, such as a column of a million floats. A stream traversal
+walks along it one rack at a time: it loads the next rack, calculates the
+result, stores it and advances. The sequence can be any length, so the final
 rack may have fewer active lanes.</p>
 <figure class="diagram diagram-vector-ops">
 <div class="diagram-scroll" tabindex="0" role="region" aria-label="Stream traversal, scroll horizontally on a narrow screen">
 <svg viewBox="0 0 680 254" role="img" aria-labelledby="vector-stream-title vector-stream-desc">
 <title id="vector-stream-title">A traversal processes a stream one rack at a time</title>
-<desc id="vector-stream-desc">Eleven f32 elements on SSE2 form two full four-lane racks and a tail with three active lanes. The element indices are 0 through 3, 4 through 7, and 8 through 10. For each rack, the traversal loads its elements, calculates a vector result, stores the active results and advances to the next rack.</desc>
+<desc id="vector-stream-desc">Eleven f32 elements on SSE2 form two full four-lane racks and a tail with three active lanes. For each rack, the traversal loads its elements, calculates a vector result, stores the active results and advances to the next rack.</desc>
 <text class="diagram-label" x="16" y="24">11 f32 elements on SSE2: element indices in each rack</text>
 <rect class="diagram-cell diagram-cell-active" x="16" y="38" width="202" height="46" rx="4"/>
 <text class="diagram-value" x="117" y="61">[0, 1, 2, 3]</text>
@@ -306,57 +272,42 @@ rack may have fewer active lanes.</p>
 <text class="diagram-instruction" x="340" y="207">Continue while elements remain</text>
 </svg>
 </div>
-<figcaption>The underscore marks an inactive lane. Loop control advances between racks. The arithmetic within each rack operates across its lanes, including the active lanes of the tail.</figcaption>
+<figcaption>The underscore marks an inactive lane. Loop control advances from rack to rack, and the arithmetic works across each rack's lanes, including the tail's active lanes.</figcaption>
 </figure>
-<p>A stream update transforms successive elements and writes the results.
-Writing into a separate output array is an out-of-place update. Writing back
-into the input array is an in-place update, which needs an overlap contract
-so stores don't replace inputs before they have been read.</p>
-<div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>Data stream</td><td>Successive data elements or records, stored in memory or arriving from a file or network.</td></tr>
-<tr><td>Stream traversal</td><td>A pass over successive chunks of a sequence. A SIMD traversal processes each chunk as a rack, with a defined policy for the tail.</td></tr>
-<tr><td>Stream update</td><td>A traversal that writes transformed values, either to a separate output or back into the input. Traversals can also inspect or combine data without updating it.</td></tr>
-<tr><td>In-place / out-of-place update</td><td>Store into the input's storage, or into separate output storage. In-place vector work needs explicit rules for overlapping inputs and outputs.</td></tr>
-</tbody></table>
-</div>
-<p>Traversal and update describe a whole pass over data, rather than one SIMD
-instruction. In Rake, a <a href="/docs/packs-and-runs/#stack-runs">stack run</a>
-describes the update on whole columns, and the compiler performs the traversal. Uniform loop control
-and address calculation advance through memory while the lane arithmetic
-stays vectorised. Traversal alone doesn't request non-temporal stores or
-guarantee a particular cache policy.</p>
+<p>A stream update is a traversal that writes its results, either to a separate
+output (out of place) or back into the input (in place). An in-place update
+needs rules for overlap, so stores don't replace inputs before they've been
+read. In Rake, a <a href="/docs/packs-and-runs/#stack-runs">stack run</a> describes
+the update on whole columns, and the compiler performs the traversal. Uniform
+loop control and address calculation advance through memory, while the lane
+arithmetic stays vectorised.</p>
 <h3 id="compilation-and-cost">Compilation and cost</h3>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>Intrinsic</td><td>A compiler-provided operation that requests specific instruction semantics. It can still expand into several instructions.</td></tr>
-<tr><td>Autovectorisation / loop vectorisation</td><td>A compiler turns a scalar loop into vector work after checking dependencies and legality.</td></tr>
-<tr><td>SLP vectorisation</td><td>Superword-level parallelism: group independent scalar expressions into vector operations, even outside a loop.</td></tr>
-<tr><td>Scalarisation / scalar fallback</td><td>Implement a vector operation as separate scalar work. A fallback can be explicit, while silent scalarisation hides a change in execution.</td></tr>
-<tr><td>Loop unrolling / fusion</td><td>Unrolling repeats a loop body to expose independent work. Loop fusion combines compatible passes over data.</td></tr>
-<tr><td>Register pressure / live range</td><td>Pressure is the simultaneous demand for registers. A live range lasts while a value can still be used.</td></tr>
-<tr><td>Spill / reload</td><td>Save a register value to memory and load it back later, usually because registers are insufficient.</td></tr>
-<tr><td>ISA / microarchitecture</td><td>The instruction-set interface and the hardware implementation beneath it. Processors with the same ISA can have different performance.</td></tr>
-<tr><td>Latency / throughput</td><td>Latency is the delay from input to result. Throughput is the rate of independent completed operations.</td></tr>
-<tr><td>Bandwidth / arithmetic intensity</td><td>Bytes transferred per unit time, and arithmetic work per byte transferred. A wider vector may leave a memory-bound loop unchanged.</td></tr>
-<tr><td>Roofline / compute-bound / memory-bound</td><td>A performance model compares arithmetic limits with memory bandwidth. The limiting resource depends on the workload.</td></tr>
-<tr><td>Dispatch / multiversioning</td><td>Select among implementations for supported ISA features. Measurements establish which variant is fastest for a workload.</td></tr>
-<tr><td>ABI / calling convention</td><td>Rules for data layout, argument and result locations, register preservation and calls between compiled functions.</td></tr>
+<tr><td>Intrinsic</td><td>A compiler-provided function that requests a specific instruction's semantics.</td></tr>
+<tr><td>Autovectorisation</td><td>A compiler turning a scalar loop into vector work after checking dependencies.</td></tr>
+<tr><td>Scalarisation</td><td>Implementing a vector operation as separate scalar work. Silent scalarisation hides a change in execution.</td></tr>
+<tr><td>Loop unrolling / fusion</td><td>Repeating a loop body to expose independent work, or combining compatible passes over data.</td></tr>
+<tr><td>Register pressure / spill</td><td>Demand for registers at once. A spill saves a value to memory and reloads it when registers run out.</td></tr>
+<tr><td>ISA / microarchitecture</td><td>The instruction set, and the hardware implementing it. Processors with one ISA can perform differently.</td></tr>
+<tr><td>Latency / throughput</td><td>The delay from input to result, and the rate of independent completed operations.</td></tr>
+<tr><td>Bandwidth / arithmetic intensity / roofline</td><td>Bytes moved per unit time, arithmetic per byte moved, and the model comparing the two limits. A wider vector can leave a memory-bound loop unchanged.</td></tr>
+<tr><td>ABI / calling convention</td><td>Rules for data layout, argument and result locations, and register preservation across calls.</td></tr>
 </tbody></table>
 </div>
 <p><a href="https://ispc.github.io/perfguide.html">ISPC's performance guide</a> explains
-SIMD execution and layout costs. Rake's <a href="/docs/backend/">backend</a> describes its
-checked lowering. Timings, cache behaviour and sustained throughput still
-require measurement on the target machine.</p>
+SIMD execution and layout costs, and Rake's <a href="/docs/backend/">backend</a> describes
+its checked lowering.</p>
 <h2 id="gpu">GPU</h2>
 <h3 id="threads-warps-and-workgroups">Threads, warps and workgroups</h3>
 <p>On a GPU, each thread holds its own values, and a group of threads executes
-lane-parallel work. A GPU shuffle exchanges those thread values. It is the
-counterpart of a CPU register shuffle, with additional participation rules.
-The CPU arithmetic terms above also apply to GPU lane values.</p>
+lane-parallel work, so the CPU arithmetic terms above apply to GPU lane values
+too. A GPU shuffle exchanges values between threads, like a CPU register
+shuffle with extra participation rules.</p>
 <figure class="diagram diagram-vector-ops">
 <div class="diagram-scroll" tabindex="0" role="region" aria-label="GPU thread hierarchy, scroll horizontally on a narrow screen">
 <svg viewBox="0 0 680 264" role="img" aria-labelledby="vector-gpu-title vector-gpu-desc">
 <title id="vector-gpu-title">A launch contains blocks, and a block contains warps</title>
-<desc id="vector-gpu-desc">An illustrative CUDA grid has multiple blocks. One selected block of 64 threads contains two warps of 32 threads. Each warp has lane IDs from 0 to 31. Other block sizes are possible.</desc>
+<desc id="vector-gpu-desc">An illustrative CUDA grid has multiple blocks. One selected block of 64 threads contains two warps of 32 threads. Each warp has lane IDs from 0 to 31.</desc>
 <rect class="diagram-desk" x="16" y="16" width="648" height="232" rx="6"/>
 <text class="diagram-label" x="32" y="40">Grid / dispatch</text>
 <rect class="diagram-cell" x="32" y="54" width="448" height="172" rx="4"/>
@@ -370,27 +321,22 @@ The CPU arithmetic terms above also apply to GPU lane values.</p>
 <text class="diagram-instruction" x="572" y="148">…</text>
 </svg>
 </div>
-<figcaption>A warp is a hardware execution grouping. A block is a programmer-selected group with shared-memory and synchronisation facilities.</figcaption>
+<figcaption>A warp is a hardware execution group, while a block is a programmer-selected group with shared memory and synchronisation.</figcaption>
 </figure>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>Host / device</td><td>The CPU-side application and the GPU executing its submitted work.</td></tr>
-<tr><td>Driver / runtime</td><td>Software for device access, program loading, memory management and submission. It may compile intermediate code. Hardware schedules runnable warps.</td></tr>
-<tr><td>Kernel / shader</td><td>A program entry executed across many GPU invocations. A compute shader performs general calculation through a graphics API.</td></tr>
-<tr><td>Thread / work-item / invocation</td><td>One instance of the program, with its own indices and values. GPU threads differ from operating-system threads.</td></tr>
-<tr><td>Lane / lane ID</td><td>A thread's position within its subgroup. NVIDIA warp lane IDs run from 0 to 31.</td></tr>
-<tr><td>Warp</td><td>NVIDIA's grouping of 32 GPU threads for SIMT execution, scheduled together by the hardware.</td></tr>
-<tr><td>Wave / wavefront</td><td>AMD terminology for a comparable execution group. Width depends on architecture and mode, commonly 32 or 64.</td></tr>
-<tr><td>Subgroup</td><td>Portable API terminology for invocations that participate in subgroup operations. Supported sizes and operations are device-dependent.</td></tr>
-<tr><td>Block / workgroup / threadgroup</td><td>A programmer-selected collection of threads with group-scoped cooperation. These terms come from CUDA, OpenCL/Vulkan and Metal respectively.</td></tr>
-<tr><td>Grid / dispatch / launch</td><td>The collection of blocks or workgroups submitted to execute a kernel.</td></tr>
-<tr><td>SM / CU</td><td>NVIDIA streaming multiprocessor or AMD compute unit: a vendor-specific execution resource hosting groups of threads. Each architecture defines its hardware organization.</td></tr>
-<tr><td>SPMD</td><td>Single program, multiple data: many program instances process different data. ISPC applies this model to CPU SIMD gangs too.</td></tr>
-<tr><td>SIMT</td><td>Single instruction, multiple threads: GPU execution across thread lanes, with masking for differing paths.</td></tr>
-<tr><td>Per-thread vector / vector load</td><td>Several components held or transferred by one thread, such as a CUDA <code>float4</code>. Warp-level parallelism comes from executing multiple threads.</td></tr>
-<tr><td>Gang</td><td>An SPMD group, such as ISPC's program instances mapped to SIMD lanes.</td></tr>
-<tr><td>Cooperative group</td><td>A programming abstraction for an explicitly defined group that cooperates and synchronises. Its scope can differ from one warp.</td></tr>
-<tr><td>Tile / subgroup partition</td><td>A subdivision used for data or cooperation. Its logical size can differ from the hardware warp size.</td></tr>
-<tr><td>Warp specialisation</td><td>Different warps take different roles, such as loading tiles or calculating results. Their handoff needs synchronisation.</td></tr>
+<tr><td>Driver / runtime</td><td>Software that loads programs, manages memory, submits work and may compile intermediate code.</td></tr>
+<tr><td>Kernel / shader</td><td>A program entry run across many GPU invocations.</td></tr>
+<tr><td>Thread / work-item / invocation</td><td>One instance of the program, with its own indices and values. GPU threads aren't operating-system threads.</td></tr>
+<tr><td>Lane ID</td><td>A thread's position within its subgroup, 0 to 31 in an NVIDIA warp.</td></tr>
+<tr><td>Warp</td><td>NVIDIA's group of 32 threads, scheduled together for SIMT execution.</td></tr>
+<tr><td>Wave / wavefront</td><td>AMD's comparable group, commonly 32 or 64 wide depending on architecture and mode.</td></tr>
+<tr><td>Subgroup</td><td>Portable API term for invocations that take part in subgroup operations, with device-dependent sizes.</td></tr>
+<tr><td>Block / workgroup / threadgroup</td><td>A programmer-selected group of cooperating threads, in CUDA, OpenCL/Vulkan and Metal respectively.</td></tr>
+<tr><td>Grid / dispatch / launch</td><td>The blocks or workgroups submitted to run a kernel.</td></tr>
+<tr><td>SM / CU</td><td>NVIDIA's streaming multiprocessor or AMD's compute unit, the hardware hosting groups of threads.</td></tr>
+<tr><td>SPMD / gang</td><td>Single program, multiple data: many program instances on different data. ISPC maps a gang of instances onto CPU SIMD lanes.</td></tr>
+<tr><td>SIMT</td><td>Single instruction, multiple threads: GPU execution across thread lanes, masking lanes on differing paths.</td></tr>
+<tr><td>Cooperative group / tile</td><td>An explicitly defined group that cooperates and synchronises, whose size can differ from a warp's.</td></tr>
 </tbody></table>
 </div>
 <p>See <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/03-advanced/advanced-kernel-programming.html#simt-execution-model">NVIDIA's SIMT model</a>,
@@ -398,55 +344,40 @@ The CPU arithmetic terms above also apply to GPU lane values.</p>
 and <a href="https://docs.vulkan.org/guide/latest/subgroups.html">Vulkan subgroups</a>.</p>
 <h3 id="participation-control-and-collectives">Participation, control and collectives</h3>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>Uniform control / divergent control</td><td>All participants choose the same path, or different lanes choose different paths. Uniformity is relative to a group.</td></tr>
-<tr><td>Divergence / reconvergence</td><td>Lanes take different paths, then meet again at a common point. Masked execution can spend time on paths with few active lanes.</td></tr>
-<tr><td>Active mask / execution mask</td><td>The lanes participating at a point in execution. An instantaneous active mask may differ from the intended membership of a later collective.</td></tr>
-<tr><td>Predication</td><td>Enable an instruction's effects according to a per-thread predicate. Masked instructions and divergent branches have different costs.</td></tr>
-<tr><td>Warp scheduler / issue</td><td>Hardware chooses runnable warp instructions to issue. Source code controls the mapping of work onto lanes.</td></tr>
-<tr><td>Independent thread scheduling</td><td>Hardware can track thread progress more independently. Assuming implicit warp lockstep is unsafe for communication without the specified synchronisation.</td></tr>
-<tr><td>Collective / subgroup operation</td><td>Threads cooperate in an exchange, vote or reduction. Required participants reach the operation with compatible membership and operands.</td></tr>
-<tr><td>Warp shuffle / subgroup shuffle</td><td>Read a value held by another participating lane, without a general shared-memory round trip. The operation requires a valid source lane and participation mask.</td></tr>
-<tr><td>Shuffle up / down / XOR</td><td>Select a neighbour at a lower or higher lane index, or a lane whose ID differs by an XOR mask. Boundaries and subgroup width matter.</td></tr>
-<tr><td>Broadcast / read-first-lane</td><td>Share a selected participating lane's value with the group. Read-first selects according to the API's active-lane rules.</td></tr>
-<tr><td>Ballot</td><td>Collect one predicate bit per participating lane into a bitset. This is related to CPU movemask, with thread participation semantics.</td></tr>
-<tr><td>Vote / any / all</td><td>Ask whether some or all participating threads satisfy a predicate. The participating set matters.</td></tr>
-<tr><td>Match / elect / leader</td><td>Match groups lanes with equal values. Elect chooses one participating lane to perform group work.</td></tr>
-<tr><td>Subgroup reduction / scan</td><td>Combine thread values or produce prefix results within a participating group. Numerical order and inactive inputs require defined rules.</td></tr>
-<tr><td>Barrier</td><td>A rendezvous at a specified scope, with the API's memory-ordering guarantees. Correct execution requires all specified participants to reach it.</td></tr>
-<tr><td>Warp synchronisation / block synchronisation</td><td>Coordinate a subgroup or a whole block. A warp barrier cannot synchronise other warps.</td></tr>
-<tr><td>Memory fence / acquire / release</td><td>Order memory visibility. Thread rendezvous requires a separate synchronization operation, such as a barrier.</td></tr>
-<tr><td>Atomic / read-modify-write / CAS</td><td>An indivisible memory operation, such as increment or compare-and-swap, with specified memory order and scope. Contention can serialise accesses.</td></tr>
-<tr><td>Scope</td><td>The threads or agents covered by an operation's visibility or synchronisation, such as subgroup, workgroup, device or system.</td></tr>
-<tr><td>Race / deadlock</td><td>A race involves conflicting unsynchronised accesses. Deadlock leaves participants waiting without possible progress.</td></tr>
+<tr><td>Uniform / divergent control</td><td>Every participant in a group takes the same path, or lanes take different ones.</td></tr>
+<tr><td>Divergence / reconvergence</td><td>Lanes split onto different paths and later meet again, and masked execution spends time on paths with few active lanes.</td></tr>
+<tr><td>Active mask</td><td>The lanes participating at a point in execution, which can differ from the intended members of a later collective.</td></tr>
+<tr><td>Independent thread scheduling</td><td>Hardware tracking each thread's progress separately, so communication can't assume warp lockstep without explicit synchronisation.</td></tr>
+<tr><td>Collective / subgroup operation</td><td>An exchange, vote or reduction among threads. Every required participant needs to reach it with compatible membership and operands.</td></tr>
+<tr><td>Warp shuffle</td><td>Reading another participating lane's value without a round trip through shared memory.</td></tr>
+<tr><td>Shuffle up / down / XOR</td><td>Reading from a lower or higher lane index, or a lane whose ID differs by an XOR mask.</td></tr>
+<tr><td>Broadcast / read-first-lane</td><td>Sharing one participating lane's value with the group.</td></tr>
+<tr><td>Ballot</td><td>One predicate bit per participating lane, collected into a bitset, like a CPU movemask.</td></tr>
+<tr><td>Vote / any / all</td><td>Whether some or all participating threads satisfy a predicate.</td></tr>
+<tr><td>Subgroup reduction / scan</td><td>Combining values or producing prefixes across a group, which needs rules for order and inactive inputs.</td></tr>
+<tr><td>Barrier</td><td>A rendezvous at a given scope, where every specified participant needs to arrive. A warp barrier can't synchronise other warps.</td></tr>
+<tr><td>Memory fence / acquire / release</td><td>Ordering memory visibility. Waiting for other threads needs a separate operation, such as a barrier.</td></tr>
+<tr><td>Atomic / CAS</td><td>An indivisible read-modify-write, such as compare-and-swap, with a memory order and scope. Contention can serialise it.</td></tr>
+<tr><td>Scope</td><td>The threads covered by an operation: subgroup, workgroup, device or system.</td></tr>
 </tbody></table>
 </div>
 <p>The <a href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-shfl-sync">PTX instruction reference</a>
-specifies shuffle membership. NVIDIA's <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/03-advanced/advanced-kernel-programming.html#advanced-synchronization-primitives">synchronisation guide</a>
+specifies shuffle membership, and NVIDIA's <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/03-advanced/advanced-kernel-programming.html#advanced-synchronization-primitives">synchronisation guide</a>
 defines barriers, scopes and ordered communication.</p>
 <h3 id="memory-movement-and-matrix-operations">Memory movement and matrix operations</h3>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>Global / device memory</td><td>Device-wide memory, typically backed by GPU DRAM and accessed through caches.</td></tr>
-<tr><td>Shared memory / workgroup memory</td><td>Programmer-managed storage shared within a block or workgroup. It has capacity, bank and synchronisation constraints.</td></tr>
-<tr><td>Local memory / private memory</td><td>Thread-private storage. CUDA “local memory” can reside in device memory, including spilled values. OpenCL “local” instead means workgroup-shared memory.</td></tr>
-<tr><td>Registers</td><td>Storage for thread values. Register allocation and resource limits affect how many groups can remain resident.</td></tr>
-<tr><td>Constant / read-only memory</td><td>Storage or access paths intended for read-only data, with architecture-specific caching and broadcast behaviour.</td></tr>
-<tr><td>Texture / image access</td><td>An API and hardware path for indexed spatial data, sometimes with filtering or specialised cache behaviour.</td></tr>
-<tr><td>Coalescing / coalesced access</td><td>Combine nearby lane memory requests into transactions. Alignment, element size and the address pattern determine the transactions.</td></tr>
-<tr><td>Memory transaction / sector</td><td>A hardware transfer unit for memory requests. Its size and the access pattern determine how lane requests combine into transactions.</td></tr>
-<tr><td>Gather / scatter</td><td>Each lane loads or stores an indexed address. These can be coalesced when the resulting addresses are close enough.</td></tr>
-<tr><td>Bank / bank conflict</td><td>Shared memory is partitioned into banks. Different addresses in the same bank can force extra service steps. Same-address broadcasts have separate rules.</td></tr>
-<tr><td>Padding / tiling / transpose</td><td>Change a layout or process blocks of data to improve locality, coalescing or bank use. The improvement depends on the actual mapping.</td></tr>
-<tr><td>Async copy / double buffering</td><td>Start a transfer and overlap useful calculation. Alternating buffers let loading and processing advance separately, with completion synchronisation.</td></tr>
-<tr><td>Unified memory / migration</td><td>A managed address space with data placement or movement handled by the runtime. Access costs include any required migration and transfer.</td></tr>
-<tr><td>Pinned memory / DMA</td><td>Host memory fixed for device transfers, and direct memory access. Transfer time depends on the interconnect, byte count and access pattern.</td></tr>
-<tr><td>CUDA stream / command queue</td><td>An ordered sequence of submitted operations, such as transfers and kernel launches. This is a queue of work, distinct from a data stream. Dependencies and available device resources determine overlap between queues.</td></tr>
-<tr><td>Event</td><td>A completion marker used to observe progress or establish dependencies between submitted operations.</td></tr>
-<tr><td>Tensor core / matrix engine</td><td>Hardware for supported matrix operations and precisions. It has a different data and execution contract from ordinary lane arithmetic.</td></tr>
-<tr><td>MMA / WMMA / matrix fragment</td><td>Matrix multiply-accumulate, a warp-level interface, and the distributed piece of a matrix held by participants. Fragment layout can be opaque or architecture-specific.</td></tr>
+<tr><td>Global / device memory</td><td>Device-wide memory, usually GPU DRAM behind caches.</td></tr>
+<tr><td>Shared / workgroup memory</td><td>Programmer-managed storage shared within a block, with capacity, bank and synchronisation limits.</td></tr>
+<tr><td>Local / private memory</td><td>Thread-private storage. CUDA “local memory” can live in device memory and holds spills, whereas OpenCL “local” means workgroup-shared.</td></tr>
+<tr><td>Coalescing</td><td>Combining nearby lanes' requests, including gathers and scatters, into fewer memory transactions. Alignment, element size and the address pattern decide how many.</td></tr>
+<tr><td>Bank conflict</td><td>Shared memory is split into banks, and different addresses in one bank take extra steps.</td></tr>
+<tr><td>Padding / tiling</td><td>Changing a layout or processing blocks to improve locality, coalescing or bank use.</td></tr>
+<tr><td>CUDA stream / command queue</td><td>An ordered queue of submitted work, such as transfers and kernel launches, distinct from a data stream.</td></tr>
+<tr><td>Tensor core / MMA / fragment</td><td>Matrix hardware and its warp-level multiply-accumulate interface, with each participant holding a fragment of the matrix in an often architecture-specific layout.</td></tr>
 </tbody></table>
 </div>
 <p><a href="https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#memory-optimizations">CUDA memory guidance</a>
-explains coalescing and bank conflicts. <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html#warp-matrix-functions">CUDA matrix operations</a>
+explains coalescing and bank conflicts, and <a href="https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/cpp-language-extensions.html#warp-matrix-functions">CUDA matrix operations</a>
 have their own participation and layout requirements.</p>
 <h3 id="resources-performance-and-compiled-artifacts">Resources, performance and compiled artifacts</h3>
 <figure class="diagram diagram-vector-ops">
@@ -466,34 +397,28 @@ have their own participation and layout requirements.</p>
 <text class="diagram-instruction" x="507" y="116">available lanes in the group</text>
 </svg>
 </div>
-<figcaption>High occupancy can coexist with low lane utilisation. Neither quantity alone establishes elapsed time.</figcaption>
+<figcaption>High occupancy can coexist with low lane utilisation.</figcaption>
 </figure>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
-<tr><td>Occupancy / residency</td><td>Resident warps relative to supported capacity, and the groups currently kept on an execution unit. Registers and shared memory can limit residency.</td></tr>
-<tr><td>Theoretical / achieved occupancy</td><td>A resource-based limit for a launch, and occupancy observed during execution. Inputs and scheduling affect the observed value.</td></tr>
-<tr><td>Utilisation / active-lane efficiency</td><td>How much execution capacity performs useful work. Lane participation and overall device utilisation are separate measurements.</td></tr>
-<tr><td>Register pressure / spill</td><td>Demand for per-thread registers and movement of values to device-backed local storage when necessary. Spill checks inspect memory instructions and data flow as well as stack and local-storage reports.</td></tr>
-<tr><td>Latency hiding</td><td>Run independent warps while others wait for memory or dependencies. It requires enough eligible work.</td></tr>
-<tr><td>Load balancing / work distribution</td><td>Spread work so groups finish at similar times. Divergence and unequal task sizes can both cause imbalance.</td></tr>
-<tr><td>Grid-stride loop / persistent kernel</td><td>A thread revisits elements separated by the grid size, or a long-lived kernel consumes successive work. These can preserve parallel lane mapping.</td></tr>
-<tr><td>Serial lane emulation</td><td>One thread loops over elements that were meant to execute across lanes. This differs from a grid-stride loop with simultaneous work in all threads.</td></tr>
-<tr><td>Throughput / FLOPS / bandwidth</td><td>Completed work per time, floating operations per second and bytes transferred per second. Device specifications give peak rates, and application measurements give achieved rates.</td></tr>
-<tr><td>GPU compute / GPGPU</td><td>General-purpose calculation on a graphics processor, using compute kernels rather than requiring graphics rendering.</td></tr>
-<tr><td>Arithmetic intensity / roofline</td><td>Work per transferred byte, and a model relating bandwidth and arithmetic ceilings. Launch and host-transfer costs can matter separately.</td></tr>
-<tr><td>Launch overhead / transfer overhead</td><td>Costs of submitting kernels and moving data. Tiny workloads can spend more time here than calculating.</td></tr>
-<tr><td>PTX / virtual ISA</td><td>NVIDIA's intermediate instruction language. NVIDIA's toolchain performs final physical lowering.</td></tr>
-<tr><td>SASS / cubin</td><td>NVIDIA physical instruction assembly and a compiled device artifact containing executable code and metadata.</td></tr>
-<tr><td>ptxas / AOT / JIT</td><td>NVIDIA's assembler/compiler, ahead-of-time compilation before loading, and just-in-time compilation during loading or execution.</td></tr>
-<tr><td>SPIR-V / Vulkan / OpenCL / Metal / HIP</td><td>A portable intermediate representation, and graphics or compute interfaces/toolchains. Each has its own execution, memory and compilation rules.</td></tr>
-<tr><td>Disassembly / resource report</td><td>Inspect decoded instructions and quantities such as registers or local memory. Reports support checking, while neither establishes every control-flow or spill property alone.</td></tr>
-<tr><td>Artifact verification</td><td>Check claimed properties of exact executable bytes for a specified architecture and toolchain. A certificate for one artifact cannot be transferred to a different rebuild.</td></tr>
+<tr><td>Occupancy</td><td>Resident warps relative to capacity, limited by registers and shared memory, either in theory for a launch or as achieved during execution.</td></tr>
+<tr><td>Lane utilisation</td><td>The share of lanes doing useful work.</td></tr>
+<tr><td>Register pressure / spill</td><td>On a GPU, spilled values go to device-backed local memory. Spill checks inspect memory instructions and data flow as well as resource reports.</td></tr>
+<tr><td>Latency hiding</td><td>Running other warps while some wait, which needs enough eligible work.</td></tr>
+<tr><td>Serial lane emulation</td><td>One thread looping over elements that were meant to run across lanes.</td></tr>
+<tr><td>FLOPS</td><td>Floating-point operations per second. Specifications give peak rates, and measurements give achieved ones.</td></tr>
+<tr><td>Launch / transfer overhead</td><td>The cost of submitting kernels and moving data, which can dominate tiny workloads.</td></tr>
+<tr><td>PTX / virtual ISA</td><td>NVIDIA's intermediate instruction language, lowered to hardware by NVIDIA's toolchain.</td></tr>
+<tr><td>SASS / cubin</td><td>NVIDIA's physical instruction assembly, and the compiled device file holding code and metadata.</td></tr>
+<tr><td>ptxas / AOT / JIT</td><td>NVIDIA's assembler, and compiling ahead of time or while loading.</td></tr>
+<tr><td>SPIR-V / Vulkan / OpenCL / Metal / HIP</td><td>A portable intermediate representation and the graphics and compute interfaces, each with its own execution, memory and compilation rules.</td></tr>
+<tr><td>Disassembly / resource report</td><td>Decoded instructions, and counts such as registers or local memory.</td></tr>
+<tr><td>Artifact verification</td><td>Checking properties of exact executable bytes for one architecture and toolchain, which don't carry over to a rebuild.</td></tr>
 </tbody></table>
 </div>
 <p><a href="https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/writing-cuda-kernels.html#registers">CUDA's resource discussion</a>
 and <a href="https://docs.nvidia.com/cuda/cuda-binary-utilities/">binary utilities</a>
-cover registers, occupancy and artifact inspection. Rake's proposed contract
-checks lane mapping and designated register and memory properties. Kernel
-speed, achieved occupancy and physical memory traffic still need measurement.</p>
+cover registers, occupancy and artifact inspection. Rake's proposed GPU
+profiles check lane mapping and designated register and memory properties.</p>
 
     </main>
 <nav class="page-contents" aria-label="On this page">

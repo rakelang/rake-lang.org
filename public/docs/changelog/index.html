@@ -81,696 +81,217 @@ boundaries between versions. A design in the documentation gets a version
 only when the compiler implements it and the tests cover it.</p>
 <h2 id="unreleased">Unreleased</h2>
 <ul>
-<li>Runs apply calculations to whole stacks. A stack holds its count and one
-column per field, and <code>run name(...) -&gt; stack P</code> ends with its result:
-<code>s with { field: e }</code>, masked by <code>where p</code>, or <code>compact s where p</code>. The
-<code>for chunk in s using D up to &lt;count&gt;</code> traversal, <code>yield</code>, <code>mut stack</code> and
-nested traversals are removed. General runs over views remain.</li>
-<li>Stacks move into the run that returns it, which updates their columns in
+<li>Runs apply calculations to whole stacks. <code>run name(...) -&gt; stack P</code> ends with
+<code>s with { field: e }</code>, optionally masked by <code>where p</code>, or <code>compact s where p</code>.
+The <code>for chunk in s using D up to &lt;count&gt;</code> traversal, <code>yield</code>, <code>mut stack</code>
+and nested traversals are removed. General runs over views remain.</li>
+<li>A stack moves into the run that returns it, which updates its columns in
 place. Reading a moved stack is a compile error, and <code>copy(s)</code> makes an
-explicit copy from the frame arena. Slow code reads <code>count(s)</code> and <code>s.field</code>.
-A call traps when its stacks' counts differ, or when the result's columns
+explicit copy. Slow code reads <code>count(s)</code> and <code>s.field</code>.</li>
+<li>A call traps when its stacks' counts differ, or when the result's columns
 overlap other memory except element for element.</li>
-<li>Compaction compiles on every target: <code>vcompressps</code> on AVX-512, <code>vpermps</code> by
-a permutation table on AVX2, a jump to fixed <code>pshufd</code> permutations on SSE2,
-<code>tbl</code> on NEON and <code>i8x16.swizzle</code> on WebAssembly, for 8-, 16- and 32-bit
-columns.</li>
-<li>One native kernel computes every output of a rack, so values the outputs
-share are computed once.</li>
-<li>A successful build of stack runs ends with a kernel report on standard
-error, listing each run's domain, columns, selection and selection method, and
-tail transfers. <code>--no-report</code> omits it.</li>
-<li>Stack descriptors are <code>struct rake_stack_P_v2</code>, a leading <code>int64_t count</code>
-followed by the column pointers. The result's descriptor is passed
-writable, and a compaction writes its count.</li>
-<li>The development shell pins Intel SDE, so the full suite runs the AVX-512
-checks on hosts without AVX-512F. One test helper selects each profile's
-C compiler, flags and runner.</li>
-<li>Relaxed SIMD and floating-point exception state follow the selected profile
-explicitly rather than process-wide flags. Run expressions under
-<code>wasm-simd128-relaxed</code> lower with that profile.</li>
-<li>Native slow-frame arenas are allocated once per thread and freed when the
-thread exits, instead of on every outermost framed call.</li>
-<li>Traversals keep only bit zero of a Boolean uniform once, before their loop.</li>
+<li>Compaction compiles on every target, for 8-, 16- and 32-bit columns:
+<code>vcompressps</code> on AVX-512, <code>vpermps</code> on AVX2, <code>pshufd</code> on SSE2, <code>tbl</code> on NEON
+and <code>i8x16.swizzle</code> on WebAssembly.</li>
+<li>One native kernel computes every output of a rack, so shared values are
+computed once.</li>
+<li>Building stack runs prints a kernel report on standard error, with each
+run's domain, columns, selection method and tail transfers. <code>--no-report</code>
+omits it.</li>
+<li>Stack descriptors are <code>struct rake_stack_P_v2</code>: an <code>int64_t count</code> followed
+by the column pointers. The result's descriptor is writable, and a
+compaction writes its count there.</li>
+<li><code>rakec --print-capabilities</code> reports each feature on every profile as
+compiled, compiled in part or unavailable, with the reason
+(<code>rake-capabilities-v3</code>). A profile rejects source using an unsupported
+feature, such as explicit <code>fma</code> on SSE2 and WebAssembly, in kernels, slow
+code and runs alike.</li>
+<li>Run expressions under <code>wasm-simd128-relaxed</code> lower with that profile, and
+whole programs with compaction or slow blocks pass its object verification.</li>
+<li>Native slow-frame arenas are allocated once per thread instead of on every
+outermost call.</li>
+<li>The interpreter evaluates integer literals beside a <code>u32</code> uniform, such as a
+<code>bitmask</code> result.</li>
 </ul>
 <h2 id="070">0.7.0</h2>
+<h3 id="language">Language</h3>
 <ul>
-<li>
-<p>Package tests run without target assemblers or disassemblers. Separate
-native and WebAssembly object suites retain mandatory verification checks,
-and the release gate runs both. Native GNU ELF tools accept explicit
-executable overrides and common distribution cross-toolchain prefixes.
-Package CI checks Linux, macOS and Windows separately from object checks.</p>
-</li>
-<li>
-<p>Native register kernels bitcast between <code>f32s</code>, <code>i32s</code> and <code>u32s</code> without
-changing lane bits. Reinterpreting an input uses its register or a vector
-register copy, preserving zero signs and NaN payloads without floating-point
-exceptions.</p>
-</li>
-<li>
-<p>Register kernels accept unary minus on <code>f32</code> and <code>i32</code> uniforms,
-including reduced and extracted values. Packed negation preserves float
-zero signs and NaN payloads, and signed results wrap to 32 bits.
-Negation under a partial lane mask remains WIP.</p>
-</li>
-<li>
-<p>Register kernels accept arithmetic on <code>f32</code>, <code>i32</code> and <code>u32</code> uniforms,
-including results of reductions, extraction and <code>bitmask</code>. Physical
-profiles broadcast those values and use packed instructions, then retain
-the completed scalar result. Float arithmetic rounds to binary32 at each
-step, and integer addition, subtraction and multiplication wrap to 32 bits.
-Arithmetic under a partial lane mask remains WIP.</p>
-</li>
-<li>
-<p><code>scan_sum</code>, <code>scan_product</code>, <code>scan_minimum</code> and <code>scan_maximum</code> accept
-<code>i32s</code> and <code>u32s</code> on every CPU profile. Packed stages combine inclusive
-prefixes across the full rack, preserving wrapping arithmetic and signed
-or unsigned extrema. A sequential C oracle checks every lane and reuse of
-the input rack. Scans and reductions at other integer widths remain WIP.</p>
-</li>
-<li>
-<p><code>sum</code>, <code>product</code>, <code>minimum</code> and <code>maximum</code> accept <code>i32s</code> and <code>u32s</code> on every
-CPU profile. Packed shuffle-and-combine trees preserve wrapping arithmetic
-and signedness, with one completed result crossing the scalar C ABI.
-Independent C checks overflow boundaries and reuse of the input rack.
-Scans and reductions at other integer widths remain WIP.</p>
-</li>
-<li>
-<p>Native stream bodies support local rack assignments, arrays of rack
-locations and unrolled fixed-count <code>repeat</code>, including nested repeats.
-Ordered SSA bindings preserve earlier snapshots without duplicating their
-expressions. Each traversal chunk starts with fresh locations, and each
-unrolled copy has its own locals. Runtime-counted inner loops remain WIP.</p>
-</li>
-<li>
-<p><code>--emit-c</code> produces a C translation unit for WebAssembly, native whole
-programs or native register kernels. <code>--emit-asm</code> produces physical-target
-register-kernel assembly and directs whole-program and WebAssembly users to
-<code>--emit-c</code>. Native C output embeds Rake-selected assembly and delegates slow
-lowering to the platform C compiler. C ABI interoperation remains independent
-of the output format.</p>
-</li>
-<li>
-<p>Uniform conditions compose with <code>and</code>, <code>or</code> and <code>not</code> in physical register
-kernels and native streams. Chained immutable Boolean bindings retain that
-structure. Short-circuit masks sanitise skipped floating-point comparisons,
-including inside through masks and partial racks. Independent C checks
-exact choices and signalling-NaN exception flags, with guarded stream
-inputs and column updates. Mixed-program and WebAssembly checks cover the
-composed condition too. WebAssembly C emission also keeps parameter
-identifiers distinct from C keywords, generated temporaries and typedefs.</p>
-</li>
-<li>
-<p>Native <code>i32s</code> and <code>u32s</code> shifts accept runtime uniform <code>u32</code> counts on
-SSE2, AVX2, AVX-512F and NEON, including native streams. Vector operations
-normalise the count modulo 32 in one allocated temporary, preserving live
-inputs and the original count. Final-object checks require the complete
-selected sequence with full-width data operands. Independent C checks all
-counts, high count bits, extracted values, masked calls and retained
-inputs. Guarded streams check full racks, tails, column updates and
-separate destinations. Mixed-program checks cover the scalar C boundary
-and WebAssembly.</p>
-</li>
-<li>
-<p>Literal-index <code>extract</code> and <code>insert</code> support <code>i32s</code> and <code>u32s</code> on SSE2,
-AVX2, AVX-512F and NEON. They reuse the float lane transfers without
-numerical conversion. Scalar integer values cross the platform's integer
-C ABI and remain in vector registers inside kernels. Independent C checks
-every lane, signed boundaries, unsigned high bits, rebroadcasts and
-preservation of still-live racks and replacement uniforms. Mixed-program
-checks cover slow callers and WebAssembly. Native stream participation
-remains WIP.</p>
-</li>
-<li>
-<p><code>to_u32</code> converts <code>f32s</code> to unsigned 32-bit racks on all five CPU profiles,
-including native streams. It rounds to nearest with ties to even, clamps
-to the unsigned range and converts NaNs to zero. SSE2 and AVX2 use packed
-signed conversion on two ranges, restoring bit 31 after exact subtraction.
-AVX-512F and NEON use packed unsigned conversion after sanitising the range.
-WebAssembly rounds then uses unsigned saturating conversion. Four allocated
-native temporaries preserve masks and safe values, with spills rejected.
-Independent bit oracles check results and masked exceptions, including
-retained inputs, guarded tails, destinations and exact in-place updates.</p>
-</li>
-<li>
-<p><code>to_f32</code> accepts <code>u32s</code> on all five CPU profiles, in register kernels and
-streams. SSE2 and AVX2 convert two exactly represented 16-bit halves
-before one rounded addition. AVX-512F, NEON and WebAssembly select
-unsigned vector conversion instructions. The integer-bit oracle checks
-rounding across bit 31, retained inputs, masked exceptions, compact
-widening and guarded stream tails. Generated WebAssembly C explicitly
-discards unused ABI parameters, including unneeded tail masks, so strict
-unused-parameter warnings remain enabled.</p>
-</li>
-<li>
-<p>Signed <code>to_f32</code> and <code>to_i32</code> compile on SSE2, AVX2, AVX-512F and NEON,
-in register kernels and streams. Packed operations preserve nearest-even
-rounding, saturating float-to-integer results and NaN-to-zero conversion.
-Masked operands become zero before conversion. Independent integer-bit
-oracles check boundary and raw values, retained inputs, exception flags
-and guarded tails. Final-object fixtures reject scalar and narrowed
-instructions. The interpreter now clamps infinities and out-of-range
-values before scalar integer conversion.</p>
-</li>
-<li>
-<p>Native streams explicitly widen <code>i8</code> and <code>i16</code> columns into <code>i32s</code>, or
-<code>u8</code> and <code>u16</code> columns into <code>u32s</code>, on SSE2, AVX2, AVX-512F and NEON.
-Packed extension preserves signed values, with guarded compact transfers
-in partial racks. Independent C checks all four stored types, wrapping
-sums, unsigned products, single-column updates and separate destinations
-for every count from zero through 65, with arrays ending at guard pages.
-Outputs remain 32-bit, and general native runs remain WIP.</p>
-</li>
-<li>
-<p>Native <code>bitcast</code> between <code>i32s</code> and <code>u32s</code> preserves lane bits in register
-kernels and streams. Allocation reuses a dying input or copies it through
-a vector register, without numerical conversion. The interpreter now keeps
-the selected profile's width through bitcasts and integer broadcasts.</p>
-</li>
-<li>
-<p>WebAssembly object verification accepts narrower packed comparisons and
-extending multiplies only when source-derived operand bounds justify them.
-Compact column types and literals establish those bounds. Unproved
-arithmetic drops them. Independently compiled packed objects reject without
-the bounds and pass with them. LLVM's six extending-load spellings are
-normalised to their WebAssembly instruction identifiers. Compact streams
-pass numerical and object checks in both addressing modes.</p>
-</li>
-<li>
-<p>Native streams traverse <code>f32</code>, <code>i32</code> and <code>u32</code> columns on SSE2, AVX2,
-AVX-512F and NEON. One to four same-width columns can contribute to a
-stream or single-column update, retaining each column's type and the
-existing guarded-tail contract. Independent C checks signed wrapping
-arithmetic, unsigned boundaries, literal shifts, mixed float/integer
-masks, exact aliasing and separate destination layouts. C and Rake callers
-check the boundary, and all five CPU-profile interpreters check the same
-source. Cross-lane traversal operations remain WIP.
-Embedded kernel assembly restores the text section before slow functions,
-so platform startup adapters remain executable code.</p>
-</li>
-<li>
-<p>WebAssembly partial stores keep their scalar remainder opaque to clang,
-retaining integer arithmetic on a rack before lane stores. This applies
-in both addressing modes. Unsigned comparisons at the high-bit boundary
-select their packed sign-mask sequence explicitly. Independent expected
-masks and the strict final-object verifier check both changes.</p>
-</li>
-<li>
-<p>WebAssembly uniform choices broadcast a Boolean mask and select rack bits.
-This retains the rack choice through partial stores. Clang previously moved
-scalar choices after a one-lane extraction, which the strict object verifier
-rejected. Scalar expected values check both nested choices and every tail
-remainder, including unchanged output beyond the count.</p>
-</li>
-<li>
-<p>Native float streams take <code>i32</code>, <code>u32</code> and <code>bool</code> uniforms alongside
-floats. Integer arguments, descriptors, counts and output pointers follow
-their C register counter independently of float arguments. Direct uniform
-comparisons and Boolean choices retain protected full-rack and tail
-semantics. Independent C checks interleaved argument types, signed and
-unsigned boundaries, unused Boolean argument bits, eight persistent
-uniforms, in-place updates and separate destinations ending at guard pages.
-Stack arguments remain work in progress.</p>
-</li>
-<li>
-<p>Boolean uniforms choose whole racks on all four physical profiles, including
-results of <code>all</code> and <code>any</code>. A packed broadcast and sign extension turn the
-Boolean into a lane mask, with the usual protection for untaken floating-point
-work. Native kernel arguments accept C <code>bool</code> through the integer argument
-slots and retain only its value bit. Independent C checks both choices,
-every reduced lane mask, fused expressions and nested through masks.
-Assembly callers deliberately set unused upper argument bits. Slow callers
-check Boolean arguments, literals, results and inlined calls.
-Marked literals <code>&lt;true&gt;</code> and <code>&lt;false&gt;</code> are Boolean uniforms, including
-forms with spaces inside the brackets. The lexer previously treated the
-compact forms as variable references, unlike the Tree-sitter grammar.</p>
-</li>
-<li>
-<p>Direct uniform <code>i32</code> and <code>u32</code> comparisons choose whole racks on all four
-physical profiles. Broadcast operands use the existing typed vector
-comparisons, with mask protection for untaken floating-point work.
-Independent C checks all six predicates, signed and unsigned boundaries,
-literals on either side and retained input racks. Nested conditions inside
-through masks check exception flags as well as results. Slow callers and
-WebAssembly programs exercise the same source forms.</p>
-</li>
-<li>
-<p>Native register kernels take <code>i32</code> and <code>u32</code> uniforms through the platform
-C integer argument registers, independently of SIMD argument slots. Their
-entry imports and vector broadcasts preserve all 32 bits. Verification
-permits only the declared entry transfers. Independent C checks high-bit
-values, interleaved argument classes, every integer argument register,
-eight SIMD arguments and retained racks. Slow callers also use these
-uniforms and signed 32-bit results. Integer bitwise built-ins and extrema
-broadcast marked uniforms in either operand, including two uniforms.
-Typed calls check integer literals against the parameter's range, and
-explicitly typed rack bindings broadcast their uniforms. Native scalar
-integer constants stay in vector registers until the C return transfer.
-Executable semantics and WebAssembly checks cover unsigned boundary bits
-and wrapping uniform arithmetic.</p>
-</li>
-<li>
-<p><code>u32s</code> <code>min</code> and <code>max</code> compile on SSE2, AVX2, AVX-512F, NEON and
-WebAssembly. SSE2 compares sign-bit-biased copies, then selects the
-original lane bits with three allocated temporary registers. AVX2 and
-AVX-512F use <code>vpminud</code> and <code>vpmaxud</code>, NEON uses <code>umin</code> and <code>umax</code>, and
-WebAssembly uses <code>i32x4.min_u</code> and <code>i32x4.max_u</code>. Independent C checks
-unsigned boundaries, nested clamps, masked selection and retained inputs.
-Interpreter and WebAssembly goldens include full-width unsigned literals.</p>
-</li>
-<li>
-<p><code>u32s</code> supports all six comparisons on SSE2, AVX2, AVX-512F, NEON and
-WebAssembly. Unsigned rack and uniform types retain their signedness in
-the IR and interpreter. SSE2 and AVX2 compare sign-bit-biased copies,
-AVX-512F uses <code>vpcmpud</code>, and NEON uses <code>cmhi</code> and <code>cmhs</code>. Independent C
-checks high-bit boundaries, operand order, mask reductions and live inputs.
-Interpreter goldens and a whole-program WebAssembly fixture check unsigned
-ordering and broadcasts.</p>
-</li>
-<li>
-<p>Static <code>i32s</code> and <code>u32s</code> shuffles compile on all four physical profiles.
-They share the float shuffle's bit-preserving selection, allocation and
-final-object checks. Independent C checks one- and two-rack permutations,
-repeated lanes, whole-register selection and still-live or aliased inputs.
-The interpreter also selects 32-bit integer lanes, with hand-specified
-boundary-bit cases at four, eight and sixteen lanes. Native stream
-shuffles remain WIP until their tail participation contract is defined.</p>
-</li>
-<li>
-<p>Native signed <code>i32s</code> <code>abs</code> compiles on all four physical profiles,
-retaining the wrapping −2³¹ result. SSE2 uses packed sign extension,
-XOR and subtraction with an allocated temporary register. AVX2, AVX-512F
-and NEON use direct full-width absolute-value instructions. Independent
-widened C arithmetic checks exact bits, retained inputs, nested calls and
-masked selection. Final-object fixtures refuse narrowed and memory forms,
-and SSSE3 instructions in the SSE2 profile.</p>
-</li>
-<li>
-<p>Native <code>i32s</code> and <code>u32s</code> <code>bit_andnot(a, b)</code> uses a full-width packed
-instruction on every physical profile, preserving <code>a &amp; ~b</code>. The x86
-emitter reverses instruction operands, and SSE2 preserves inputs across
-destructive register reuse. Independent C checks exact bits, equal
-operands, literal masks and masked selection. Final-object fixtures
-refuse narrowed, scalar and memory forms.</p>
-</li>
-<li>
-<p>Integer rack mask literals use their scalar element's range check. Valid
-<code>u32s</code> masks up to 4294967295 are accepted, including a literal as the
-first operand of <code>bit_andnot</code>. Native lowering preserves those high-bit
-masks in its 32-bit representation. An untyped integer literal retains
-the signed <code>i32</code> range.</p>
-</li>
-<li>
-<p>Native <code>i32s</code> and <code>u32s</code> bit shifts accept literal counts from 0 to 31 on
-all four physical profiles. Full-width packed instructions implement left,
-logical-right and signed-right shifts. A zero count leaves the rack unchanged.
-Independent C checks every count, sign extension, masked use and retained
-inputs. Final-object checks reject narrowed or scalar shifts and
-out-of-range immediates. Runtime counts use the normalisation sequence above.</p>
-</li>
-<li>
-<p>Native signed <code>i32s</code> <code>min</code> and <code>max</code> compile on all four physical profiles.
-SSE2 uses packed comparison and logical selection with an allocated mask
-register. AVX2, AVX-512F and NEON use direct full-width extrema instructions.
-Independent C checks signed limits, nested clamps, masked branches and
-retained inputs. Final-object checks reject narrower extrema and SSE4.1
-instructions in the SSE2 profile.</p>
-</li>
-<li>
-<p>Native <code>i32s</code> and <code>u32s</code> multiplication wraps to the low 32 bits on all
-four physical profiles. SSE2 uses two packed multiplies and four shuffles
-with allocated vector temporaries. AVX2, AVX-512F and NEON select one
-full-width multiply instruction. Independent C checks overflow, lane order,
-masked products and destructive input reuse. Final-object checks refuse
-MMX, narrowed vectors, scalar work and memory multiply operands.</p>
-</li>
-<li>
-<p>Native signed <code>i32s</code> negation uses full-width packed zero/subtract on
-SSE2, AVX2 and AVX-512F, and <code>neg .4s</code> on NEON. The independent C oracle
-checks wrapping bits, retained inputs and lane-masked selection, including
-the minimum signed value. The final-object verifier rejects narrower NEON
-negation forms.</p>
-</li>
-<li>
-<p>Native <code>i32s</code> and <code>u32s</code> support wrapping add/subtract and bitwise
-AND/OR/XOR on SSE2, AVX2, AVX-512F and NEON. Signed <code>i32s</code> comparisons
-produce masks for selection and mask reductions. Mixed integer/float
-selection preserves the vector C ABI. An independent C oracle checks
-overflow bits, signed extremes, tines/gaps and still-live inputs. Assembled
-negative fixtures reject narrowed vectors, scalar work and integer memory
-operations. Other integer operations remain WIP.</p>
-</li>
-<li>
-<p>Direct uniform <code>f32</code> comparisons support whole-rack conditional expressions
-on all four physical profiles. Broadcast operands use ordered vector
-comparisons and selection, with benign operands in untaken branches.
-Independent C checks the six predicates, NaNs, signed zeros, subnormals,
-mixed scalar/vector arguments and nesting inside through masks. Stream
-checks cover guarded tails, in-place output and Rake callers.</p>
-</li>
-<li>
-<p>Float comparison masks support <code>all</code>, <code>any</code> and <code>bitmask</code> on all four
-physical profiles. Full-width bitwise reductions use one checked temporary
-vector register, then transfer the completed Boolean or bitset through the
-scalar C return ABI. Native slow callers can receive <code>bool</code> and <code>u32</code>
-results from uniform-<code>f32</code> kernels. Independent C checks every lane-mask
-pattern and quiet-NaN gaps. Final-object fixtures reject intermediate or
-incorrect scalar transfers and scalar arithmetic inside a kernel.</p>
-</li>
-<li>
-<p>Static <code>f32s</code> shuffles compile on all four physical profiles, selecting
-lanes from one or two racks across their full width. Register-only
-sequences preserve exact lane bits, with scratch registers included in
-the no-spill allocation check. Independent C checks permutations, repeated
-indices, signalling NaNs and still-live inputs. Final-object fixtures
-reject unselected permutations and memory stores. Native stream shuffles
-remain work in progress pending their partial-rack contract.</p>
-</li>
-<li>
-<p>Literal-index <code>f32s</code> insertion compiles on all four physical profiles.
-It replaces one lane's bits from a uniform argument, literal or extracted
-value, preserving every other lane. The scan pipeline shares its insertion
-sequence. Independent C checks the mixed scalar/vector ABI, exact bits,
-signalling NaNs and preservation of still-live inputs. Native streams still
-reject extraction and insertion pending their tail participation contract.</p>
-</li>
-<li>
-<p>Literal-index <code>f32s</code> extraction compiles on SSE2, AVX2, AVX-512F and NEON.
-The index bounds follow the selected profile's four, eight or sixteen lanes.
-Full-width vector transfers preserve the selected bits and return through
-the scalar C ABI. Independent C checks every lane, signalling NaNs,
-rebroadcasts and preservation of a still-live rack.</p>
-</li>
-<li>
-<p>NEON compiles the four float reductions and inclusive scans as three
-ordered steps. Intermediate values stay in complete vector registers,
-and strict extrema canonicalise NaNs. The object verifier permits lane
-broadcasts and prefix insertion only for selected cross-lane functions.
-The shared scalar oracle checks order, signed zeros and NaNs at every
-position on all physical profiles.</p>
-</li>
-<li>
-<p>Native <code>f32s</code> <code>floor</code>, <code>ceil</code>, <code>trunc</code> and ties-to-even <code>nearest</code> compile
-on SSE2, AVX2, AVX-512F and NEON. SSE2 uses vector conversions and masks,
-with five temporary registers checked by the no-spill allocator. Other
-profiles use integral-rounding instructions. Independent binary32 checks
-cover result bits, active signalling NaNs, inactive lanes and guarded tails.
-The interpreter's <code>nearest</code> now preserves negative zero.</p>
-</li>
-<li>
-<p>Native <code>f32s</code> <code>min</code> and <code>max</code> preserve NaNs and signed zero on SSE2, AVX2,
-AVX-512F and NEON. The x86 lowering reuses the strict reduction sequence,
-with five temporary vector registers included in allocation pressure.
-NEON uses full-width <code>fmin</code> and <code>fmax</code>. An independent bit-ordering oracle
-checks values, signalling-NaN exceptions and masked gaps, and guard pages
-check every stream tail. Native floating-point control settings are now
-explicit caller obligations.</p>
-</li>
-<li>
-<p>Native <code>f32s</code> absolute values compile on SSE2, AVX2, AVX-512F and NEON as
-full-rack bitwise operations. An independent IEEE-754 bit oracle checks
-signed zeros, subnormals, infinities and NaNs, including signalling NaNs
-under masks. Traversal checks cover every tail and C and Rake callers.</p>
-</li>
-<li>
-<p>Native <code>f32</code> traversals accept <code>i32</code> counts as well as <code>i64</code> counts. The
-selected entry code sign-extends a 32-bit C argument before loop guards and
-pointer access. Independent C checks supply unspecified upper register
-bits for every tail and for zero and negative counts on all four profiles.</p>
-</li>
-<li>
-<p>Native <code>f32</code> traversals can write one column in a separate mutable
-destination stack. Its descriptor follows the count in the platform C ABI,
-and the selected pointer uses the destination's own record layout. C checks
-values and exact aliases against independent scalar results, with guard
-pages for every partial rack. Rake callers exercise the same boundary.</p>
-</li>
-<li>
-<p>Native <code>f32</code> traversals can update one column of their mutable input stack,
-with the same selected vector loop and guarded tail as stream output.
-All read columns are loaded before the update. Independent C checks the
-mutable descriptor ABI, in-place results, an unread destination and
-untouched independent columns, alongside Rake callers on every CPU profile.</p>
-</li>
-<li>
-<p>Native <code>f32</code> streams accept up to eight uniform <code>f32</code> arguments after their
-count. Their platform C argument registers are copied into caller-clobbered
-slots and kept live across full and partial racks by the no-spill allocator.
-Independent C checks scale, bias and threshold arguments, quiet NaNs and all
-eight register slots, alongside Rake callers on every physical CPU profile.</p>
-</li>
-<li>
-<p>Extend native <code>f32</code> streams to NEON: four-lane vector transfers and
-count-guarded partial-rack memory operations, with vector arithmetic in
-the tail. The final ELF function extent is checked against the selected
-assembly. Independent C and guard pages check one to four columns, exact
-in-place output and million-element results on all four CPU profiles.
-NEON ordered comparisons preserve quiet-NaN behaviour through vector
-operand sanitisation. The numerical oracle checks all six operators.</p>
-</li>
-<li>
-<p>Correct the safe-root check-only command to include its million-element
-comparison before returning. Earlier check-only runs covered short counts
-and guarded tails.</p>
-</li>
-<li>
-<p>Extend native <code>f32</code> streams to SSE2: four-lane racks with guarded memory
-transfers for partial racks and vector arithmetic throughout. Independent
-C and guard-page checks pass on SSE2, AVX2 and AVX-512F. SSE2 ordered
-comparisons now preserve quiet-NaN behaviour through explicit vector
-sanitisation, with additional mask-register pressure checked by the allocator.</p>
-</li>
-<li>
-<p>Extend native <code>f32</code> streams to AVX-512F: sixteen-lane racks, masked
-loads and stores, and inactive-input sanitisation. Independent C and
-guard-page checks exercise one, two and four columns on the AVX2 and AVX-512
-stream profiles, including every tail remainder and exact in-place output.</p>
-</li>
-<li>
-<p>Place slow-local aggregate frames using their actual C size and alignment,
-including header-backed records nested in arrays and Rake records. Small
-frames retain aligned host-stack storage. Arena padding is reclaimed on
-return, and independent small-stack checks cover 64-byte-aligned C objects.</p>
-</li>
-<li>
-<p>Native large-local arenas allocate on entry and free on the outermost
-framed return. Only a pointer and cursor occupy TLS, allowing host runtimes
-to use small worker stacks. Independent pthread checks cover recursive
-locals, C callback re-entry, returned records and repeated calls.</p>
-</li>
-<li>
-<p>Define typed global tines with explicit rack and uniform parameters, and
-apply them in local tines, through blocks and sweeps. <code>gaps</code> complements a
-tine or composed mask, including unordered floating-point lanes.
-Through fallbacks are optional: without <code>else</code>, reading an undefined lane
-is a compile error. Sweeps may omit <code>_</code> when Boolean mask coverage is
-provably total. Physical and WebAssembly lowering retain their existing
-predication and inactive-input safety obligations.</p>
-</li>
-<li>
-<p>Support opaque header-backed C typedefs through typed pointers, including
-callback signatures. Reject by-value opaque objects and their construction.</p>
-</li>
-<li>
-<p>Compile the AVX2 <code>f32</code> stream traversal subset as complete Rake-selected
-assembly, with masked tails and exact final-function verification.</p>
-</li>
-<li>
-<p>Rename <code>crunch</code> to <code>scratch</code>, without retaining the old keyword. <code>pack</code>
-now defines one scalar record. <code>stack PackType</code> describes its columnar
-collection, constructed as <code>stack PackType { field: column }</code>. Runs consume
-those columns a rack at a time. The compiler, grammar, examples and tutorial
-use the same hierarchy.</p>
-</li>
-<li>
-<p>Header-backed C unions have overlapping storage, one-member literals,
-field access, borrowed arguments and by-value C calls/results. Lowercase
-C typedefs and primitive-spelled members retain their header identifiers.
-The platform compiler supplies layout and ABI. Independent C checks cover
-nested structs, arrays and callbacks on CPU profiles and WebAssembly.
-Interpreted union storage and Rake-owned union layouts remain WIP.</p>
-</li>
-<li>
-<p>Slow pointers distinguish writable <code>ptr T</code> from read-only <code>ptr const T</code>.
-C declarations retain their pointee qualifiers, including callback
-signatures. Address-taking, view borrowing and opaque pointer casts
-preserve read-only access. The interpreter now retains location identity
-through scalar and aggregate assignment, so pointers observe later writes.
-Taking a checked element's address also checks bounds in the interpreter.</p>
-</li>
-<li>
-<p>Slow code supports typed C function pointers, noncapturing callbacks and
-opaque <code>ptr ()</code> contexts. <code>addr(function)</code> forms a callback, and data
-pointers can be erased or restored through <code>bitcast(ptr T, pointer)</code>.
-Native and WebAssembly calls use the platform C ABI, with null indirect
-calls trapping.</p>
-</li>
-<li>
-<p>A process entry may take <code>argc: i32, argv: ptr ptr u8</code>. Native C and WASI
-startup pass the count, zero-terminated byte strings and trailing null
-pointer through a compiler-owned typed adapter. The interpreter accepts
-arguments after <code>--</code> and uses the input path as <code>argv[0]</code>.</p>
-</li>
-<li>
-<p>Native slow-only programs emit platform C and compile to x86-64 or
-AArch64 objects. Their public slow functions use the platform C ABI,
-with header-backed struct imports, pointer parameters and struct returns.
-Native runs and packs remain work in progress.</p>
-</li>
-<li>
-<p>Native mixed programs embed Rake-selected register assembly in their C
-unit. Slow callers use uniform <code>f32</code> parameters and <code>f32</code> results, and
-both object modes check the kernels in the final compiled object. Other
-scalar kernel boundaries remain work in progress.</p>
-</li>
-<li>
-<p>The interpreter accepts an explicit target profile for reference <code>f32</code>
-rack widths. The browser emits native mixed C and uses interpretation at that
-profile's width instead of executing native machine code.</p>
-</li>
-<li>
-<p>Native slow frames are thread-local, allowing independent host threads to call
-exported functions with large recursive locals. Module state stays shared.</p>
-</li>
-<li>
-<p>Pointer fields in C struct declarations are checked against
-<code>sizeof(void *)</code>, rather than assuming a wasm32 pointer.</p>
-</li>
-<li>
-<p>Slow scalar bit casts use an alias-safe byte copy, shared by the native
-and WebAssembly C paths.</p>
-</li>
+<li><code>crunch</code> is renamed <code>scratch</code> (breaking). <code>pack</code> defines one record, and
+<code>stack PackType { field: column }</code> builds its columnar collection.</li>
+<li>Global tines take typed rack and uniform parameters. <code>gaps</code> complements a
+tine or composed mask. A through block's <code>else</code> is optional, and reading an
+undefined lane is a compile error. A sweep may omit <code>_</code> when its masks
+provably cover every lane.</li>
+<li><code>&lt;true&gt;</code> and <code>&lt;false&gt;</code> are Boolean uniforms.</li>
+<li>Integer mask literals use their element's range, so <code>u32s</code> masks go up to
+4294967295. Typed calls check integer literals against the parameter's
+range.</li>
+<li>Integer bitwise built-ins and extrema accept a marked uniform in either
+operand.</li>
+</ul>
+<h3 id="integer-racks">Integer racks</h3>
+<ul>
+<li>On SSE2, AVX2, AVX-512F and NEON, <code>i32s</code> and <code>u32s</code> support wrapping
+arithmetic, bitwise operations and <code>bit_andnot</code>, signed and unsigned
+comparisons, <code>min</code> and <code>max</code>, and on <code>i32s</code>, <code>abs</code> and negation.</li>
+<li>Shifts take a literal count from 0 to 31 or a runtime <code>u32</code> count taken
+modulo 32.</li>
+<li>Static shuffles and literal-index <code>extract</code> and <code>insert</code> compile on the four
+physical profiles, but not yet in native streams.</li>
+<li><code>sum</code>, <code>product</code>, <code>minimum</code>, <code>maximum</code> and their <code>scan_</code> forms accept <code>i32s</code>
+and <code>u32s</code> on every CPU profile.</li>
+<li><code>bitcast</code> between <code>f32s</code>, <code>i32s</code> and <code>u32s</code> keeps every lane's bits.</li>
+</ul>
+<h3 id="float-racks">Float racks</h3>
+<ul>
+<li><code>abs</code>, <code>floor</code>, <code>ceil</code>, <code>trunc</code>, <code>nearest</code>, <code>min</code> and <code>max</code> compile on SSE2,
+AVX2, AVX-512F and NEON. <code>min</code> and <code>max</code> preserve NaNs and signed zero.</li>
+<li>Static shuffles and literal-index <code>extract</code> and <code>insert</code> compile on the four
+physical profiles.</li>
+<li>Comparison masks support <code>all</code>, <code>any</code> and <code>bitmask</code> on the four physical
+profiles.</li>
+<li>NEON compiles the float reductions and inclusive scans.</li>
+<li>Native code leaves floating-point control settings to the caller.</li>
+</ul>
+<h3 id="uniforms-and-conditions">Uniforms and conditions</h3>
+<ul>
+<li>Native register kernels take <code>f32</code>, <code>i32</code>, <code>u32</code> and C <code>bool</code> uniforms and
+compute with them. Float arithmetic rounds to binary32 at each step, and
+integer arithmetic wraps to 32 bits. Arithmetic under a partial lane mask
+remains work in progress.</li>
+<li>On the four physical profiles, a conditional expression can choose a whole
+rack by comparing uniforms or by a Boolean uniform, including the result of
+<code>all</code> or <code>any</code>. Conditions compose with <code>and</code>, <code>or</code> and <code>not</code>.</li>
+</ul>
+<h3 id="conversions">Conversions</h3>
+<ul>
+<li><code>to_u32</code>, and <code>to_f32</code> from <code>u32s</code>, compile on all five CPU profiles.</li>
+<li>Signed <code>to_f32</code> and <code>to_i32</code> compile on SSE2, AVX2, AVX-512F and NEON.</li>
+<li>Float-to-integer conversions round to nearest even, saturate and turn NaN
+into zero.</li>
+</ul>
+<h3 id="native-streams">Native streams</h3>
+<ul>
+<li>Native streams traverse stacks on SSE2, AVX2, AVX-512F and NEON, reading one
+to four same-width <code>f32</code>, <code>i32</code> or <code>u32</code> columns, with guarded partial racks.</li>
+<li><code>widen</code> reads <code>i8</code>, <code>i16</code>, <code>u8</code> and <code>u16</code> columns into 32-bit racks.</li>
+<li>A stream can update one column in place or write one column to a separate
+destination stack.</li>
+<li>Counts can be <code>i32</code> or <code>i64</code>, and up to eight <code>f32</code> uniforms and any <code>i32</code>,
+<code>u32</code> or <code>bool</code> uniforms follow the count.</li>
+<li>Stream bodies support local rack assignments, arrays of rack locations and
+unrolled <code>repeat</code>.</li>
+<li>Runtime-counted inner loops, cross-lane operations and general native runs
+remain work in progress.</li>
+</ul>
+<h3 id="slow-code-and-c">Slow code and C</h3>
+<ul>
+<li>Native slow-only programs compile through platform C to x86-64 or AArch64
+objects, and their public functions use the platform C ABI.</li>
+<li>Native mixed programs embed Rake-selected kernel assembly in their C unit.</li>
+<li>Header-backed C unions, opaque C typedefs behind pointers, and read-only
+<code>ptr const T</code> pointers are supported.</li>
+<li>Slow code supports typed C function pointers and callbacks. <code>addr(function)</code>
+forms a callback, and a null indirect call traps.</li>
+<li>A process entry may take <code>argc: i32, argv: ptr ptr u8</code>, and the interpreter
+passes it the arguments after <code>--</code>.</li>
+<li>Native slow frames are thread-local, and large locals live in an arena, so
+host threads can call exported functions on small stacks.</li>
+<li>Pointer fields in C struct declarations are checked against
+<code>sizeof(void *)</code>.</li>
+</ul>
+<h3 id="webassembly">WebAssembly</h3>
+<ul>
+<li>Object verification accepts narrower comparisons and extending multiplies
+when column types and literals bound the operands.</li>
+<li>Uniform choices, partial stores and unsigned comparisons stay packed, so the
+strict object verifier accepts them.</li>
+<li>Generated C no longer clashes with C keywords or its own temporaries.</li>
+</ul>
+<h3 id="tools">Tools</h3>
+<ul>
+<li><code>--emit-c</code> writes C for WebAssembly, native whole programs or native
+kernels, and <code>--emit-asm</code> writes physical-target kernel assembly.</li>
+<li>The interpreter takes a target profile for <code>f32</code> rack widths. It now clamps
+out-of-range float-to-integer conversions, keeps negative zero in <code>nearest</code>,
+and lets pointers observe later writes.</li>
+<li>The package's tests no longer need target assemblers or disassemblers.</li>
 </ul>
 <h2 id="060-beta">0.6.0-beta</h2>
 <ul>
-<li>SSE2 and AVX-512F compile float scratches and rakes to verified vector
-kernels alongside AVX2 and NEON. Rack widths are four, sixteen, eight and
-four binary32 lanes respectively. Native pack traversal and whole programs
-remain work in progress.</li>
+<li>SSE2 and AVX-512F compile float scratches and rakes alongside AVX2 and NEON.</li>
 <li>Native target detection selects AVX-512F, AVX2 with FMA, or SSE2 on x86.
-SSE2 rejects explicit single-rounded <code>fma</code> because that instruction is
-absent from its ISA. The AVX-512 profile requires AVX-512F only.</li>
-<li>Scratches end with their result expression, without <code>return</code>. Tines use
-<code>means</code> instead of <code>when</code>. These are breaking source-language changes.</li>
-<li>The browser tutorial offers all five implemented vector profiles for
-kernel inspection. Execution and whole-program lessons use WebAssembly.</li>
-<li>Tree-sitter preserves a function body across comment-only lines, including
-comments beginning at the left margin.</li>
-<li>The introduction explains the notation in sequence, with compound masks
-and a diagram of a 600-record pack. The reference page is now titled
-Primitives, operations, and targets.</li>
+SSE2 rejects explicit <code>fma</code>.</li>
+<li>Scratches end with their result expression, without <code>return</code>, and tines use
+<code>means</code> instead of <code>when</code> (both breaking).</li>
+<li>The browser tutorial offers all five vector profiles for kernel inspection.</li>
+<li>Tree-sitter keeps a function body together across comment-only lines.</li>
+<li>The introduction explains the notation in sequence, and the reference page
+is titled Primitives, operations, and targets.</li>
 </ul>
 <h2 id="050-beta">0.5.0-beta</h2>
 <ul>
-<li>Rakes end with <code>sweep:</code>, without <code>return</code>. This is the rake's result form.
-<code>return</code> remains the result of a scratch and an exit from a slow function.
-Compiler examples, Tree-sitter and the browser tutorial use the new form.</li>
-<li><code>slow { ... }</code> is a scoped scalar escape in runs and slow functions. It
-supports scalar loops, calls, state and memory views, nesting and a scalar
-tail result. Rack values can't cross the boundary. WebAssembly object
-verification permits only the helper calls selected by these explicit
-blocks, and keeps the surrounding vector checks.</li>
-<li>Tree-sitter and the browser tutorial recognise and teach slow blocks.</li>
+<li>Rakes end with <code>sweep:</code>, without <code>return</code>.</li>
+<li><code>slow { ... }</code> is a scoped scalar escape in runs and slow functions, with
+loops, calls, state, memory views and a scalar result. Rack values can't
+cross it.</li>
+<li>Tree-sitter and the browser tutorial support slow blocks.</li>
 </ul>
 <h2 id="040-beta">0.4.0-beta</h2>
-<p>Changes since 0.3.0.</p>
 <h3 id="language-and-compiler">Language and compiler</h3>
 <ul>
 <li>Named target profiles fix rack widths. <code>x86-avx2</code> and <code>aarch64-neon</code>
 compile <code>f32s</code> scratches and rakes to assembly, and <code>wasm-simd128</code> compiles
-scratches, rakes, runs and whole programs to C with one <code>wasm_simd128.h</code>
-intrinsic for each selected instruction.</li>
-<li><code>rakec --print-capabilities</code> reports each language feature's status, and
-each profile rejects what it can't compile with the source location and the
-missing operation.</li>
-<li>Rakes have defined inactive lanes on every profile: benign operands on x86
-and AArch64, and none needed on WebAssembly, which has no floating-point
-exception state. A sweep needs one final <code>_</code> arm, and its arms' order is
-its priority.</li>
-<li>Fused bindings are pure contiguous data flow. Their identifiers are substituted
-before fused multiply-adds are formed on AVX2 and NEON, and <code>fma</code> keeps its
-single rounding. A fused stage may now introduce a constant or choose by a
-mask, and fused bindings inside a through block form regions of their own.</li>
-<li>Pure instructions that nothing uses are removed before instruction
-selection, so a scratch's <code>repeat</code> compiles on AVX2 and NEON.</li>
-<li><code>wasm-simd128</code> adds:
-<ul>
-<li>integer racks, <code>u8s</code>, <code>i16s</code>, <code>i32s</code>, <code>u32s</code>, <code>i64s</code> and <code>u64s</code>, with
-wrapping arithmetic, comparisons, <code>min</code> and <code>max</code>, bitwise operations and
-bit shifts,</li>
-<li><code>dot</code>, <code>narrow</code>, <code>widen_low</code>, <code>widen_high</code>, <code>to_f32</code> and <code>to_i32</code>,</li>
-<li>float <code>min</code>, <code>max</code>, <code>abs</code> and rounding,</li>
-<li>one- and two-rack shuffles, <code>bitmask</code>, <code>extract</code>, <code>insert</code>, <code>all</code> and
-<code>any</code>, and</li>
-<li>strict reductions and scans, which AVX2 also compiles.</li>
-</ul>
-</li>
-<li><code>exp</code>, <code>log</code>, <code>log2</code> and <code>tanh</code> are fixed sequences of binary32 operations,
-shared by the interpreter, slow code and racks.</li>
-<li>Conditional expressions choose by a mask on every profile, and by a
-uniform on <code>wasm-simd128</code>.</li>
-<li>A uniform needs angle brackets when used with a rack: <code>values * &lt;factor&gt;</code>. The type checker reports the unmarked name.</li>
-<li><code>wrap</code> and <code>bitcast</code> are conversions only before a parenthesis, so they
-remain usable as identifiers. A scratch, rake or run can't be named after a C
-keyword, since each becomes a C function of its own name.</li>
-<li>A rake's through block and its sweep compile to one select, since a select
-whose arm selects on the same mask takes that arm directly.</li>
-<li><code>rakec --print-capabilities</code> marks <code>let</code> expressions, <code>is</code> comparisons and
-expression predicates unavailable, since no source syntax reaches them.</li>
-<li><code>!=</code> on floats is ordered everywhere: it is false when either operand is
-NaN, for scalars as for racks.</li>
-<li>Number literals are unsigned, and a minus before one makes it negative, so
-<code>n-1</code> subtracts.</li>
-<li>Runs on <code>wasm-simd128</code> traverse packs, with tails that load and store lane
-by lane and never touch an element past the count. They have nested
-traversals, counted loops, <code>repeat</code> and uniform <code>if</code>, rack locations and
-arrays of them, checked and unchecked loads, stores and gathers, and
-scratches and rakes inlined with their masks. Rake forms each loop's
-addresses and checks bounds once before the loop. Runs have a published
-wasm32 C boundary.</li>
+scratches, rakes, runs and whole programs to C intrinsics.</li>
+<li><code>rakec --print-capabilities</code> reports each feature's status, and a profile
+rejects unsupported features with their source location.</li>
+<li>Rakes have defined inactive lanes on every profile. A sweep needs a final
+<code>_</code> arm, and its arms' order is its priority.</li>
+<li>Fused bindings are pure data flow, and AVX2 and NEON form fused
+multiply-adds from them. <code>fma</code> keeps its single rounding.</li>
+<li>A scratch's <code>repeat</code> compiles on AVX2 and NEON.</li>
+<li><code>wasm-simd128</code> adds integer racks, <code>dot</code>, <code>narrow</code>, <code>widen_low</code>,
+<code>widen_high</code>, <code>to_f32</code>, <code>to_i32</code>, float <code>min</code>, <code>max</code>, <code>abs</code> and rounding,
+shuffles, <code>bitmask</code>, <code>extract</code>, <code>insert</code>, <code>all</code>, <code>any</code>, and strict
+reductions and scans, which AVX2 also compiles.</li>
+<li><code>exp</code>, <code>log</code>, <code>log2</code> and <code>tanh</code> give the same binary32 results in the
+interpreter, slow code and racks.</li>
+<li>Conditional expressions choose by a mask on every profile, and by a uniform
+on <code>wasm-simd128</code>.</li>
+<li>A uniform needs angle brackets when used with a rack: <code>values * &lt;factor&gt;</code>.</li>
+<li><code>wrap</code> and <code>bitcast</code> remain usable as identifiers. A scratch, rake or run
+can't be named after a C keyword.</li>
+<li><code>!=</code> on floats is false when either operand is NaN.</li>
+<li><code>n-1</code> subtracts, because number literals are unsigned and a minus makes one
+negative.</li>
+<li>Runs on <code>wasm-simd128</code> traverse packs with counted loops, <code>repeat</code>, uniform
+<code>if</code>, rack locations, loads, stores and gathers. Their tails never touch an
+element past the count, and they have a published wasm32 C boundary.</li>
 <li>A run's uniform arithmetic may use reductions, extractions, bitmasks and
-scratch calls, each computed as a uniform of its own.</li>
-<li>Slow code on <code>wasm-simd128</code>: records, arrays, views, pointers, module
-state, embedded files, constants, control flow and calls to C, compiled
-with the runs into one C file with <code>int main(void)</code>. Aggregates over 256
-bytes live in a frame stack in linear memory instead of the 64 KiB C stack,
-which they overflowed without a trap.</li>
-<li><code>rakec --interpret</code> runs a program's <code>main</code> in Rake's executable
-semantics. It reports a program without <code>main</code> instead of failing, and
-broadcasts a uniform stored where a rack goes, as the compiled code does.</li>
-<li>The compiler library exposes the front end, interpreter, C and assembly
-emitters, and a bounded lane trace to the browser through <code>js_of_ocaml</code>.
-The browser build runs in a worker and returns source diagnostics without
-requiring a server-side compiler.</li>
-<li><code>wasm-simd128-relaxed</code> is an opt-in profile with <code>relaxed_madd</code>,
-<code>relaxed_nmadd</code>, <code>relaxed_min</code> and <code>relaxed_max</code>.</li>
+scratch calls.</li>
+<li>Slow code on <code>wasm-simd128</code> has records, arrays, views, pointers, module
+state, embedded files, control flow and calls to C, and compiles with the
+runs into one C file with <code>int main(void)</code>. Aggregates over 256 bytes live
+in a frame stack in linear memory.</li>
+<li><code>rakec --interpret</code> runs a program's <code>main</code> in Rake's executable semantics.</li>
+<li>The compiler runs in the browser through <code>js_of_ocaml</code>.</li>
+<li><code>wasm-simd128-relaxed</code> is an opt-in profile with relaxed multiply-add,
+<code>min</code> and <code>max</code>.</li>
 </ul>
 <h3 id="verification">Verification</h3>
 <ul>
-<li><code>--verify-native</code> disassembles every object. On x86 and AArch64 it rejects
-calls, stack use, split or scalarised racks, instructions outside the
-profile's list and a wrong count of fused multiply-adds, and it accepts the
-two-byte nop that pads an AVX2 function. On <code>wasm-simd128</code> a scratch may hold
-only register instructions, including the scalar arithmetic clang makes of
-splat arithmetic, and a run only the vector instructions its source selects
-or their documented equivalents.</li>
-<li><code>test/program_test.sh</code> compares every program fixture in the interpreter
-and as WebAssembly under wasmtime, and <code>test/abi_test.sh</code> calls runs from C.
-<code>test/neon_backend_test.sh</code> compares NEON results under QEMU.</li>
-<li>The compiler's parser and the Tree-sitter grammar are compared over the
-test corpus. The grammar parses indentation with an external scanner, as
-the compiler does.</li>
+<li><code>--verify-native</code> disassembles every object and rejects calls, stack use,
+split or scalarised racks and instructions outside the profile.</li>
+<li>The Tree-sitter grammar parses indentation as the compiler does.</li>
 <li>Every Rake example in the README, the documentation and the website is
-compiled by <code>tools/check_documentation_examples.sh</code>, and most are run.</li>
+compiled, and most are run.</li>
 </ul>
 <h3 id="website-and-documentation">Website and documentation</h3>
 <ul>
-<li>rake-lang.org now publishes the compiler documentation as a checked set of
-reference pages with Tree-sitter highlighting.</li>
-<li>The playground is an interactive twelve-lesson tutorial. It runs the same
-compiler and interpreter in the browser, shows rack values in the Lanes tab,
-and displays generated C or assembly beside source diagnostics.</li>
+<li>rake-lang.org publishes the compiler documentation as reference pages with
+Tree-sitter highlighting.</li>
+<li>The playground is a twelve-lesson interactive tutorial with a Lanes tab and
+the generated C or assembly beside diagnostics.</li>
 </ul>
 <h3 id="removed">Removed</h3>
 <ul>

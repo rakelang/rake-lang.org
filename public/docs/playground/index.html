@@ -52,9 +52,9 @@
 <span id="lesson-12" hidden></span>
 <section class="playground-app" data-rake-playground
   data-worker="/scripts/playground-worker.js?v=185e0038"
-  data-compiler="/scripts/rake-compiler.js?v=4104d330"
+  data-compiler="/scripts/rake-compiler.js?v=76967759"
   data-tree-sitter="/scripts/tree-sitter.wasm?v=114a5d56"
-  data-rake-language="/scripts/tree-sitter-rake.wasm?v=6766c88f"
+  data-rake-language="/scripts/tree-sitter-rake.wasm?v=5ef5e65e"
   data-rake-highlights="/scripts/rake-highlights.scm?v=a9e3f419">
   <header class="playground-heading">
     <div>
@@ -107,108 +107,48 @@
     </section>
   </div>
 </section>
-<article id="playground-reference" class="playground-reference"><p>This page includes the playground: someone who has never written SIMD code
-can learn Rake by editing and running small programs in the browser. The
-tutorial introduces one idea at a time and makes each idea visible in the
-result, lane trace, generated code or compiler message. The reference after
-the editor explains each lesson and the syntax that may look strange to a
-programmer coming from C, Java, JavaScript or Python. Every program is
-also compiled by the documentation checker, which verifies its stated result.</p>
-<h2 id="the-screen">The screen</h2>
-<pre class="code code-text"><code>+------------------------------------------------------------------------+
-| Rake playground     Lesson 4 of 12: Marking uniforms     [Prev] [Next] |
-+----------------------------+-------------------------------------------+
-| Lesson text                | Editor                                    |
-|                            |  scratch scale(values: f32s,               |
-| What the lesson            |               &lt;factor: f32&gt;) -&gt; f32s:     |
-| introduces, the task and   |    values * &lt;factor&gt;                      |
-| what to inspect after      |                                           |
-| running it.                | [Run]   Target: [wasm-simd128 v]  [Reset] |
-|                            +-------------------------------------------+
-|                            | Result | Lanes | Code | Messages          |
-|                            |                                           |
-|                            |  main returned 40                         |
-+----------------------------+-------------------------------------------+
-</code></pre>
-<p>The lesson text sits on the left and the editor on the right, with four
-tabs under it:</p>
+<article id="playground-reference" class="playground-reference"><p>The playground teaches Rake to someone who has never written SIMD code, with
+small programs to edit and run in the browser. Each lesson introduces one
+idea and makes it visible in the result, the lane trace, the generated code or
+a compiler message. This page is the lessons' source: the documentation
+checker compiles every program here and verifies its stated result, so a
+language change that breaks a lesson fails the compiler's tests.</p>
+<h2 id="tabs-and-targets">Tabs and targets</h2>
+<p>The editor has four output tabs:</p>
 <div class="table-scroll"><table><thead><tr><th>Tab</th><th>Shows</th></tr></thead><tbody>
 <tr><td>Result</td><td>what <code>main</code> returned, or the trap that stopped it, with its line</td></tr>
-<tr><td>Lanes</td><td>each rack the program computed as a row with one decimal value per lane, and each mask as a row of filled and empty cells</td></tr>
+<tr><td>Lanes</td><td>each computed rack as a row with one decimal value per lane, and each mask as a row of filled and empty cells</td></tr>
 <tr><td>Code</td><td>the selected target's output: C with WebAssembly intrinsics, native kernel assembly, or native mixed C with opaque kernel assembly</td></tr>
 <tr><td>Messages</td><td>the compiler's errors, each also underlined in the editor at its line and column</td></tr>
 </tbody></table>
 </div>
-<p>Stepping through a program in the Lanes tab shows how one instruction acts on all lanes at once, which provides the basis for the tutorial.</p>
-<p>The target menu offers WebAssembly, SSE2, AVX2, AVX-512 and NEON. The browser
-development compiler supports native slow orchestration with uniform <code>f32</code>,
-<code>i32</code> and <code>u32</code> kernel arguments and <code>f32</code>, <code>bool</code>, <code>i32</code> or <code>u32</code> results.
-Lessons start on WebAssembly when they contain a whole program. WebAssembly
-covers stack runs and general runs over views. SSE2, AVX2, AVX-512 and NEON
-also compile stack runs over <code>f32</code>, <code>i32</code> and <code>u32</code> columns, with masking,
-compaction and several replaced columns. Stored byte and 16-bit columns can be
-explicitly widened into signed or unsigned 32-bit racks. <code>to_f32</code> converts
-signed or unsigned integer racks to floats, and <code>to_i32</code> converts floats to
-signed integers, including in stack runs. Native stack runs support local rack
-assignments and fixed-count <code>repeat</code>. Each rack of records starts with fresh
-locations, and earlier <code>let</code> bindings keep their original values after an
-assignment. Runtime inner loops and general runs over views give the
-compiler's work-in-progress diagnostic on physical targets. Every result and
-lane trace comes from Rake's interpreter, using the selected profile's <code>f32</code>
-rack width. The browser displays C or assembly without executing that
-generated machine code. Native object verification still requires <code>rakec</code>
-and the platform toolchain outside the browser.</p>
-<h2 id="browser-compiler-and-interpreter">Browser compiler and interpreter</h2>
-<p>The compiler runs in the page. <code>rakec</code> is OCaml, and <code>js_of_ocaml</code> compiles
-its front end, interpreter and emitters for the browser, so the playground
-uses the interpreter and target emitters behind <code>rakec --interpret</code>,
-<code>rakec --emit-c</code> and <code>rakec --emit-asm</code> on a workstation.
-The parts that start clang and the assembler stay out
-of the browser build. Compilation and execution happen in a worker. A program
-that runs for more than three seconds is stopped without freezing the editor.
-The Lanes tab reads the
-interpreter's values, which it already computes lane by lane. Object
-verification needs clang and a disassembler, so the playground leaves it to
-the command line, and the Code tab says so.</p>
-<p>The editor highlights code with the Rake Tree-sitter grammar, compiled to
-WebAssembly, with the same highlighting queries this site uses. The lessons
-are this page: each lesson's program and expected result live here, and the
-documentation checker compiles and runs every one, so a change to the
-language that breaks a lesson fails the compiler's tests until the lesson is
-updated.</p>
-<h2 id="the-lessons">The lessons</h2>
-<div class="table-scroll"><table><thead><tr><th class="align-right">#</th><th>Lesson</th><th>Concept it introduces</th><th>Key moment</th></tr></thead><tbody>
-<tr><td class="align-right">1</td><td><a href="#1-a-program">A program</a></td><td>definitions, indentation, <code>-&gt;</code>, <code>let</code>, comments</td><td>changing <code>6 * 7</code> and seeing the new result</td></tr>
-<tr><td class="align-right">2</td><td><a href="#2-changing-values">Changing values</a></td><td><code>:=</code> and <code>&lt;-</code>, <code>for</code>, <code>if</code>, <code>%</code></td><td>assigning to a <code>let</code> is refused</td></tr>
-<tr><td class="align-right">3</td><td><a href="#3-a-rack">A rack</a></td><td><code>f32s</code>, views, <code>run</code>, a rack load and store</td><td>Lanes shows one vector multiply on four lanes</td></tr>
-<tr><td class="align-right">4</td><td><a href="#4-marking-uniforms">Marking uniforms</a></td><td><code>scratch</code>, <code>&lt;factor: f32&gt;</code> and <code>&lt;factor&gt;</code></td><td>removing the brackets is an error that points at the broadcast</td></tr>
-<tr><td class="align-right">5</td><td><a href="#5-loops-and-reductions">Loops and reductions</a></td><td>counted vector loops, rack locations, <code>sum</code>, <code>let &lt;x: T&gt;</code></td><td>the four running sums fold into one</td></tr>
-<tr><td class="align-right">6</td><td><a href="#6-fused-stages">Fused stages</a></td><td><code>| name &lt;| e</code>, fused multiply-add</td><td>the x86 Code tab shows one <code>vfmadd231ps</code></td></tr>
-<tr><td class="align-right">7</td><td><a href="#7-choosing-by-lane">Choosing by lane</a></td><td>masks, <code>if ... then ... else</code> on racks</td><td>both branches run and a select joins them</td></tr>
-<tr><td class="align-right">8</td><td><a href="#8-tines-and-sweeps">Tines and sweeps</a></td><td>global <code>#tine</code> predicates, <code>through</code>, <code>sweep</code>, <code>gaps</code>, optional fallbacks</td><td>incomplete coverage and an undefined lane both become compiler errors</td></tr>
-<tr><td class="align-right">9</td><td><a href="#9-columns">Columns</a></td><td><code>stack</code>, <code>pack</code>, stack runs, <code>widen</code>, tails, <code>compact</code></td><td>compaction moves the kept particles to the front of each column</td></tr>
-<tr><td class="align-right">10</td><td><a href="#10-a-whole-program">A whole program</a></td><td><code>slow {}</code>, records, <code>state</code>, <code>mut</code></td><td>scalar state updates require a block, and vector work resumes at <code>}</code></td></tr>
-<tr><td class="align-right">11</td><td><a href="#11-proved-or-refused">Proved or refused</a></td><td>profiles and their rules</td><td><code>sin</code> is refused instead of slowed down</td></tr>
-<tr><td class="align-right">12</td><td><a href="#12-bits">Bits</a></td><td>integer racks, bit operations, <code>repeat</code></td><td>a flood fill spreads along a row of a bitboard</td></tr>
-</tbody></table>
-</div>
-<p>Each lesson adds one idea to the ones before it, and the key moment is the
-point the lesson is built to reach: the learner makes a change, runs it, and
-sees the idea in the result, the Lanes tab or a message.</p>
+<p>The target menu offers WebAssembly, SSE2, AVX2, AVX-512 and NEON. Lessons
+with a whole program start on WebAssembly, which compiles stack runs and
+general runs over views. The native targets compile stack runs, while general
+runs over views and runtime inner loops give the compiler's work-in-progress
+diagnostic there. Results and lane traces come from Rake's interpreter at
+the selected profile's <code>f32</code> rack width, and Code displays the generated C or
+assembly without executing it.</p>
+<h2 id="the-browser-compiler">The browser compiler</h2>
+<p><code>rakec</code> is written in OCaml, and <code>js_of_ocaml</code> compiles its front end,
+interpreter and emitters for the browser, so the playground runs the same code
+as <code>rakec --interpret</code>, <code>rakec --emit-c</code> and <code>rakec --emit-asm</code>. Compilation
+and execution happen in a worker, so a program that runs for more than three
+seconds is stopped without freezing the editor. Object verification needs clang and a disassembler, so it stays on the
+command line.</p>
 <h2 id="1-a-program">1. A program</h2>
 <p>A Rake file is a list of definitions. <code>slow main() -&gt; i32:</code> defines the
 program's entry point, a function with no parameters that returns a 32-bit
-integer. The line ends in a colon, and the indented lines below it are its
-body. <code>let</code> binds a name to a value, and <code>~~</code> starts a comment.</p>
+integer. A line ending in a colon opens the indented body below it, <code>let</code>
+binds a name to a value, and <code>~~</code> starts a comment.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-comment">~~ The program's result is what main returns.</span>
 <span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">let</span> <span class="tok-variable">answer</span> <span class="tok-operator">=</span> <span class="tok-number">6</span> <span class="tok-operator">*</span> <span class="tok-number">7</span>
   <span class="tok-keyword">return</span> <span class="tok-variable">answer</span>
 </code></pre>
-<p>Result: <code>main returned 42</code>. Change <code>6 * 7</code> to <code>9 * 9</code>, run the program and
-check that Result changes to <code>main returned 81</code>. This gives the first lesson
-its edit, run and read loop before any SIMD appears.</p>
+<p>Result: <code>main returned 42</code>. Change <code>6 * 7</code> to <code>9 * 9</code> and run, and Result
+changes to <code>main returned 81</code>.</p>
 <h2 id="2-changing-values">2. Changing values</h2>
 <p>A <code>let</code> is bound once. A name that changes is a location, made with <code>:=</code> and
 changed with <code>&lt;-</code>. <code>for i from 0 up to 10:</code> counts from 0 to 9, and <code>%</code> is
@@ -222,15 +162,15 @@ the remainder.</p>
   <span class="tok-keyword">return</span> <span class="tok-variable">total</span>
 </code></pre>
 <p>Result: <code>main returned 20</code>, the sum of 0, 2, 4, 6 and 8. Change
-<code>total := 0</code> to <code>let total = 0</code> and run. The
-Messages tab says <code>this location can't be assigned</code> at the <code>&lt;-</code>, which shows
-that a mutable location and an immutable binding have different rules.</p>
+<code>total := 0</code> to <code>let total = 0</code> and run. Messages says
+<code>this location can't be assigned</code> at the <code>&lt;-</code>, because an immutable binding
+can't change.</p>
 <h2 id="3-a-rack">3. A rack</h2>
-<p><code>f32s</code> is a rack: four <code>f32</code> values in one WebAssembly <code>v128</code>. A
-<code>run</code> is vector code that reads and writes memory. Its parameter <code>x: []f32</code>
-is a view of floats, and <code>mut []f32</code> one it may write. <code>x[&lt;0&gt;]</code> loads the
-rack of four floats starting at element 0, and <code>out[&lt;0&gt;] &lt;- ...</code> stores one.
-<code>&lt;2.0&gt;</code> is the number 2 in every lane.</p>
+<p><code>f32s</code> is a rack: four <code>f32</code> values in one WebAssembly <code>v128</code>. A <code>run</code> is
+vector code that reads and writes memory. Its parameter <code>x: []f32</code> is a view
+of floats, and <code>out: mut []f32</code> is a writable one. <code>x[&lt;0&gt;]</code> loads the rack of
+four floats starting at element 0, <code>out[&lt;0&gt;] &lt;- ...</code> stores one, and <code>&lt;2.0&gt;</code>
+is the number 2 in every lane.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">twice</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">out</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">x</span><span class="tok-punctuation-bracket">[</span><span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">2.0</span><span class="tok-operator">&gt;</span></span>
@@ -241,15 +181,15 @@ rack of four floats starting at element 0, and <code>out[&lt;0&gt;] &lt;- ...</c
   <span class="tok-function">twice</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">doubled</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">doubled</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">doubled</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">doubled</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">doubled</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>Result: <code>main returned 20</code>. Change <code>&lt;2.0&gt;</code> to <code>&lt;3.0&gt;</code> and run. Result becomes
-<code>main returned 30</code>. In the Lanes tab, the load fills
-a row of four cells, <code>1 2 3 4</code>, and the multiply turns the whole row into
-<code>3 6 9 12</code> in one step. The Code tab shows the step is one
-<code>wasm_f32x4_mul</code>.</p>
+<p>Result: <code>main returned 20</code>. Change <code>&lt;2.0&gt;</code> to <code>&lt;3.0&gt;</code> and run, and Result
+becomes <code>main returned 30</code>. In Lanes, the load fills a row of four cells,
+<code>1 2 3 4</code>, and the multiply turns the whole row into <code>3 6 9 12</code> in one step,
+and Code shows it as one <code>wasm_f32x4_mul</code>.</p>
 <h2 id="4-marking-uniforms">4. Marking uniforms</h2>
 <p>A <code>scratch</code> is a function of racks. <code>&lt;factor: f32&gt;</code> declares a uniform, one
-scalar shared by every lane, and <code>&lt;factor&gt;</code> uses it. The brackets appear at
-both places on purpose: wherever a scalar becomes a rack, the page shows it.</p>
+scalar shared by every lane, and <code>&lt;factor&gt;</code> uses it. The brackets appear in
+both places so that every point where a scalar becomes a rack shows on the
+page.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">scale</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">factor</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">values</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">factor</span><span class="tok-operator">&gt;</span></span>
@@ -264,8 +204,8 @@ both places on purpose: wherever a scalar becomes a rack, the page shows it.</p>
   <span class="tok-function">scale_all</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">scaled</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">factor</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">scaled</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>Result: <code>main returned 40</code>. Slow code writes <code>factor</code> bare, because there it
-is just a number. It is marked <code>&lt;factor&gt;</code> at the call, where it crosses into
+<p>Result: <code>main returned 40</code>. Slow code writes <code>factor</code> bare, because there
+it's just a number, and marks it <code>&lt;factor&gt;</code> at the call, where it crosses into
 vector code. Delete the brackets around <code>factor</code> inside the scratch and run:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">scale</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">factor</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">values</span> <span class="tok-operator">*</span> <span class="tok-variable">factor</span>
@@ -274,8 +214,8 @@ vector code. Delete the brackets around <code>factor</code> inside the scratch a
 costs an instruction, and Rake never does it out of sight.</p>
 <h2 id="5-loops-and-reductions">5. Loops and reductions</h2>
 <p>In a run, <code>for &lt;i: i32&gt; from &lt;0&gt; up to &lt;n&gt; by &lt;4&gt;:</code> counts in steps of four,
-and its index is a uniform. <code>sums := &lt;0.0&gt;</code> is a location that holds a rack,
-four running sums. <code>sum(sums)</code> adds a rack's lanes into one scalar, and
+with a uniform index. <code>sums := &lt;0.0&gt;</code> is a location holding a rack of four
+running sums, <code>sum(sums)</code> adds a rack's lanes into one scalar, and
 <code>let &lt;whole: f32&gt; = ...</code> binds that scalar as a uniform.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">total</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">n</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
@@ -292,33 +232,34 @@ four running sums. <code>sum(sums)</code> adds a rack's lanes into one scalar, a
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>Result: <code>main returned 78</code>, the sum of 1 to 12. Change the count passed to
-<code>total</code> from <code>&lt;12&gt;</code> to <code>&lt;8&gt;</code> and run. Result becomes <code>main returned 36</code>.
-In the Lanes tab after the shorter loop, <code>sums</code> holds <code>6 8 10 12</code>, one
-running sum in each lane, and <code>sum</code> folds them from lane 0 upwards into 36.
-Vector code adds in columns, then reduces once at the end.</p>
+<code>total</code> from <code>&lt;12&gt;</code> to <code>&lt;8&gt;</code> and run, and Result becomes <code>main returned 36</code>.
+Lanes shows <code>sums</code> holding <code>6 8 10 12</code>, one running sum in each lane, and
+<code>sum</code> folds them from lane 0 upwards into 36: vector code adds in columns, then
+reduces once at the end.</p>
 <h2 id="6-fused-stages">6. Fused stages</h2>
-<p><code>| step &lt;| velocities * &lt;dt&gt;</code> is one stage of a fused computation. Read it
-from right to left: the expression flows into <code>step</code>. Consecutive stages
-form one region of pure arithmetic, and the identifiers inside it are for the
-reader, so the compiler sees <code>positions + velocities * &lt;dt&gt;</code>.</p>
+<p><code>| step &lt;| velocities * &lt;dt&gt;</code> is one stage of a fused computation, read from
+right to left: the expression flows into <code>step</code>. Consecutive stages form one
+region of pure arithmetic, and their identifiers are for the reader, so the
+compiler sees <code>positions + velocities * &lt;dt&gt;</code>.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">advance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">positions</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">velocities</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">dt</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">step</span>  <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">velocities</span> <span class="tok-operator">*</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">dt</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-operator-flow">|</span> <span class="tok-variable">moved</span> <span class="tok-operator-flow">&lt;|</span> <span class="tok-variable">positions</span> <span class="tok-operator">+</span> <span class="tok-variable">step</span>
   <span class="tok-variable">moved</span>
 </code></pre>
-<p>This lesson has no <code>main</code>. Select <code>x86-avx2</code>, run the compiler and open Code.
-Find the two instructions that implement the scratch:</p>
+<p>This lesson has no <code>main</code>. Select <code>x86-avx2</code>, run the compiler and open Code
+to find the two instructions that implement the scratch:</p>
 <pre class="code code-text"><code>advance:
     vbroadcastss ymm2, xmm2
     vfmadd231ps ymm0, ymm1, ymm2
     ret
 </code></pre>
-<p>The multiply and the add became one fused multiply-add on eight lanes, and
-the broadcast of <code>&lt;dt&gt;</code> is the instruction above it. On <code>wasm-simd128</code>,
-which has no fused multiply-add, the tab shows a splat, a multiply and an add.</p>
+<p>The multiply and the add became one fused multiply-add on eight lanes, after
+a broadcast of <code>&lt;dt&gt;</code>. On <code>wasm-simd128</code>, which has no fused multiply-add, the
+tab shows a splat, a multiply and an add.</p>
 <h2 id="7-choosing-by-lane">7. Choosing by lane</h2>
-<p>A comparison of racks gives a mask, one true or false for each lane. <code>if v &gt; w then v - w else w - v</code> with a mask condition chooses lane by lane.</p>
+<p>A comparison of racks gives a mask, one true or false for each lane, and
+<code>if v &gt; w then v - w else w - v</code> with a mask condition chooses lane by lane.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">distance</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">v</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">w</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">if</span> <span class="tok-variable">v</span> <span class="tok-operator">&gt;</span> <span class="tok-variable">w</span> <span class="tok-keyword">then</span> <span class="tok-variable">v</span> <span class="tok-operator">-</span> <span class="tok-variable">w</span> <span class="tok-keyword">else</span> <span class="tok-variable">w</span> <span class="tok-operator">-</span> <span class="tok-variable">v</span>
@@ -334,13 +275,12 @@ which has no fused multiply-add, the tab shows a splat, a multiply and an add.</
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">1000.0</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">100.0</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">*</span> <span class="tok-number">10.0</span> <span class="tok-operator">+</span> <span class="tok-variable">result</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
 <p>Result: <code>main returned 4703</code>, the four distances 4, 7, 0 and 3 as digits.
-Change the first value of <code>a</code> from <code>1.0</code> to <code>6.0</code> and run. Result becomes
-<code>main returned 1703</code>. In the Lanes tab, the first mask value changes and the
-select takes the other subtraction for that lane. Both subtractions still run
-on all four lanes, because there is only one instruction stream.</p>
+Change the first value of <code>a</code> from <code>1.0</code> to <code>6.0</code> and run, and Result becomes
+<code>main returned 1703</code>. In Lanes, the first mask value changes and the select
+takes the other subtraction for that lane. Both subtractions still run on all
+four lanes, because there's only one instruction stream.</p>
 <h2 id="8-tines-and-sweeps">8. Tines and sweeps</h2>
-<p>Some operations go wrong on some inputs. The square root of a negative
-number is NaN:</p>
+<p>The square root of a negative number is NaN:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">sqrt</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 
@@ -353,14 +293,12 @@ number is NaN:</p>
   <span class="tok-function">all_roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>Result: a trap at the last line, <code>-nan does not fit i32</code>, and the Lanes tab
-shows <code>4 NaN 3 1</code>. A rake guards the lanes instead.
-Define <code>tine #valid(values: f32s) means values &gt;= &lt;0.0&gt;</code> outside the rake.
-It is a reusable predicate with an explicit input, so applying
+<p>Result: a trap at the last line, <code>-nan does not fit i32</code>, with <code>4 NaN 3 1</code> in
+Lanes. A rake guards the lanes instead. <code>tine #valid(values: f32s) means values &gt;= &lt;0.0&gt;</code> is a reusable predicate defined outside the rake, and
 <code>#valid(values)</code> computes the mask of lanes that may take a root.
-<code>through #valid(values) into rooted:</code> binds roots in those lanes. The other
-lanes are undefined, so the sweep reads <code>rooted</code> only where the tine holds.
-The <code>gaps</code> arm supplies zero for every complementary lane.</p>
+<code>through #valid(values) into rooted:</code> binds roots in those lanes and leaves
+the others undefined, so the sweep reads <code>rooted</code> only where the tine holds,
+and the <code>gaps</code> arm supplies zero for every other lane.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">tine</span> <span class="tok-tag">#</span><span class="tok-tag">valid</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-keyword">means</span> <span class="tok-variable">values</span> <span class="tok-operator">&gt;=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
 
@@ -381,29 +319,24 @@ The <code>gaps</code> arm supplies zero for every complementary lane.</p>
   <span class="tok-function">all_roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">1</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">2</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">rooted</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>Result: <code>main returned 8</code>. The NaN has left the Lanes tab: <code>4 0 3 1</code>.</p>
+<p>Result: <code>main returned 8</code>, and the NaN has left Lanes: <code>4 0 3 1</code>.</p>
 <p>Change the <code>gaps</code> arm's value to <code>&lt;-1.0&gt;</code> and run. The result becomes
-<code>main returned 7</code>, with output lanes <code>4 -1 3 1</code>. There is no intermediate
-zero to change: <code>rooted</code> has a value only where <code>#valid(values)</code> holds.</p>
-<p>Delete the <code>gaps</code> arm and run. The compiler reports
-<code>Sweep does not provably cover every lane</code>. Restore it, then change its
-value to <code>rooted</code>. That is also refused: it would read the root in the
-negative lane, where no root was computed.</p>
-<p>To define that intermediate lane, add <code>else &lt;999.0&gt;</code> before <code>into rooted</code>
-in the through header. Run with <code>rooted</code> still in both sweep arms: the
-result is now 1007. Reset the lesson to restore its original behaviour.
-The sweep selects values computed by the through blocks. The compiler can
-optimize these pure calculations together. A sweep is the rake's result
-form and needs no <code>return</code> keyword.</p>
+<code>main returned 7</code>, with output lanes <code>4 -1 3 1</code>. There's no intermediate zero
+to change, because <code>rooted</code> has a value only where <code>#valid(values)</code> holds.</p>
+<p>Delete the <code>gaps</code> arm and run, and the compiler reports
+<code>Sweep does not provably cover every lane</code>. Restore it, then change its value
+to <code>rooted</code>. That's refused too, because it would read the root in the
+negative lane, where none was computed. To define that lane, add
+<code>else &lt;999.0&gt;</code> before <code>into rooted</code> in the through header, and run with
+<code>rooted</code> still in both sweep arms: the result is now 1007. Reset the lesson to
+restore its original behaviour.</p>
 <h2 id="9-columns">9. Columns</h2>
-<p>Data for vector code is usually stored as columns, one array for each field.
-A <code>pack</code> describes one particle with its position, velocity and age. A
-<code>stack</code> stores many particles as a separate column for each field, with a
-count of records. A run applies its calculation to whole columns:
+<p>A <code>pack</code> describes one particle, and a <code>stack</code> stores many particles as a
+column for each field, with a count of records. In a run,
 <code>particles.position</code> is the entire position column, and the compiler visits
-the records a rack at a time, including a final partial rack. A byte column is
-stored one byte per record, and <code>widen</code> turns it into 32-bit lanes when the
-code needs them.</p>
+it a rack at a time, including a final partial rack. The byte column <code>age</code>
+stays one byte per record. <code>widen</code> extends it to unsigned 32-bit lanes,
+and <code>to_f32</code> converts those to floats for the calculation.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Particles</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">position</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">velocity</span><span class="tok-punctuation-delimiter">;</span>
@@ -426,29 +359,25 @@ code needs them.</p>
     <span class="tok-variable">total</span> <span class="tok-operator">&lt;-</span> <span class="tok-variable">total</span> <span class="tok-operator">+</span> <span class="tok-variable">particles</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">position</span><span class="tok-punctuation-bracket">[</span><span class="tok-variable">i</span><span class="tok-punctuation-bracket">]</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">total</span> <span class="tok-operator">*</span> <span class="tok-number">10.0</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>Result: <code>main returned 1570</code>. <code>advance</code> returns the stack with <code>position</code>
-replaced. Calling it moves the stack in, so the program assigns the result
-back to <code>particles</code> and reads its column as <code>particles.position</code>. Change <code>let n = 6</code> to <code>let n = 5</code> and run. The second rack in the Lanes tab now has one
-live lane and three empty ones. The tail loads and stores only the record
-that exists.</p>
+<p>Result: <code>main returned 1570</code>. Calling <code>advance</code> moves the stack in and returns
+it with <code>position</code> replaced, so the program assigns the result back to
+<code>particles</code>. Change <code>let n = 6</code> to <code>let n = 5</code> and run. The second rack in
+Lanes now has one live lane and three empty ones, because the tail loads and
+stores only the record that exists.</p>
 <p>Now keep only the young particles. Add <code>tine #young means age &lt; &lt;2.0&gt;</code> after
 the <code>let</code> in <code>advance</code>, and change its last line to <code>compact particles with { position: ... } where #young</code>, keeping the same position expression. With
 <code>n = 6</code> the result is <code>main returned 860</code>: four particles remain, moved to the
 front of each column, and <code>count(particles)</code> is 4.</p>
-<p>This lesson starts on WebAssembly, with four records per rack. It also
-compiles on SSE2 and NEON with four, AVX2 with eight, or AVX-512 with sixteen.
-On AVX2 and AVX-512, both counts above fit in one partial rack. Select a
-profile to inspect that difference. <code>widen</code> extends each byte age to an
-unsigned 32-bit lane, then <code>to_f32</code> converts that unsigned value to a float
-for the calculation.</p>
+<p>The lesson starts on WebAssembly, with four records per rack, as on SSE2 and
+NEON. Select AVX2, with eight, or AVX-512, with sixteen, and both counts above
+fit in one partial rack.</p>
 <h2 id="10-a-whole-program">10. A whole program</h2>
-<p>Slow code holds a program's records, state and control flow. A <code>record</code> groups
-fields, <code>state games: i32 := 0</code> keeps a value for the life of the program,
-and a <code>mut</code> parameter is one the function writes.
-Inside a run, <code>slow { ... }</code> explicitly enters scalar mode. This is the
-performance boundary corresponding to Rust's <code>unsafe { ... }</code> safety boundary.
-At <code>}</code> the run resumes vector mode. This syntax is available in 0.5.0-beta
-and in the playground.</p>
+<p>Slow code holds a program's records, state and control flow. A <code>record</code>
+groups fields, <code>state games: i32 := 0</code> keeps a value for the life of the
+program, and a <code>mut</code> parameter lets the function write to it. Inside a run,
+<code>slow { ... }</code> enters scalar mode, the performance boundary corresponding to
+Rust's <code>unsafe { ... }</code> safety boundary, and at <code>}</code> the run resumes vector
+mode.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">record</span> <span class="tok-type">Score</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">best</span><span class="tok-punctuation-delimiter">;</span>
@@ -479,48 +408,43 @@ and in the playground.</p>
 </code></pre>
 <p>Result: <code>main returned 922</code>: the best score 9, two rounds and two games. Add
 <code>play(score, first)</code> after the two existing calls and run. Result becomes
-<code>main returned 933</code>, showing that the record and module state survive each
-call.</p>
+<code>main returned 933</code>, because the record and module state survive each call.</p>
 <p>Now remove <code>slow {</code> and its closing brace, leaving <code>games &lt;- games + 1</code> in
 the run. Run it and read the error: vector code can't access module state.
-Restore the block and run again. The reduction before it and the broadcast
-store after it remain vector work. In Code, find the scalar helper call
-between them.</p>
-<p>A block's last expression can return a scalar to a marked uniform binding.
-Its local bindings end at the brace. A block can't capture a rack: move the
-<code>maximum</code> into it as <code>let top = maximum(x[&lt;0&gt;])</code>, run, and read the error.
-Restore the reduction outside the block. A reduction or extraction is the
+Restore the block and run again, then find the scalar helper call in Code,
+between the vector reduction before it and the broadcast store after it.</p>
+<p>A block can return a scalar to a marked uniform binding, but it can't capture
+a rack: move
+the <code>maximum</code> into it as <code>let top = maximum(x[&lt;0&gt;])</code>, run, and read the error.
+Then restore the reduction outside the block. A reduction or extraction is the
 explicit boundary from a rack to a scalar.</p>
-<p>Slow code can't hold a rack. This separate rejected example shows the rule:</p>
+<p>Slow code can't hold a rack at all, so this separate example is rejected:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">slow</span> <span class="tok-function">total</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">return</span> <span class="tok-number">0.0</span>
 
 <span class="tok-keyword">slow</span> <span class="tok-function">main</span><span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-keyword">return</span> <span class="tok-number">0</span>
 </code></pre>
-<p>Slow code is scalar, so it can't hold a rack. Vector work happens only inside
-the vector functions it calls, which keeps every rack as one vector value.</p>
 <h2 id="11-proved-or-refused">11. Proved or refused</h2>
-<p>The target menu chooses a profile, and each profile has rules that every
-program it compiles obeys. Physical profiles keep every rack in one register
-without calls or spills. WebAssembly keeps every rack as one <code>v128</code> and uses
-only the virtual instructions the profile lists. Rake has no vector sine yet:</p>
+<p>The target menu chooses a profile, and each profile has its own rules for
+compiled programs. Physical profiles keep every rack in one register
+without calls or spills, while WebAssembly keeps every rack as one <code>v128</code> and
+uses only the profile's listed virtual instructions. Rake has no vector sine
+yet:</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-keyword">scratch</span> <span class="tok-function">wave</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">values</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-type-builtin">f32s</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-function">sin</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>Run the program and read the unsupported-operation message. Then replace
+<p>Run the program and read the unsupported-operation message, then replace
 <code>sin(values)</code> with <code>abs(values)</code> and run again. The supported operation
 compiles, and Code shows its vector instruction. A C compiler given a sine of
-every lane may call the scalar <code>sinf</code> once per lane and carry on, slower. Rake
-stops and says which operation it can't compile. On a workstation,
-<code>rakec --verify-native</code> also disassembles the object and checks the profile's
-rules.</p>
+every lane may call the scalar <code>sinf</code> once per lane and carry on, slower,
+whereas Rake stops and says which operation it can't compile.</p>
 <h2 id="12-bits">12. Bits</h2>
-<p>Racks hold integers too. A <code>u8s</code> rack holds sixteen bytes. Here each byte is
-one row of an 8 by 8 board, and its bits are the row's cells. <code>shift_bits_left</code>
-and <code>shift_bits_right</code> move every row's bits one cell east or west at once,
-and <code>repeat</code> runs its body a fixed number of times.</p>
+<p>Racks hold integers too. A <code>u8s</code> rack holds sixteen bytes, and here each byte
+is one row of an 8 by 8 board, with its bits as the row's cells.
+<code>shift_bits_left</code> and <code>shift_bits_right</code> move every row's bits one cell east
+or west at once, and <code>repeat</code> runs its body a fixed number of times.</p>
 <span data-playground-starter hidden></span>
 <pre class="code code-rake"><code><span class="tok-comment">~~ One step of a flood fill on an 8 by 8 board, a row to each byte lane:</span>
 <span class="tok-comment">~~ every reached cell spreads to its east and west neighbours that are open.</span>
@@ -544,40 +468,33 @@ and <code>repeat</code> runs its body a fixed number of times.</p>
 </code></pre>
 <p>Result: <code>main returned 15</code>. The fill starts at bit 3 of the first row, and bit
 4 is a wall, so it spreads west to bits 0 to 3. Change the first byte in
-<code>open</code> from <code>239</code> to <code>255</code> and run. Result becomes <code>main returned 255</code>, because
-the fill reaches the whole row. Lanes shows sixteen decimal byte values, one
-per lane, and each shift updates all sixteen at once.</p>
+<code>open</code> from <code>239</code> to <code>255</code> and run, and Result becomes <code>main returned 255</code>
+because the fill reaches the whole row. Lanes shows sixteen decimal byte
+values, one per lane, and each shift updates all sixteen at once.</p>
 <h2 id="reading-rake">Reading Rake</h2>
-<p>Rake takes much of its look from functional languages such as OCaml,
-Haskell, Elm and Erlang, and its layout from Python. A programmer who knows
-C, Java or JavaScript meets these forms for the first time, and the
-playground explains each one where it first appears, in a note beside the
-editor.</p>
+<p>Rake takes much of its look from functional languages such as OCaml, Haskell,
+Elm and Erlang, and its layout from Python.</p>
 <h3 id="layout">Layout</h3>
-<p>Function and control-flow bodies use indentation: a line ending in <code>:</code> opens
-the lines indented below it, as in Python. Tabs aren't allowed. Braces enclose
-pack and record fields, stack constructors and <code>slow { ... }</code> blocks. In a slow
-block, multiline statements are indented, while inline statements use
-semicolons. Its last expression is its value unless a semicolon discards it.</p>
+<p>A line ending in <code>:</code> opens the lines indented below it, as in Python, for
+function and control-flow bodies, and tabs aren't allowed. Braces enclose pack
+and record fields, stack constructors and <code>slow { ... }</code> blocks. In a slow
+block, multiline statements are indented and inline statements use
+semicolons, and the last expression is the block's value unless a semicolon
+discards it.</p>
 <h3 id="types-after-identifiers">Types after identifiers</h3>
-<p><code>values: f32s</code> reads "values, of type <code>f32s</code>", the order of Python's type
-hints, TypeScript, Rust and the ML family, rather than C's <code>float values</code>.
-The result type comes after <code>-&gt;</code>, as in Python and Rust: <code>slow main() -&gt; i32:</code>.
-The plural spelling is a rack: <code>f32</code> is one float and <code>f32s</code> a register of
-them.</p>
+<p><code>values: f32s</code> reads "values, of type <code>f32s</code>", in the order of Python's type
+hints, TypeScript, Rust and the ML family, where C writes <code>float values</code>. The
+result type follows <code>-&gt;</code>, as in <code>slow main() -&gt; i32:</code>, and the plural spelling
+is a rack: <code>f32</code> is one float and <code>f32s</code> a register of them.</p>
 <h3 id="bindings-and-locations">Bindings and locations</h3>
-<p><code>let answer = 6 * 7</code> binds a name to a value once, as <code>let</code> does in OCaml
-and Haskell, or <code>const</code> in JavaScript. A name that changes is a location:
-<code>total := 0</code> creates it, and <code>total &lt;- total + i</code> changes it. The two arrows
-come from older languages. <code>:=</code> is assignment in Pascal and ALGOL and in
-OCaml's references, and <code>&lt;-</code> updates mutable fields and arrays in OCaml.
-Keeping them apart from <code>=</code> means <code>=</code> is always a comparison: <code>if i % 2 = 0:</code>
-tests equality, where C would write <code>==</code>.</p>
-<h3 id="expressions-that-choose">Expressions that choose</h3>
+<p><code>let</code> binds a name to a value once, as in OCaml and Haskell, or <code>const</code> in
+JavaScript. A location is created with <code>:=</code> and changed with <code>&lt;-</code>, which come
+from Pascal, ALGOL and OCaml. Keeping both apart from <code>=</code> means <code>=</code> is always
+a comparison, so <code>if i % 2 = 0:</code> tests equality where C would write <code>==</code>.</p>
+<h3 id="conditional-expressions">Conditional expressions</h3>
 <p><code>if v &gt; w then v - w else w - v</code> is an expression with a value, like C's
-<code>v &gt; w ? v - w : w - v</code> or OCaml's and Haskell's <code>if ... then ... else</code>.
-On racks it chooses lane by lane. A statement <code>if</code> with a colon and a body is
-the ordinary kind, for slow code and for runs.</p>
+<code>v &gt; w ? v - w : w - v</code> or OCaml's and Haskell's <code>if ... then ... else</code>. A
+statement <code>if</code> with a colon and a body is the ordinary kind.</p>
 <h3 id="the-marks">The marks</h3>
 <div class="table-scroll"><table><thead><tr><th>Mark</th><th>Read it as</th><th>Familiar from</th></tr></thead><tbody>
 <tr><td><code>&lt;x&gt;</code>, <code>&lt;x: f32&gt;</code></td><td>"the uniform <code>x</code>", the same in every lane</td><td>Rake's own: angle brackets around a scalar</td></tr>
@@ -588,43 +505,24 @@ the ordinary kind, for slow code and for runs.</p>
 <tr><td><code>~~</code></td><td>"a comment to the end of the line"</td><td>Rake's own, like <code>//</code> in C. <code>(* ... *)</code> is a block comment, as in OCaml and Pascal</td></tr>
 </tbody></table>
 </div><h3 id="brackets">Brackets</h3>
-<p><code>[4]f32</code> is an array of four floats, written before the element type as in Go,
-and <code>[]f32</code> is a view of any number of them. <code>[1.0, 2.0]</code> is an array literal,
-and <code>[0.0; 4]</code> four copies of <code>0.0</code>, as in Rust. <code>x[&lt;i&gt;]</code> with a uniform index
-loads a rack of consecutive elements, and <code>x[i]</code> in slow code reads one.</p>
+<p><code>[4]f32</code> is an array of four floats, written before the element type as in
+Go, and <code>[]f32</code> is a view of any number of them. <code>[1.0, 2.0]</code> is an array
+literal, and <code>[0.0; 4]</code> is four copies of <code>0.0</code>, as in Rust. <code>x[&lt;i&gt;]</code> with a
+uniform index loads a rack of consecutive elements, and <code>x[i]</code> in slow code
+reads one.</p>
 <h2 id="ligatures">Ligatures</h2>
-<p>Functional languages are full of operators made of two or three characters:
-<code>-&gt;</code> and <code>&lt;-</code>, <code>=&gt;</code>, <code>|&gt;</code> and <code>&lt;|</code>, <code>::</code>, <code>&lt;&gt;</code>, and Haskell's <code>&gt;&gt;=</code> and
-<code>&lt;$&gt;</code>. A programming font with ligatures draws each as one symbol, so <code>-&gt;</code>
-becomes an arrow and <code>!=</code> an unequal sign, while the file still holds the
-plain characters. Reading code in OCaml, Haskell, Erlang, Gleam or Rake gets
-easier when the arrows look like arrows.</p>
-<p>Three free fonts draw the operators these languages use: JetBrains Mono,
-which this site uses, Fira Code and Cascadia Code. Rendered in each, these
-sequences become single symbols:</p>
-<div class="table-scroll"><table><thead><tr><th>Typed</th><th>Drawn</th><th>Rake</th><th>OCaml</th><th>Haskell</th><th>Erlang</th><th>Gleam</th></tr></thead><tbody>
-<tr><td><code>-&gt;</code></td><td>a right arrow</td><td>result types</td><td>function types and match arms</td><td>function types and lambdas</td><td>clause bodies</td><td>function types and case arms</td></tr>
-<tr><td><code>&lt;-</code></td><td>a left arrow</td><td>assignment</td><td>field and array assignment</td><td><code>do</code> binding</td><td>comprehension generators</td><td><code>use</code></td></tr>
-<tr><td><code>=&gt;</code></td><td>a double arrow</td><td>sweep arms</td><td></td><td>class constraints</td><td>map associations</td><td></td></tr>
-<tr><td><code>&lt;|</code> and <code>|&gt;</code></td><td>triangles</td><td>fused stages</td><td><code>|&gt;</code> is the pipe</td><td></td><td></td><td><code>|&gt;</code> is the pipe</td></tr>
-<tr><td><code>!=</code>, <code>/=</code>, <code>=/=</code></td><td>an unequal sign</td><td><code>!=</code></td><td><code>!=</code>, physical inequality</td><td><code>/=</code></td><td><code>/=</code> and <code>=/=</code></td><td><code>!=</code></td></tr>
-<tr><td><code>&lt;=</code> and <code>&gt;=</code></td><td>less-or-equal and greater-or-equal signs</td><td>comparisons</td><td>comparisons</td><td>comparisons</td><td><code>&gt;=</code></td><td>comparisons</td></tr>
-<tr><td><code>&lt;&gt;</code></td><td>a diamond</td><td></td><td>structural inequality</td><td>semigroup append</td><td></td><td>string concatenation</td></tr>
-<tr><td><code>~~</code></td><td>a joined wave</td><td>comments</td><td></td><td></td><td></td><td></td></tr>
-</tbody></table>
-</div>
-<p>The fonts leave Erlang's <code>=&lt;</code> alone, and JetBrains Mono alone joins
-Haskell's <code>&gt;&gt;=</code>. <code>:=</code> keeps its characters, with the colon raised to line up
-with the equals sign.</p>
-<p>Ligatures have one trap in Rake. A negative uniform literal starts with the
-same two characters as assignment, so all three fonts draw <code>&lt;-1.0&gt;</code> as an
-arrow followed by <code>1.0&gt;</code>. The playground highlights <code>&lt;-1.0&gt;</code> as a uniform,
-and its stylesheet turns ligatures off inside uniforms, so the literal keeps
-its characters while <code>total &lt;- total</code> still gets its arrow. In an editor
-without that rule, <code>&lt; -1.0&gt;</code> with a space means the same and draws plainly.</p>
-<p>The playground has ligatures on, with a switch beside the target menu that
-shows the plain characters, for a learner copying code into an editor that
-draws them differently.</p>
+<p>A programming font with ligatures, such as this site's JetBrains Mono,
+Fira Code or Cascadia Code, draws operators such as <code>-&gt;</code>, <code>&lt;-</code>, <code>=&gt;</code>,
+<code>&lt;|</code> and <code>~~</code> as single symbols, while the file still holds the plain
+characters.</p>
+<p>A negative uniform literal starts with the same two characters as assignment,
+so all three fonts draw <code>&lt;-1.0&gt;</code> as an
+arrow followed by <code>1.0&gt;</code>. The playground highlights <code>&lt;-1.0&gt;</code> as a uniform and
+turns ligatures off inside uniforms, so the literal keeps its characters while
+<code>total &lt;- total</code> still gets its arrow. In an editor without that rule,
+<code>&lt; -1.0&gt;</code> with a space means the same and draws plainly. The Ligatures switch
+beside the target menu shows the plain characters, for copying code into an
+editor that draws them differently.</p>
 </article>
     </main>
 

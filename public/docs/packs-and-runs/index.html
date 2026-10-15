@@ -75,18 +75,16 @@
 </nav>
     <main class="content">
 <h1 id="packs-stacks-and-runs">Packs, stacks and runs</h1>
-<p>A run applies rakes and scratches to whole stacks. The programmer names the
-columns and the calculations. The compiler splits the columns into racks,
+<p>A run applies rakes and scratches to whole stacks. The source chooses the
+columns and the calculations, and the compiler splits the columns into racks,
 handles the final partial rack, fuses the calculations and stores the results.
-Stack runs compile for SSE2, AVX2, AVX-512, NEON and <code>wasm-simd128</code>.</p>
-<p>A run may also be a <a href="#general-runs">general run</a> over views, with counted
-loops that index memory a rack at a time. General runs compile for
-<code>wasm-simd128</code>.</p>
+Stack runs compile for SSE2, AVX2, AVX-512, NEON and <code>wasm-simd128</code>, while
+<a href="#general-runs">general runs</a>, which index views with counted loops, compile
+for <code>wasm-simd128</code>.</p>
 <h2 id="packs-and-stacks">Packs and stacks</h2>
 <p>A <code>pack</code> defines one record. A <code>stack</code> holds many of those records in
 structure-of-arrays storage: one contiguous column for each field, and a
-count of records. Remember the hierarchy as "define our pack, then rack 'em
-and stack 'em".</p>
+count of records.</p>
 <pre class="code code-text"><code>PACK: one record          { posx, posy, velx, vely, kill }
 
 STACK: count records, one column per field
@@ -95,10 +93,8 @@ STACK: count records, one column per field
   kill: [k0 k1 k2 k3] [k4 k5 k6 k7] [k8 ...
          └── one rack: the target's lane count of records ──┘
 </code></pre>
-<p>Each column's stored type is scalar, such as <code>f32</code> or <code>u8</code>. The run works on
-its racks, whose plural types such as <code>f32s</code> have the target's lane count. A
-column can have a million entries without making its rack a million lanes
-wide.</p>
+<p>Each column's stored type is scalar, such as <code>f32</code> or <code>u8</code>, and the run works
+on its racks, whose plural types such as <code>f32s</code> have the target's lane count.</p>
 <h2 id="stack-runs">Stack runs</h2>
 <pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Particle</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">posx</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">posy</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">velx</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-property">vely</span><span class="tok-punctuation-delimiter">;</span>
@@ -131,36 +127,30 @@ in source order:</p>
 <tr><td><code>compact s with { ... } where p</code></td><td>replace the fields, then keep those records</td></tr>
 </tbody></table>
 </div>
-<p>The run's last statement specifies one stack parameter, <code>s</code>, whose pack is the declared result. Fields omitted from that statement keep their values. A replacement's value has the field's working rack type, so an <code>f32</code>
-field takes <code>f32s</code>. Replacing a byte or 16-bit field is work in progress.</p>
-<p><code>p</code> is any predicate a rake's sweep accepts: a local tine, a global tine
-application such as <code>#alive(kill)</code>, or a composition such as
+<p>The last statement specifies one stack parameter, <code>s</code>, whose pack is the
+declared result, and omitted fields keep their values. A replacement has the
+field's working rack type, so an <code>f32</code> field takes <code>f32s</code>. Replacing a byte or
+16-bit field is work in progress. <code>p</code> can be any predicate accepted by a
+rake's sweep, such as a local tine, <code>#alive(kill)</code> or
 <code>(#alive and #near) gaps</code>.</p>
 <h3 id="masking-and-compaction">Masking and compaction</h3>
-<p><code>where</code> masks. The run computes the new fields for every record, and the
-records outside the predicate keep their old values. The stack's count doesn't
-change, and every later operation still visits the unselected records.</p>
-<p><code>compact</code> removes. The selected records move to the front of each column in
-their original order, and the stack's count becomes the number selected. A
-compaction rewrites every column, including the ones the run doesn't replace.</p>
-<p>Both forms mean the same thing on every target. Which one is faster depends on
-the data: compaction costs roughly the same per record, while masking carries
-unselected records through all the work that follows. The compiler can't know
-how many records survive, so the source chooses. Each target implements
-compaction with vector instructions:</p>
-<div class="table-scroll"><table><thead><tr><th>Target</th><th>Compaction</th></tr></thead><tbody>
-<tr><td>AVX-512</td><td><code>vcompressps</code> under the selection mask, then <code>vpmovdb</code> or <code>vpmovdw</code> for compact columns</td></tr>
-<tr><td>AVX2</td><td><code>vpermps</code> by a permutation table indexed by the selection bits</td></tr>
-<tr><td>NEON</td><td><code>tbl</code> by a byte table indexed by the selection bits, then <code>xtn</code> for compact columns</td></tr>
-<tr><td><code>wasm-simd128</code></td><td><code>i8x16.swizzle</code> by a byte table indexed by the selection bits</td></tr>
-<tr><td>SSE2</td><td>a jump to one of 16 fixed <code>pshufd</code> permutations</td></tr>
-</tbody></table>
-</div>
-<p>The <a href="#kernel-report">kernel report</a> identifies the method used by each build.
-Compacting a run whose widest column has 8 bits is work in progress on
-WebAssembly.</p>
+<p><code>where</code> masks: the run computes the new fields for every record, and records
+outside the predicate keep their old values. The count doesn't change, so
+every later operation still visits the unselected records.</p>
+<p><code>compact</code> removes: the selected records move to the front of each column in
+their original order, and the count becomes the number selected. A compaction
+rewrites every column, including unreplaced ones.</p>
+<p>Compaction costs roughly the same per record, while masking carries
+unselected records through all the work that follows. The faster choice
+depends on how many records survive, and the compiler can't know that, so the
+source chooses. Every target compacts with vector instructions, such as
+<code>vcompressps</code> on AVX-512 and <code>i8x16.swizzle</code> by a table of selection bits on
+WebAssembly, and the <a href="#kernel-report">kernel report</a> shows each build's
+method. Compacting a run whose widest column has 8 bits is work in progress
+on WebAssembly.</p>
 <h3 id="several-stacks">Several stacks</h3>
-<p>A run can read stacks other than its result. They need to have the same count as the result's stack:</p>
+<p>A run can read stacks other than its result, with the same count as the
+result's stack:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">Samples</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">value</span><span class="tok-punctuation-delimiter">;</span>
 <span class="tok-punctuation-bracket">}</span>
@@ -180,8 +170,9 @@ WebAssembly.</p>
 <span class="tok-keyword">run</span> <span class="tok-function">roots</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">input</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Samples</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">output</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">stack</span> <span class="tok-type">Roots</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">-&gt;</span> <span class="tok-keyword">stack</span> <span class="tok-type">Roots</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">output</span> <span class="tok-keyword">with</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">root</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-function">safe_root</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">input</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span><span class="tok-punctuation-bracket">)</span> <span class="tok-punctuation-bracket">}</span>
 </code></pre>
-<p>The result's stack, <code>output</code>, moves into the run. Every other stack parameter
-is read only. A call traps before the run starts if the counts differ.</p>
+<p>The result's stack, <code>output</code>, moves into the run, and every other stack
+parameter is read only. A call traps before the run starts if the counts
+differ.</p>
 <h2 id="moves-and-copies">Moves and copies</h2>
 <p>A stack is a value, and calling a run moves the result's stack into it. The
 call returns the updated stack, so the source reads as a function from stack to
@@ -201,35 +192,35 @@ stack while the compiler updates the columns in place:</p>
   <span class="tok-variable">twice</span> <span class="tok-operator">:=</span> <span class="tok-function">doubled</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">kept</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">twice</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">0</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">samples</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">twice</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">value</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">3</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">+</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-function">count</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">samples</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>After <code>doubled(samples)</code>, the old value of <code>samples</code> is gone. Reading it is a
-compile error until it is assigned again, as <code>samples &lt;- doubled(samples)</code>
-does. A stack moved in one branch of an <code>if</code> counts as moved after it, and a stack moved inside a loop needs to be assigned again before the next iteration.</p>
+<p>After <code>doubled(samples)</code>, reading <code>samples</code> is a compile error until it is
+assigned again, as <code>samples &lt;- doubled(samples)</code> does. A stack moved in one
+branch of an <code>if</code> counts as moved after it, and a stack moved inside a loop
+needs to be assigned again before the next iteration.</p>
 <p><code>copy(samples)</code> creates a stack with its own columns and the same records,
 and leaves <code>samples</code> usable. The copy's columns come from the slow function's
 frame arena, so they last until that function returns, and a copy larger than
 the arena's <code>RAKE_FRAME_BYTES</code> (4 MiB unless defined) traps. A copy is the
-only way to keep a stack after passing it to a run, and the compiler never
-copies one implicitly. An implicit copy would be a slower way to write the same program.</p>
+only way to keep a stack after passing it to a run, because the compiler
+never copies one implicitly.</p>
 <p>Moving gives each run exclusive use of its result's columns, so its stores
-can't change memory that its other arguments read, except through exactly the
-same column. A call traps before the run starts if the result's columns
+can't change memory read through its other arguments, except through exactly
+the same column. A call traps before the run starts if the result's columns
 overlap another argument's memory in any other way.</p>
 <p>A stack built from arrays, as <code>stack Samples { value: values }</code>, uses those
-arrays as its columns. Its count is their length, and a stack literal traps if
-its columns have different lengths. After a run updates the stack in place,
-the arrays hold the new values. A compaction leaves the records past the new
-count unspecified.</p>
-<p>In slow code, <code>s.field</code> is a column as a view of <code>count(s)</code> elements, and
-<code>count(s)</code> is the stack's count as an <code>i64</code>.</p>
+arrays as its columns, so they hold the new values after a run updates the
+stack in place. Its count is their length, and a stack literal traps if its
+columns have different lengths. A compaction leaves the records past the new
+count unspecified. In slow code, <code>s.field</code> is a column as a view of <code>count(s)</code>
+elements, and <code>count(s)</code> is the stack's count as an <code>i64</code>.</p>
 <h2 id="columns-and-domains">Columns and domains</h2>
-<p>A run computes in one domain: the widest element type of the columns it reads
-or writes. Every rack in the run has that domain's lane count, so a run over
+<p>A run computes in one domain: the widest element type among its columns. Every rack in the run has that domain's lane count, so a run over
 <code>f32</code> and <code>u8</code> columns visits four records at a time on SSE2 and NEON, eight on
 AVX2 and sixteen on AVX-512.</p>
 <p>A column as wide as the domain is a rack directly: in a 32-bit domain an <code>f32</code>
-column is <code>f32s</code> and a <code>u32</code> column is <code>u32s</code>. A narrower column has no rack
-value until <code>widen</code> converts it, so a byte column can't turn into a hidden
-scalar loop. <code>widen</code> preserves the value, extending by the stored type's sign:</p>
+column is <code>f32s</code> and a <code>u32</code> column is <code>u32s</code>. A narrower column stays compact
+in memory and has no rack value until <code>widen</code> converts it, so a byte column
+can't turn into a hidden scalar loop. <code>widen</code> preserves the value, extending
+by the stored type's sign:</p>
 <div class="table-scroll"><table><thead><tr><th>Stored column</th><th>32-bit domains</th><th>64-bit domains</th></tr></thead><tbody>
 <tr><td><code>u8</code>, <code>u16</code></td><td><code>u32s</code></td><td>WIP*</td></tr>
 <tr><td><code>i8</code>, <code>i16</code></td><td><code>i32s</code></td><td>WIP*</td></tr>
@@ -239,9 +230,8 @@ scalar loop. <code>widen</code> preserves the value, extending by the stored typ
 </div>
 <p><em>WIP: work in progress. Native targets implement 32-bit domains. WebAssembly
 implements the domains above.</em></p>
-<p>The column stays compact in memory, and its pointer advances by one or two
-bytes per record instead of four. The unsigned fields of this pack fit in a
-signed 32-bit lane, so their bitcasts preserve their values:</p>
+<p>The unsigned fields of this pack fit in a signed 32-bit lane, so their
+bitcasts preserve their values:</p>
 <pre class="code code-rake"><code><span class="tok-keyword">pack</span> <span class="tok-type">CompactReadings</span> <span class="tok-punctuation-bracket">{</span>
   <span class="tok-type-builtin">i8</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">adjustment</span><span class="tok-punctuation-delimiter">;</span>
   <span class="tok-type-builtin">i16</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-property">offset</span><span class="tok-punctuation-delimiter">;</span>
@@ -257,7 +247,7 @@ signed 32-bit lane, so their bitcasts preserve their values:</p>
   <span class="tok-keyword">let</span> <span class="tok-variable">weight</span> <span class="tok-operator">=</span> <span class="tok-function-builtin">bitcast</span><span class="tok-punctuation-bracket">(</span><span class="tok-type-builtin">i32s</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-function">widen</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">input</span><span class="tok-punctuation-delimiter">.</span><span class="tok-property">weight</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-variable">input</span> <span class="tok-keyword">with</span> <span class="tok-punctuation-bracket">{</span> <span class="tok-property">total</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">(</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">adjustment</span> <span class="tok-operator">+</span> <span class="tok-variable">offset</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">+</span> <span class="tok-variable">quality</span><span class="tok-punctuation-bracket">)</span> <span class="tok-operator">+</span> <span class="tok-variable">weight</span> <span class="tok-punctuation-bracket">}</span>
 </code></pre>
-<p>In general <code>bitcast</code> changes only the interpretation of bits: an unsigned
+<p>In general <code>bitcast</code> changes only the interpretation of bits, so an unsigned
 32-bit value above 2³¹−1 becomes a negative signed value. <code>to_f32</code> converts
 <code>i32s</code> or <code>u32s</code> to floats. <code>to_i32</code> and <code>to_u32</code> round floats to integers with
 ties to even and saturation: NaNs become zero, values beyond the range saturate
@@ -265,17 +255,15 @@ to its endpoints, and for <code>to_u32</code> negative values become zero.</p>
 <h2 id="count-and-tail">Count and tail</h2>
 <p>A stack of zero records runs nothing. A count that isn't a multiple of the lane
 count ends with a tail rack whose mask is <code>lane &lt; count mod lanes</code>. Its memory
-transfers touch only existing records: lane-sized loads and stores on
-WebAssembly, count-guarded lane transfers on SSE2 and NEON, masked vector
-transfers for 32-bit columns on AVX2 and for all columns on AVX-512, and
-count-guarded transfers for compact AVX2 columns. In the tail a column's
-inactive lanes hold zero. Expressions run under the tail's mask, and inactive
-operands are made benign before exception-capable arithmetic.</p>
-<p>Each rack loads every column the run reads before storing its results, so a
+transfers touch only existing records, using lane-sized loads and stores on
+WebAssembly and guarded or masked transfers on the native targets. In the tail
+a column's inactive lanes hold zero. Expressions run under the tail's mask,
+and inactive operands are made benign before exception-capable arithmetic.</p>
+<p>Each rack loads all its input columns before storing its results, so a
 replacement sees the record's values as they were.</p>
 <h2 id="kernel-report">Kernel report</h2>
 <p>A successful build that emits code ends with a report on standard error. It
-lists each run with the facts the compiler used: the domain and lanes, the
+lists each run with the compiler's decisions: the domain and lanes, the
 columns read and written, whether the result is updated in place, the
 selection (every record, masked or compacted) and its method, and the tail's
 memory transfers. For example, an AVX2 build of the first example reports:</p>
@@ -288,8 +276,8 @@ memory transfers. For example, an AVX2 build of the first example reports:</p>
 <p><code>--no-report</code> omits it.</p>
 <h2 id="general-runs">General runs</h2>
 <p>A general run indexes views with counted loops. Its parameters are views
-(<code>[]T</code>, or <code>mut []T</code> to write), uniform scalars (<code>&lt;name: T&gt;</code>) and racks
-(<code>x: f32s</code>), which only a C caller can pass. Its body uses these forms:</p>
+(<code>[]T</code>, or <code>mut []T</code> to write), uniform scalars (<code>&lt;name: T&gt;</code>) and, from C
+callers only, racks (<code>x: f32s</code>). Its body uses these forms:</p>
 <div class="table-scroll"><table><thead><tr><th>Form</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>let x = e</code>, <code>| x &lt;| e</code></td><td>a rack or mask, typed as in a scratch</td></tr>
 <tr><td><code>let &lt;x: T&gt; = e</code></td><td>a uniform: arithmetic of uniforms, a reduction, <code>extract</code> or <code>bitmask</code></td></tr>
@@ -312,8 +300,8 @@ is uniform, so a run has no scatter.</p>
 <p>Rack expressions in a run mean what they mean in a scratch. A scratch or rake
 called from a run is inlined, and its tines combine with any mask around the
 call. <code>repeat</code> is unrolled while its trips times its body's statements stay
-within 4096 and otherwise stays a loop, which bounds code size and compile
-time. A rack location or rack array stays in registers across a loop.</p>
+within 4096, and otherwise stays a loop. A rack location or rack array stays
+in registers across a loop.</p>
 <pre class="code code-rake"><code><span class="tok-keyword">run</span> <span class="tok-function">running_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable-parameter">x</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable-parameter">out</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-keyword">mut</span> <span class="tok-punctuation-bracket">[</span><span class="tok-punctuation-bracket">]</span><span class="tok-type-builtin">f32</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-operator">&lt;</span><span class="tok-variable-parameter">n</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span><span class="tok-punctuation-bracket">)</span><span class="tok-punctuation-delimiter">:</span>
   <span class="tok-variable">total</span> <span class="tok-operator">:=</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0.0</span><span class="tok-operator">&gt;</span></span>
   <span class="tok-keyword">for</span> <span class="tok-operator">&lt;</span><span class="tok-variable">i</span><span class="tok-punctuation-delimiter">:</span> <span class="tok-type-builtin">i32</span><span class="tok-operator">&gt;</span> <span class="tok-keyword">from</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">0</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">up</span> <span class="tok-keyword">to</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-variable">n</span><span class="tok-operator">&gt;</span></span> <span class="tok-keyword">by</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">4</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-delimiter">:</span>
@@ -326,27 +314,22 @@ time. A rack location or rack array stays in registers across a loop.</p>
   <span class="tok-function">running_sum</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">values</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-variable">sums</span><span class="tok-punctuation-delimiter">,</span> <span class="tok-constant"><span class="tok-operator">&lt;</span><span class="tok-number">8</span><span class="tok-operator">&gt;</span></span><span class="tok-punctuation-bracket">)</span>
   <span class="tok-keyword">return</span> <span class="tok-type-builtin">i32</span><span class="tok-punctuation-bracket">(</span><span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">4</span><span class="tok-punctuation-bracket">]</span> <span class="tok-operator">+</span> <span class="tok-variable">sums</span><span class="tok-punctuation-bracket">[</span><span class="tok-number">5</span><span class="tok-punctuation-bracket">]</span><span class="tok-punctuation-bracket">)</span>
 </code></pre>
-<p>A run may enter scalar code explicitly with a <a href="/docs/slow-tier/#slow-blocks">slow block</a>.
-It returns to vector mode at the closing brace. The block can't capture racks,
-and it never scalarises the surrounding rack work. A run can't loop with
-<code>while</code>, <code>break</code> or <code>continue</code>, call slow code, call C, or read module state.</p>
+<p>A run may enter scalar code explicitly with a <a href="/docs/slow-tier/#slow-blocks">slow block</a>,
+which can't capture racks or scalarise the rack work around it. Outside slow
+blocks, a run can't loop with <code>while</code>, <code>break</code> or <code>continue</code>, call slow code,
+call C, or read module state.</p>
 <h2 id="addressing">Addressing</h2>
-<p>In each counted loop, Rake forms addresses itself. Accesses whose index is
-affine in the loop index share one strength-reduced pointer for each view,
-stride and invariant base, and the constant term of the index becomes the
-instruction's offset. A uniform whose only uses are such accesses isn't
-computed again each iteration. Bounds are checked once, before the loop,
-for its first and last iterations: an affine index lies between its values
-there, so those two checks cover every iteration.</p>
+<p>In each counted loop, accesses whose index is affine in the loop index share
+one strength-reduced pointer for each view, stride and invariant base, and the
+index's constant term becomes the instruction's offset. A uniform used only in
+such accesses isn't recomputed each iteration. Bounds are checked once, before
+the loop, for the first and last iterations, which together cover every
+iteration of an affine index.</p>
 <p>Clang folds a constant offset into a WebAssembly load only when it can see
 that the address doesn't wrap, and loop strength reduction hides that. The
-default <code>--wasm-addressing barrier</code> gives each pointer an empty <code>asm</code>
-statement with one <code>i32</code> operand at the top of every iteration. That keeps
-the pointer opaque, so the offsets fold. <code>--wasm-addressing plain</code> omits
-these pointer barriers. Both modes keep a partial store's remainder opaque
-with an empty scalar <code>asm</code>, so clang retains the rack arithmetic before
-selecting its active lane stores. These barriers take scalar operands,
-because a <code>v128</code> operand to <code>asm</code> crashes some wasm32 builds of clang.</p>
+default <code>--wasm-addressing barrier</code> keeps each pointer opaque with an empty
+<code>asm</code> statement at the top of every iteration, so the offsets fold.
+<code>--wasm-addressing plain</code> omits these barriers.</p>
 <h2 id="the-c-boundary">The C boundary</h2>
 <p>A run is an external C function named as in the source and returning <code>void</code>.
 Its C parameters follow the source order:</p>
@@ -376,13 +359,16 @@ declarations:</p>
 </code></pre>
 <p>The caller owns all the storage, and a run never allocates, keeps or frees
 it. A run reads each column pointer once and writes the result's count, which
-only a compaction changes. With a count of zero or less, the columns may be
+changes only in a compaction. With a count of zero or less, the columns may be
 null. Every column holds at least <code>count</code> elements, and every stack in a call
-has the same count. Slow code calling a run checks these and traps. A C caller needs to satisfy the same conditions. On WebAssembly a positive count is at most 2^32 - 1.</p>
+has the same count. Slow code calling a run checks these conditions and traps,
+and a C caller needs to satisfy them too. On WebAssembly a positive count is at
+most 2^32 - 1.</p>
 <p>The result's columns may share storage with another argument only when an
 element of one starts at exactly the same address as the corresponding element
-of the other, for an in-place update. Otherwise their storage needs to be disjoint.
-The C declaration has no <code>restrict</code>, because that exact aliasing is allowed.</p>
+of the other, for an in-place update. Otherwise their storage needs to be
+disjoint. The C declaration has no <code>restrict</code>, because that exact aliasing is
+allowed.</p>
 <p>On x86-64 Linux a stack run follows System V, and on AArch64 Linux it follows
 AAPCS64. Stack descriptors take integer argument registers in source order, and
 <code>f32</code> uniforms take the vector argument registers, <code>xmm0</code> to <code>xmm7</code> or <code>s0</code> to
@@ -391,24 +377,19 @@ The run never spills an argument or accepts stack arguments, so a run with more
 integer arguments than registers (six on x86, eight on AArch64) fails
 compilation, as does one with more than eight uniforms. An <code>i32</code> uniform's
 unspecified upper register bits can't change its value, and a <code>bool</code> keeps only
-its value bit. The run calls nothing, and touches the stack only to save the
-callee-saved registers that x86 needs when a run has many columns. The AVX
-profiles execute <code>vzeroupper</code> before returning.</p>
-<p>Native stack runs keep the columns they read in vector registers: up to six on
-SSE2, seven on AVX2 and NEON, and twenty on AVX-512.
-Views, reductions, scans, extraction, insertion and shuffles in native stack
-runs are work in progress and fail compilation.</p>
+its value bit. The run calls nothing, and touches the stack only to save x86's
+callee-saved registers when it has many columns. The AVX profiles execute
+<code>vzeroupper</code> before returning.</p>
+<p>Native stack runs keep their input columns in vector registers: up to six on
+SSE2, seven on AVX2 and NEON, and twenty on AVX-512. Views, reductions, scans,
+extraction, insertion and shuffles in native stack runs are work in progress
+and fail compilation.</p>
 <h2 id="verification">Verification</h2>
 <p>The final-object verifier compares each native run with its separately
 assembled selection, including branch offsets, memory operands and embedded
-literals. Any difference or unresolved relocation is rejected. On WebAssembly, every SIMD instruction in a run needs to come from instruction selection for its source operations.</p>
-<p><code>test/native_stream_test.sh</code> checks native stack runs against independent C
-results, with exact in-place output and every tail remainder, columns ending at
-guard pages, masked and compacted selections, compact columns and uniform
-arguments. AVX-512 runs on capable hardware or through Intel SDE, and NEON
-through AArch64 QEMU. <code>test/abi_test.sh</code> calls WebAssembly runs from C for
-every count from 0 to 20 with misaligned columns, sentinels after each column
-and null columns for empty counts.</p>
+literals, and rejects any difference or unresolved relocation. On
+WebAssembly, every SIMD instruction in a run needs to come from instruction
+selection for its source operations.</p>
 
     </main>
 <nav class="page-contents" aria-label="On this page">

@@ -75,7 +75,7 @@
 </nav>
     <main class="content">
 <h1 id="glossary">Glossary</h1>
-<p>Rake's language and compiler terminology. The <a href="/docs/vectors/">vectors cheat sheet</a>
+<p>Rake's language and compiler terms. The <a href="/docs/vectors/">vectors cheat sheet</a>
 explains CPU SIMD and GPU terms, with examples of lane and memory operations.</p>
 <h2 id="rakes-terms">Rake's terms</h2>
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
@@ -86,7 +86,7 @@ explains CPU SIMD and GPU terms, with examples of lane and memory operations.</p
 <tr><td>gaps</td><td>the exact Boolean complement of a tine or composed mask, including lanes with NaNs that failed its comparisons</td></tr>
 <tr><td>through block</td><td>code that computes under a mask, with an optional <code>else</code> value for other lanes. Without <code>else</code>, only selected lanes are defined</td></tr>
 <tr><td>sweep</td><td>the choice of each lane's result in priority order, with masks that provably cover every lane or a final <code>_</code></td></tr>
-<tr><td>scratch</td><td>a function of racks without a tine/through/sweep body</td></tr>
+<tr><td>scratch</td><td>a function of racks with no tines, through blocks or sweep</td></tr>
 <tr><td>rake</td><td>a function of racks with tines, through blocks and a sweep</td></tr>
 <tr><td>run</td><td>vector code over memory: traverse stacks and apply rakes or scratches to racks from their columns</td></tr>
 <tr><td>slow code</td><td>scalar code, marked <code>slow</code>, that holds no racks</td></tr>
@@ -95,8 +95,8 @@ explains CPU SIMD and GPU terms, with examples of lane and memory operations.</p
 <tr><td>pack</td><td>one record described by a <code>pack</code> declaration, with its fields stored together</td></tr>
 <tr><td>stack</td><td>a count of packs transposed into one contiguous column for each field</td></tr>
 <tr><td>stack run</td><td>a run that applies calculations to whole stacks and returns one: <code>s with { field: e }</code></td></tr>
-<tr><td>masking</td><td><code>where p</code>: a stack run replaces fields only in the records <code>p</code> selects</td></tr>
-<tr><td>compaction</td><td><code>compact s where p</code>: a stack run keeps only the records <code>p</code> selects</td></tr>
+<tr><td>masking</td><td><code>where p</code>: a stack run replaces fields only in the records selected by <code>p</code></td></tr>
+<tr><td>compaction</td><td><code>compact s where p</code>: a stack run keeps only the records selected by <code>p</code></td></tr>
 <tr><td>move</td><td>passing a stack to the run that returns it, which updates its columns in place</td></tr>
 <tr><td>view</td><td><code>[]T</code>, elements with a count, borrowed from the caller</td></tr>
 <tr><td>profile</td><td>a named target, such as <code>x86-avx2</code>, that fixes the rack width and the rules</td></tr>
@@ -106,7 +106,7 @@ explains CPU SIMD and GPU terms, with examples of lane and memory operations.</p
 <div class="table-scroll"><table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody>
 <tr><td>front end, back end</td><td>the front end parses and checks source, and the back end selects instructions, assigns registers and writes the program</td></tr>
 <tr><td>SSA</td><td>static single assignment: a representation in which each value is defined once, which makes data dependencies explicit</td></tr>
-<tr><td>declaration, definition</td><td>a declaration introduces a name and may give its type. A definition supplies the value or behaviour it denotes. A language construct can do both</td></tr>
+<tr><td>declaration, definition</td><td>a declaration introduces a name and may give its type. A definition supplies the name's value or behaviour. A language construct can do both</td></tr>
 <tr><td>binding, reference</td><td>a binding associates a name with a value or other program entity, and a reference uses that name within its scope. Rake's immutable value bindings don't designate memory locations</td></tr>
 <tr><td>fusion</td><td>combining separate pieces of work so they can execute together, such as merging loops into one pass or forming a fused multiply-add. Rake uses fused bindings for stages of pure vector calculations</td></tr>
 <tr><td>instruction selection</td><td>choosing the machine instructions for each operation</td></tr>
@@ -115,10 +115,9 @@ explains CPU SIMD and GPU terms, with examples of lane and memory operations.</p
 <tr><td>assembler</td><td>the tool that encodes textual assembly as object code</td></tr>
 <tr><td>LLVM</td><td>a compiler infrastructure with optimisation, instruction selection and register allocation for multiple targets</td></tr>
 <tr><td>ABI</td><td>application binary interface: the rules for passing arguments, returning values and laying out data</td></tr>
-<tr><td>System V ABI</td><td>the calling convention most Unix-like x86-64 systems use</td></tr>
+<tr><td>System V ABI</td><td>the calling convention of most Unix-like x86-64 systems</td></tr>
 <tr><td>AAPCS64</td><td>the procedure call standard for 64-bit Arm</td></tr>
-<tr><td>conformance corpus</td><td>the accepted and rejected example programs that check the compiler against the language's rules</td></tr>
-<tr><td>OCaml, Dune, Nix</td><td>the language the compiler is written in, its build system, and the package manager that pins the tools in <code>nix develop</code></td></tr>
+<tr><td>OCaml, Dune, Nix</td><td>the compiler's implementation language, its build system, and the package manager that pins the tools in <code>nix develop</code></td></tr>
 </tbody></table>
 </div>
     </main>
