@@ -625,7 +625,7 @@ separates lane-parallel kernels from parallel fork–join tasks.
 The compiler, `rakec`, is written in OCaml, and
 [its repository](https://github.com/rakelang/rake) explains how to build it
 in a pinned Nix development shell. [The rakec command](/docs/rakec/) lists its
-modes and options. Rake is released under the MIT licence, and it's pre-1.0,
+modes and options. Rake is released under the MIT-SLOP licence, and it's pre-1.0,
 so the language and its binary boundaries may still change between versions.
 
 ### Syntax highlighting
