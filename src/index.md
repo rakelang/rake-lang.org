@@ -4,7 +4,7 @@
 <h1>Rake</h1>
 <p>What Rust does for safety with <code>unsafe {}</code>, Rake does for speed with <code>slow {}</code>.</p>
 <p>Rust's type system and borrow checker enforce memory safety in safe code, and inside an <code>unsafe</code> block the programmer is responsible for it. Rake's compiler checks that vector calculations become vector instructions, reviewing the generated assembly for you, and compilation fails if it can't keep a calculation vectorised. A <code>slow { ... }</code> block makes an explicit place for scalar work, and vector code resumes after the closing brace.</p>
-<p>Rake is a SIMD, or vector, programming language for calculations that apply the same operation to many numbers at once. Its current profiles target CPUs and WebAssembly, and the planned GPU profiles will preserve parallel work across warp lanes and check execution costs against an explicit contract.</p>
+<p>Rake is a SIMD, or vector, programming language for calculations that apply the same operation to many numbers at once. Its current profiles target CPUs and WebAssembly. The planned GPU profiles will preserve parallel work across warp lanes, put matrix products on the tensor cores in their declared formats, and compile each fused region to one kernel, or fail to compile.</p>
 <ul class="link-row">
 <li><a class="link-button" href="/docs/">Documentation</a></li>
 <li><a class="link-button" href="/docs/playground/">Tutorial</a></li>
@@ -588,15 +588,29 @@ the rack serially inside one thread.
 <figcaption>GPU design: each thread performs one lane's arithmetic in parallel with the other threads of its warp.</figcaption>
 </figure>
 
-The first proposed profile, `nvidia-ptx-sm120`, will emit inspectable PTX and
+The first proposed profile, `nvidia-ptx-sm120a`, will emit inspectable PTX and
 build a cubin ahead of time with a pinned NVIDIA toolchain. Rake will verify
 that device artifact and load those exact bytes, with no unverified PTX JIT
-fallback. Some properties can be checked in the artifact, while others only
-show up when it runs:
+fallback.
+
+The vectorisation rule carries over to the GPU's tensor cores, which multiply
+whole tiles of two matrices at once and do nothing else. A matrix product
+compiles to tensor-core instructions or the build fails, and `slow { ... }`
+marks one kept on the ordinary CUDA cores. A declared number format, from
+4-bit NVFP4 to TF32, runs as itself: a format the profile has no instruction
+for is rejected rather than quietly widened. A fused region compiles to one
+kernel whose intermediate values stay on chip, so norms, activations and
+softmax don't pay for a round trip through device memory between each
+operation.
+
+Some properties can be checked in the artifact, while others only show up when
+it runs:
 
 | Checkable contract | Needs execution evidence |
 | --- | --- |
 | lane mapping and permitted control flow | input-dependent inactive lanes and workload balance |
+| matrix products on tensor-core instructions, in their declared formats | how fully the tensor cores are kept busy |
+| one kernel per fused region, its intermediate values kept on chip | memory bandwidth achieved between regions |
 | no forbidden spills in strict regions | achieved occupancy and the best register policy |
 | explicit lane-to-address patterns | memory transactions, caches and transfer costs |
 | declared numerical and synchronisation rules | elapsed time and application throughput |
