@@ -342,7 +342,9 @@ WebAssembly: Rake virtual SIMD selection -&gt; object verification -&gt; runtime
 NVIDIA (planned): Rake SIMT mapping -&gt; PTX -&gt; pinned ptxas -&gt; cubin verification
 Vulkan (later): Rake subgroup mapping -&gt; SPIR-V -&gt; driver -&gt; device verification
 </code></pre>
-<p>The proposed <code>nvidia-ptx-sm120</code> profile targets PTX 8.7 and a 32-thread warp.
+<p>The proposed <code>nvidia-ptx-sm120a</code> profile targets PTX 8.7 and a 32-thread warp,
+lowers matrix products to tensor-core <code>mma</code> instructions and compiles each
+fused region to one kernel.
 NVIDIA will own final allocation and instruction scheduling, and Rake will
 check the final cubin's instructions, control and data flow and resources,
 rejecting unknown or insufficient evidence. A certificate applies to that
